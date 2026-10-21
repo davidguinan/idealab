@@ -239,8 +239,11 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 .ag-kpi .lb { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ag-muted); }
 .ag-kpi .v { font-family: var(--font-anthropic-serif); font-size: clamp(22px, 2.4vw, 30px); font-variant-numeric: tabular-nums; line-height: 1.1; }
 .ag-kpi .s { font-size: 12px; color: var(--ag-muted); }
-.ag-ringrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.ag-ring { width: 86px; height: 86px; flex: none; }
+.ag-ringrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.ag-ringrow > div { min-width: 0; flex: 1 1 140px; }
+.ag-ringrow .v { font-size: clamp(20px, 1.9vw, 28px); overflow-wrap: anywhere; }
+.ag-ring { width: clamp(62px, 5vw, 80px); height: clamp(62px, 5vw, 80px); flex: none; margin-left: auto; }
+.ag-kpi { min-width: 0; overflow: hidden; }
 .ag-pos { color: var(--ag-ok); } .ag-neg { color: var(--ag-bad); }
 .ag-gold { color: var(--ag-gold); }
 .ag-lectura { border: 1px solid var(--ag-line); border-radius: 10px; padding: 10px 12px; margin-top: 10px; font-size: 13px; }
