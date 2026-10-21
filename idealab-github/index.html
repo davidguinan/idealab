@@ -33,8 +33,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 <div id="ag-login" hidden><div class="box">
   <img src="icon-192.png" alt="IdeaLab">
   <h1>Rentabilidad Meta Ads</h1>
-  <label>Dirección del servidor (Apps Script, termina en /exec)<input id="lg-url" inputmode="url" autocomplete="off"></label>
-  <label>Clave de la app<input id="lg-clave" type="password" autocomplete="current-password"></label>
+  <label>Clave de la app<input id="lg-clave" type="password" autofocus autocomplete="current-password"></label>
   <button type="button" id="lg-entrar">Entrar</button>
   <p id="lg-msg"></p>
 </div></div>
@@ -42,7 +41,8 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 /* IdeaLab app · motor de datos: reemplaza al dashboard de Claude y habla con el servidor de Apps Script */
 (function () {
   const LS = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} }, del: (k) => { try { localStorage.removeItem(k); } catch (e) {} } };
-  const cfg = () => ({ url: LS.get('idealab_url'), clave: LS.get('idealab_clave') });
+  const SERVIDOR = 'https://script.google.com/macros/s/AKfycbyE1mFlAslIAeAguL1hAoJD9TrVC85szu3RqJNE-J8-wIHAFl7ZPseecNb7IHNbJw3c/exec';
+  const cfg = () => ({ url: SERVIDOR, clave: LS.get('idealab_clave') });
 
   const loaders = {}, calcs = {}, estado = {}, oyentes = [];
   let params = {};
@@ -180,14 +180,13 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
   function mostrarLogin(msg) {
     const l = document.getElementById('ag-login');
     l.hidden = false;
-    document.getElementById('lg-url').value = cfg().url || '';
     document.getElementById('lg-msg').textContent = msg || '';
   }
   window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('lg-entrar').addEventListener('click', async () => {
-      const url = document.getElementById('lg-url').value.trim(), clave = document.getElementById('lg-clave').value;
-      if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(url)) { document.getElementById('lg-msg').textContent = 'La dirección debe ser la de tu Apps Script y terminar en /exec.'; return; }
-      LS.set('idealab_url', url); LS.set('idealab_clave', clave);
+      const clave = document.getElementById('lg-clave').value;
+      if (!clave) { document.getElementById('lg-msg').textContent = 'Escribe la clave.'; return; }
+      LS.set('idealab_clave', clave);
       document.getElementById('lg-msg').textContent = 'Verificando…';
       try { await pedir({ accion: 'ping' }); document.getElementById('ag-login').hidden = true; cargar(); }
       catch (e) { document.getElementById('lg-msg').textContent = /Clave/.test(e.message) ? 'La clave no es correcta.' : 'No se pudo conectar: ' + e.message; }
