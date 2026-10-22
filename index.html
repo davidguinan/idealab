@@ -1,0 +1,1933 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>IdeaLab · Rentabilidad Meta Ads</title>
+<meta name="theme-color" content="#0A1120">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:wght@400;600&display=swap" rel="stylesheet">
+<script src="d3.min.js"></script>
+<style>
+:root { --font-anthropic-sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; --font-anthropic-serif: "Source Serif 4", Georgia, serif; --cds-dur-slow: .35s; --cds-ease-out: cubic-bezier(.2,.8,.2,1); color-scheme: dark; }
+html, body { margin: 0; background: #0A1120; min-height: 100%; }
+#dash-root { min-height: 100vh; }
+.dash-skeleton { color: transparent !important; background: linear-gradient(90deg, rgba(255,255,255,.05), rgba(255,255,255,.12), rgba(255,255,255,.05)); background-size: 200% 100%; animation: sk 1.4s infinite; border-radius: 6px; min-width: 3ch; display: inline-block; }
+@keyframes sk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px; bottom: 14px; background: #18233A; color: #E8EDF7; border: 1px solid rgba(255,255,255,.14); padding: 8px 12px; border-radius: 10px; font: 13px Inter, sans-serif; z-index: 50; }
+#ag-login { position: fixed; inset: 0; background: rgba(5,9,18,.92); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; font-family: Inter, sans-serif; color: #E8EDF7; }
+#ag-login[hidden] { display: none; }
+#ag-login .box { width: min(420px, 100%); background: #101A2D; border: 1px solid rgba(255,255,255,.1); border-radius: 18px; padding: 24px; display: grid; gap: 12px; }
+#ag-login img { width: 48px; }
+#ag-login h1 { margin: 0; font: 400 24px "Source Serif 4", serif; }
+#ag-login label { display: grid; gap: 4px; font-size: 12px; color: #8D9AB3; }
+#ag-login input { background: #0D1627; color: #E8EDF7; border: 1px solid rgba(255,255,255,.12); border-radius: 9px; padding: 10px; font: inherit; font-size: 14px; }
+#ag-login button { background: #F5B800; color: #1A1300; border: 0; border-radius: 10px; padding: 11px; font-weight: 600; font-size: 14px; cursor: pointer; }
+#lg-msg { min-height: 1em; font-size: 13px; color: #FB7185; margin: 0; }
+</style>
+</head>
+<body>
+<div id="ag-login" hidden><div class="box">
+  <img src="icon-192.png" alt="IdeaLab">
+  <h1>Rentabilidad Meta Ads</h1>
+  <label>Clave de la app<input id="lg-clave" type="password" autofocus autocomplete="current-password"></label>
+  <button type="button" id="lg-entrar">Entrar</button>
+  <p id="lg-msg"></p>
+</div></div>
+<script>
+/* IdeaLab app · motor de datos: reemplaza al dashboard de Claude y habla con el servidor de Apps Script */
+(function () {
+  const LS = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} }, del: (k) => { try { localStorage.removeItem(k); } catch (e) {} } };
+  const SERVIDOR = 'https://script.google.com/macros/s/AKfycbyE1mFlAslIAeAguL1hAoJD9TrVC85szu3RqJNE-J8-wIHAFl7ZPseecNb7IHNbJw3c/exec';
+  const cfg = () => ({ url: SERVIDOR, clave: LS.get('idealab_clave') });
+
+  const loaders = {}, calcs = {}, estado = {}, oyentes = [];
+  let params = {};
+  const HOJAS = { meta_diario: 'meta_diario', paises: 'productos', tasas: 'tasas', config: 'config', gastos: 'gastos', cierres: 'cierres', cambios: 'cambios', numeros: 'numeros' };
+
+  const fijar = (id, st) => { estado[id] = st; };
+  const avisar = () => { clearTimeout(avisar.t); avisar.t = setTimeout(() => oyentes.forEach((fn) => { try { fn(); } catch (e) { console.error(e); } }), 10); };
+
+  // ---- utilidades de lectura (mismas reglas que el dashboard)
+  const leerFecha = (texto) => {
+    const s = String(texto || '').trim();
+    let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
+    return null;
+  };
+  const leerValor = (texto) => {
+    let s = String(texto || '').replace(/[^\d.,-]/g, '');
+    if (!s) return null;
+    if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+    else if (/\.\d{3}$/.test(s) || (s.match(/\./g) || []).length > 1) s = s.replace(/\./g, '');
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  // ---- llamadas al servidor
+  const pedir = async (q) => {
+    const { url, clave } = cfg();
+    if (!url || !clave) throw new Error('sin_login');
+    const r = await fetch(url + '?' + new URLSearchParams({ ...q, clave }).toString(), { redirect: 'follow' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Error del servidor');
+    return j;
+  };
+  const enviar = async (body) => {
+    const { url, clave } = cfg();
+    const r = await fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...body, clave }) });
+    const j = await r.json();
+    if (!j.ok) { const e = new Error(j.error || 'Error del servidor'); e.code = 'tool_error'; throw e; }
+    return j;
+  };
+  window.idealabEnviar = enviar;
+
+  // ---- convertir la respuesta del servidor en las fuentes del dashboard
+  const filasMeta = (filas) => ({ columns: [], rows: filas.map((r) => ({ ...r, moneda: r.moneda || 'COP', estado: r.estado || '' })) });
+  const cargarTodo = (j) => {
+    Object.entries(HOJAS).forEach(([id, h]) => {
+      try { const out = loaders[id].fn({ answer: { values: j.hojas[h] || [] } }); fijar(id, { status: 'ok', data: out.rows || out, columns: out.columns || [] }); }
+      catch (e) { fijar(id, { status: 'error', data: [], message: String(e.message || e) }); }
+    });
+    const prods = estado.paises.status === 'ok' ? estado.paises.data : [];
+    fijar('ventas', { status: 'ok', data: (j.ventas || []).map((v, i) => ({ hoja: v.hoja, fila: i + 2, producto: v.producto, pais: v.pais, moneda: v.moneda, fecha: leerFecha(v.fecha), valor_local: leerValor(v.valor), ad_id: String(v.ad_id || '').length >= 10 ? String(v.ad_id) : '' })) });
+    fijar('meta_rango', { status: 'ok', data: filasMeta(j.meta.rango).rows });
+    fijar('meta_hoy', { status: 'ok', data: filasMeta(j.meta.hoy).rows });
+    fijar('meta_campanas', { status: 'ok', data: j.meta.campanas.map((c) => ({ campana_id: c.id, campana: c.name, cuenta: c.cuenta, cuenta_id: c.cuenta_id, estado: c.effective_status, presupuesto: c.daily_budget ? Number(c.daily_budget) : null })) });
+    fijar('meta_conjuntos', { status: 'ok', data: j.meta.conjuntos.map((c) => ({ conjunto_id: c.id, conjunto: c.name, campana_id: c.campaign_id, cuenta: c.cuenta, estado: c.effective_status, presupuesto: c.daily_budget ? Number(c.daily_budget) : null })) });
+    fijar('meta_creativos', { status: 'ok', data: j.meta.activos.map((a) => { const sid = String((a.creative && a.creative.effective_object_story_id) || ''); return { ad_id: a.id, anuncio: a.name, campana_id: a.campaign ? a.campaign.id : '', campana: a.campaign ? a.campaign.name : '', cuenta: a.cuenta, cuenta_id: a.cuenta_id, estado: a.effective_status, page_id: sid.includes('_') ? sid.split('_')[0] : '' }; }) });
+    fijar('meta_paginas', { status: 'ok', data: j.meta.paginas.map((p) => ({ page_id: p.page_id, pagina: p.pagina, usada_en: (p.cuentas || []).join(', '), pauta: (p.cuentas || []).length ? 'Sí' : 'No' })) });
+    calcular();
+  };
+  const calcular = () => {
+    let pendientes = Object.keys(calcs);
+    for (let vuelta = 0; vuelta < 10 && pendientes.length; vuelta++) {
+      pendientes = pendientes.filter((id) => {
+        const c = calcs[id];
+        if (!c.inputs.every((i) => estado[i] && estado[i].status === 'ok')) {
+          if (c.inputs.some((i) => estado[i] && estado[i].status === 'error')) { fijar(id, { status: 'error', data: [], message: 'Una de sus fuentes no cargó' }); return false; }
+          return true;
+        }
+        try { fijar(id, { status: 'ok', data: c.fn(...c.inputs.map((i) => estado[i].data)) }); }
+        catch (e) { console.error(id, e); fijar(id, { status: 'error', data: [], message: String(e.message || e) }); }
+        return false;
+      });
+    }
+    avisar();
+  };
+  const ponerCargando = (ids) => { ids.forEach((id) => { estado[id] = { ...(estado[id] || { data: [] }), status: estado[id] && estado[id].status === 'ok' ? 'ok' : 'loading', refreshing: true }; }); avisar(); };
+
+  let ultimoRango = null;
+  const cargar = async () => {
+    const p = params;
+    document.body.classList.add('cargando');
+    ponerCargando(Object.keys(estado));
+    try {
+      const j = await pedir({ accion: 'datos', desde: p.desde || '', hasta: p.hasta || '' });
+      ultimoRango = (p.desde || '') + '|' + (p.hasta || '');
+      cargarTodo(j);
+      document.getElementById('ag-actualizado').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      if (String(e.message) === 'sin_login' || /Clave incorrecta/.test(e.message)) { mostrarLogin(/Clave/.test(e.message) ? 'La clave no es correcta.' : ''); }
+      else Object.keys(estado).forEach((id) => { if (estado[id].status !== 'ok') fijar(id, { status: 'error', data: [], message: String(e.message || e) }); });
+      document.getElementById('ag-actualizado').textContent = 'No se pudo cargar: ' + e.message;
+      avisar();
+    }
+    document.body.classList.remove('cargando');
+  };
+  const cargarRango = async () => {
+    const p = params;
+    const k = (p.desde || '') + '|' + (p.hasta || '');
+    if (k === ultimoRango || !estado.meta_hoy) return;
+    ultimoRango = k;
+    ponerCargando(['meta_rango']);
+    try { const j = await pedir({ accion: 'rango', desde: p.desde, hasta: p.hasta }); fijar('meta_rango', { status: 'ok', data: filasMeta(j.filas).rows }); calcular(); }
+    catch (e) { fijar('meta_rango', { status: 'error', data: [], message: String(e.message || e) }); calcular(); }
+  };
+
+  // ---- API "dash" que usa el dashboard
+  window.dash = {
+    loader: (id, o) => { loaders[id] = o; },
+    calc: (id, o) => { calcs[id] = o; },
+    data: (id) => { const s = estado[id] || { status: 'loading', data: [] }; return { status: s.status, data: s.data || [], rows: s.data || [], columns: s.columns || [], message: s.message, refreshing: !!s.refreshing, meta: [] }; },
+    onData: (fn) => { oyentes.push(fn); try { fn(); } catch (e) { console.error(e); } },
+    params: () => ({ ...params }),
+    setParams: (p) => { params = { ...params, ...p }; clearTimeout(window.dash._t); window.dash._t = setTimeout(cargarRango, 250); avisar(); },
+    resetParams: () => { params = {}; avisar(); },
+    refresh: (id) => { clearTimeout(window.dash._r); window.dash._r = setTimeout(cargar, 150); },
+    setLink: (n) => { try { history.replaceState(null, '', '#' + n); } catch (e) {} },
+    colors: ['#F5B800', '#2DD4BF', '#60A5FA', '#FB7185', '#A3E635', '#C084FC', '#F97316', '#E8EDF7'],
+  };
+
+  // ---- escrituras: el dashboard usa "Google Sheets"; aquí van al servidor
+  window.claude = {
+    use: async (nombre) => (nombre !== 'mcp' ? null : {
+      callTool: async (server, tool, input) => {
+        if (server !== 'Google Sheets') { const e = new Error('No disponible en la app'); e.code = 'not_in_manifest'; throw e; }
+        const { spreadsheetId, ...resto } = input || {};
+        const r = await enviar({ accion: 'hoja', tool, input: resto });
+        return { content: [], payload: r };
+      },
+    }),
+  };
+
+  // ---- inicio de sesión
+  function mostrarLogin(msg) {
+    const l = document.getElementById('ag-login');
+    l.hidden = false;
+    document.getElementById('lg-msg').textContent = msg || '';
+  }
+  window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('lg-entrar').addEventListener('click', async () => {
+      const clave = document.getElementById('lg-clave').value;
+      if (!clave) { document.getElementById('lg-msg').textContent = 'Escribe la clave.'; return; }
+      LS.set('idealab_clave', clave);
+      document.getElementById('lg-msg').textContent = 'Verificando…';
+      try { await pedir({ accion: 'ping' }); document.getElementById('ag-login').hidden = true; cargar(); }
+      catch (e) { document.getElementById('lg-msg').textContent = /Clave/.test(e.message) ? 'La clave no es correcta.' : 'No se pudo conectar: ' + e.message; }
+    });
+    document.getElementById('ag-salir').addEventListener('click', () => { LS.del('idealab_clave'); location.reload(); });
+    if (cfg().url && cfg().clave) cargar(); else mostrarLogin('');
+  });
+})();
+
+</script>
+<div id="dash-root">
+<style>
+#dash-root { --dash-gutter: 0; }
+.ag { --ag-bg: #0A1120; --ag-panel: #101A2D; --ag-panel2: #0D1627; --ag-line: rgba(255,255,255,.08); --ag-fg: #E8EDF7; --ag-muted: #8D9AB3; --ag-gold: #F5B800; --ag-teal: #2DD4BF; --ag-ok: #34D399; --ag-bad: #FB7185; --ag-warn: #FBBF24; --ag-blue: #60A5FA;
+  background: radial-gradient(900px 420px at 90% -10%, rgba(245,184,0,.08), transparent 60%), var(--ag-bg);
+  color: var(--ag-fg); font-family: var(--font-anthropic-sans); min-height: 100%; display: grid; grid-template-columns: 228px 1fr; }
+.ag * { box-sizing: border-box; }
+.ag-side { background: rgba(255,255,255,.02); border-right: 1px solid var(--ag-line); padding: 20px 14px; display: flex; flex-direction: column; gap: 18px; position: sticky; top: 0; align-self: start; min-height: 100vh; }
+.ag-brand { display: flex; align-items: center; gap: 10px; }
+.ag-brand img { width: 34px; height: 42px; object-fit: contain; }
+.ag-brand b { display: block; font-size: 15px; letter-spacing: .06em; }
+.ag-brand span { display: block; font-size: 10px; color: var(--ag-muted); letter-spacing: .14em; text-transform: uppercase; }
+.ag-navt { font-size: 10px; color: var(--ag-muted); letter-spacing: .14em; text-transform: uppercase; margin: 4px 6px 0; }
+.ag-nav { display: grid; gap: 6px; }
+.ag-nav button { all: unset; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; border: 1px solid transparent; color: var(--ag-fg); font-size: 14px; }
+.ag-nav button:hover { background: rgba(255,255,255,.04); }
+.ag-nav button[aria-current="page"] { border-color: rgba(245,184,0,.55); background: rgba(245,184,0,.07); box-shadow: 0 0 18px rgba(245,184,0,.12) inset; }
+.ag-nav svg { width: 16px; height: 16px; stroke: var(--ag-gold); fill: none; stroke-width: 1.8; flex: none; }
+.ag-session { margin-top: auto; border: 1px solid var(--ag-line); border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--ag-muted); }
+.ag-session b { color: var(--ag-gold); font-weight: 600; }
+.ag-main { padding: clamp(16px, 3vw, 32px); display: grid; gap: 18px; align-content: start; min-width: 0; grid-template-columns: minmax(0, 1fr); }
+.ag-vista { min-width: 0; }
+.ag-top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; justify-content: space-between; }
+.ag-top h1 { margin: 0; font-family: var(--font-anthropic-serif); font-weight: 400; font-size: clamp(22px, 3vw, 30px); }
+.ag-take { margin: 4px 0 0; color: var(--ag-muted); font-size: 14px; }
+.ag-range { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.ag-range label { display: grid; gap: 3px; font-size: 11px; color: var(--ag-muted); }
+.ag-in, .ag-sel { background: var(--ag-panel2); color: var(--ag-fg); border: 1px solid var(--ag-line); border-radius: 8px; padding: 7px 9px; font: inherit; font-size: 13px; color-scheme: dark; }
+.ag-btn { all: unset; cursor: pointer; padding: 8px 14px; border-radius: 9px; font-size: 13px; border: 1px solid var(--ag-line); background: var(--ag-panel2); color: var(--ag-fg); white-space: nowrap; }
+.ag-btn:hover { border-color: rgba(255,255,255,.2); }
+.ag-btn.pri { background: var(--ag-gold); color: #1A1300; border-color: var(--ag-gold); font-weight: 600; }
+.ag-btn[aria-pressed="true"] { border-color: var(--ag-gold); color: var(--ag-gold); }
+.ag-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ag-card { background: linear-gradient(180deg, rgba(255,255,255,.025), transparent), var(--ag-panel); border: 1px solid var(--ag-line); border-radius: 16px; padding: clamp(14px, 2vw, 20px); min-width: 0; position: relative; }
+.ag-card h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+.ag-note { margin: 0 0 12px; color: var(--ag-muted); font-size: 12.5px; line-height: 1.45; }
+.ag-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); }
+.ag-grid2 { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
+.ag-kpi { display: grid; gap: 6px; align-content: start; min-height: 104px; }
+.ag-kpi .lb { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ag-muted); }
+.ag-kpi .v { font-family: var(--font-anthropic-serif); font-size: clamp(22px, 2.4vw, 30px); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.ag-kpi .s { font-size: 12px; color: var(--ag-muted); }
+.ag-local { display: grid; gap: 2px; margin-top: 4px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.08); }
+.ag-local b { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: 18px; color: var(--ag-gold); font-variant-numeric: tabular-nums; }
+.ag-local em { font-style: normal; font-size: 11.5px; color: var(--ag-muted); font-variant-numeric: tabular-nums; }
+.ag-ringrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.ag-ringrow > div { min-width: 0; flex: 1 1 140px; }
+.ag-ringrow .v { font-size: clamp(20px, 1.9vw, 28px); overflow-wrap: anywhere; }
+.ag-ring { width: clamp(62px, 5vw, 80px); height: clamp(62px, 5vw, 80px); flex: none; margin-left: auto; }
+.ag-kpi { min-width: 0; overflow: hidden; }
+.ag-pos { color: var(--ag-ok); } .ag-neg { color: var(--ag-bad); }
+.ag-gold { color: var(--ag-gold); }
+.ag-lectura { border: 1px solid var(--ag-line); border-radius: 10px; padding: 10px 12px; margin-top: 10px; font-size: 13px; }
+.ag-lectura b { font-size: 10px; letter-spacing: .14em; color: var(--ag-muted); display: block; margin-bottom: 3px; font-weight: 500; }
+.ag-chart { min-height: 300px; position: relative; }
+.ag-chart svg { display: block; }
+.ag-chart text { fill: var(--ag-muted); font-size: 11px; }
+.ag-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ag-muted); margin: 0 0 6px; }
+.ag-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+.ag-tip { position: absolute; pointer-events: none; background: #18233A; border: 1px solid rgba(255,255,255,.14); border-radius: 8px; padding: 6px 9px; font-size: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.4); z-index: 5; white-space: nowrap; }
+.ag-tip .d { color: var(--ag-muted); margin-bottom: 2px; }
+.ag-scroll { overflow: auto; max-height: 560px; border-radius: 10px; }
+.ag-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.ag-table th { position: sticky; top: 0; background: var(--ag-panel); text-align: left; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ag-muted); font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--ag-line); white-space: nowrap; z-index: 1; }
+.ag-table td { padding: 9px 10px; border-bottom: 1px solid var(--ag-line); white-space: nowrap; }
+.ag-table td.num, .ag-table th.num { text-align: right; }
+.ag-table tr.sub td { background: rgba(255,255,255,.015); font-size: 12px; }
+.ag-table tr.sub td:first-child { padding-left: 28px; }
+.ag-table tr.tot td { font-weight: 600; border-top: 1px solid rgba(255,255,255,.2); }
+.ag-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 99px; font-size: 11.5px; border: 1px solid var(--ag-line); }
+.ag-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.r-Escalar { color: var(--ag-ok); border-color: rgba(52,211,153,.35); background: rgba(52,211,153,.08); }
+.r-Mantener { color: var(--ag-gold); border-color: rgba(245,184,0,.35); background: rgba(245,184,0,.07); }
+.r-Bajar { color: var(--ag-warn); border-color: rgba(251,191,36,.35); background: rgba(251,191,36,.07); }
+.r-Apagar { color: var(--ag-bad); border-color: rgba(251,113,133,.35); background: rgba(251,113,133,.08); }
+.r-Datos, .r-Sin { color: var(--ag-muted); }
+.e-act { color: var(--ag-ok); } .e-pau { color: var(--ag-muted); }
+.ag-x { all: unset; cursor: pointer; color: var(--ag-gold); font-size: 12px; }
+.ag-areas { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
+.ag-area { all: unset; cursor: pointer; display: grid; gap: 8px; padding: 20px; border-radius: 16px; border: 1px solid var(--ag-line); background: linear-gradient(160deg, rgba(245,184,0,.07), transparent 55%), var(--ag-panel); transition: border-color .2s, transform .2s; min-height: 150px; }
+.ag-area:hover, .ag-area:focus-visible { border-color: rgba(245,184,0,.6); transform: translateY(-2px); }
+.ag-area svg { width: 28px; height: 28px; stroke: var(--ag-gold); fill: none; stroke-width: 1.6; }
+.ag-area b { font-size: 17px; font-weight: 600; }
+.ag-area span { color: var(--ag-muted); font-size: 13px; line-height: 1.45; }
+.ag-area em { font-style: normal; font-family: var(--font-anthropic-serif); font-size: 20px; color: var(--ag-fg); }
+.ag-hello { font-family: var(--font-anthropic-serif); font-size: clamp(26px, 4vw, 40px); margin: 6px 0 2px; font-weight: 400; }
+.ag-split { display: grid; gap: 8px; }
+.ag-split .row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--ag-line); border-radius: 10px; font-size: 13.5px; }
+.ag-split .row .bar { grid-column: 1 / -1; height: 6px; border-radius: 99px; background: rgba(255,255,255,.06); overflow: hidden; }
+.ag-split .row .bar i { display: block; height: 100%; border-radius: 99px; }
+.ag-split .row .v { font-variant-numeric: tabular-nums; font-weight: 600; }
+.ag-split .row small { color: var(--ag-muted); font-size: 11.5px; display: block; }
+.ag-recibos { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); }
+.ag-recibo { border: 1px dashed rgba(245,184,0,.45); border-radius: 12px; padding: 14px; font-size: 13px; display: grid; gap: 6px; background: rgba(245,184,0,.03); }
+.ag-recibo h3 { margin: 0; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--ag-gold); font-weight: 600; }
+.ag-recibo .ln { display: flex; justify-content: space-between; gap: 8px; }
+.ag-recibo .ln span:first-child { color: var(--ag-muted); }
+.ag-recibo .tt { border-top: 1px solid var(--ag-line); padding-top: 6px; font-weight: 600; font-size: 15px; }
+.ag-map { width: 100%; height: auto; display: block; }
+.ag-map .tierra { fill: #1B2840; stroke: rgba(255,255,255,.06); stroke-width: .4; }
+.ag-map .hit { cursor: pointer; stroke: rgba(255,255,255,.5); stroke-width: .5; }
+.ag-map text { font-size: 7px; fill: #fff; font-weight: 600; pointer-events: none; }
+.ag-empty { color: var(--ag-muted); font-size: 13px; margin: 6px 0; }
+.ag-fail { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 80px; color: var(--ag-muted); font-size: 12px; }
+.ag-fail::before { content: ""; width: .375rem; height: .375rem; border-radius: 50%; background: var(--ag-bad); }
+.ag-list { margin: 0; padding-left: 18px; font-size: 13.5px; line-height: 1.6; color: var(--ag-fg); }
+.ag-list li::marker { color: var(--ag-gold); }
+.ag-code { font-family: ui-monospace, monospace; font-size: 12px; color: var(--ag-muted); }
+.ag [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+.ag [data-dash-source-state=empty] { color: transparent; }
+[hidden] { display: none !important; }
+.ag-mapbox { max-width: 720px; margin: 0 auto; }
+.ag-form { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); align-items: end; margin-top: 12px; padding: 12px; border: 1px dashed rgba(245,184,0,.35); border-radius: 12px; }
+.ag-form label { display: grid; gap: 4px; font-size: 11px; color: var(--ag-muted); }
+.ag-form .ag-in, .ag-form .ag-sel { width: 100%; }
+.ag-msg { font-size: 12.5px; margin: 8px 0 0; min-height: 1em; }
+.ag-msg.ok { color: var(--ag-ok); } .ag-msg.err { color: var(--ag-bad); }
+.ag-link { color: var(--ag-gold); font-size: 12.5px; }
+@media (max-width: 860px) {
+  .ag { grid-template-columns: 1fr; }
+  .ag-side { position: static; min-height: 0; border-right: 0; border-bottom: 1px solid var(--ag-line); padding: 12px 16px; gap: 10px; }
+  .ag-nav { grid-auto-flow: column; overflow-x: auto; }
+  .ag-nav button { padding: 7px 10px; font-size: 13px; }
+  .ag-navt, .ag-session { display: none; }
+  .ag-main { padding: 16px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ag-vista:not([hidden]) { animation: agIn var(--cds-dur-slow) var(--cds-ease-out); }
+  @keyframes agIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+}
+</style>
+<div class="ag" id="raiz">
+  <aside class="ag-side">
+    <div class="ag-brand">
+      <img alt="IdeaLab" src="icon-192.png">
+      <div><b>IdeaLab</b><span>Dashboard</span></div>
+    </div>
+    <div class="ag-navt">Vistas</div>
+    <nav class="ag-nav" aria-label="Áreas" id="nav">
+      <button type="button" data-v="inicio"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Inicio</button>
+      <button type="button" data-v="resumen"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>Resumen</button>
+      <button type="button" data-v="campanas"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l6 5V5L7 10H4a1 1 0 0 0-1 1zM17 8a5 5 0 0 1 0 8"/></svg>Campañas</button>
+      <button type="button" data-v="graficas"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Gráficas</button>
+      <button type="button" data-v="paginas"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></svg>Fan pages</button>
+      <button type="button" data-v="contabilidad"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"/></svg>Contabilidad</button>
+      <button type="button" data-v="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Configuración</button>
+    </nav>
+    <div class="ag-session">Sesión<br><b>Socios</b> · acceso total<br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button></div>
+  </aside>
+
+  <main class="ag-main">
+    <div class="ag-top">
+      <div>
+        <h1 id="titulo">Rentabilidad Meta Ads</h1>
+        <p class="ag-take" id="takeaway"><span class="dash-skeleton">—</span></p>
+      </div>
+      <div class="ag-range" id="rango">
+        <select class="ag-sel" id="r-rapido" aria-label="Periodo">
+          <option value="hoy">Hoy</option>
+          <option value="ayer">Ayer</option>
+          <option value="7">Últimos 7 días</option>
+          <option value="15">Últimos 15 días</option>
+          <option value="30">Últimos 30 días</option>
+          <option value="quincena">Quincena actual</option>
+          <option value="mes">Este mes</option>
+          <option value="custom">Personalizado</option>
+        </select>
+        <label>Desde<input class="ag-in" type="date" id="f-desde" min="2024-01-01" max="2099-12-31"></label>
+        <label>Hasta<input class="ag-in" type="date" id="f-hasta" min="2024-01-01" max="2099-12-31"></label>
+        <button type="button" class="ag-btn" id="actualizar">↻ Actualizar</button>
+      </div>
+    </div>
+
+    <!-- INICIO -->
+    <section class="ag-vista" id="inicio" data-vista="inicio">
+      <p class="ag-take">Hola, Anthony y Alejandra.</p>
+      <h2 class="ag-hello">¿A qué área quieres entrar?</h2>
+      <div class="ag-areas" style="margin-top:14px">
+        <button type="button" class="ag-area" data-ir="resumen"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><b>Resumen</b><span>Ventas, pauta, utilidad, ROAS y conversaciones del periodo, por país.</span><em data-source="resumen" data-field="ganancia" data-where="clave=total|todos" id="a-res" class="dash-skeleton">—</em></button>
+        <button type="button" class="ag-area" data-ir="campanas"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l6 5V5L7 10H4a1 1 0 0 0-1 1zM17 8a5 5 0 0 1 0 8"/></svg><b>Campañas</b><span>Diagnóstico de cada campaña y anuncio: escalar, mantener, bajar o apagar.</span><em id="a-camp">—</em></button>
+        <button type="button" class="ag-area" data-ir="graficas"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><b>Gráficas</b><span>Día a día por país o campaña: ganancia, ROAS, pauta, ventas y conversaciones.</span></button>
+        <button type="button" class="ag-area" data-ir="paginas"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></svg><b>Fan pages</b><span>Tus páginas, cuáles están pautando y con qué campañas, y tus números de WhatsApp.</span><em id="a-pag">—</em></button>
+        <button type="button" class="ag-area" data-ir="contabilidad"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"/></svg><b>Contabilidad</b><span>Cierres quincenales y mensuales, reparto entre socios, nómina, proveedores y bitácora.</span></button>
+        <button type="button" class="ag-area" data-ir="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg><b>Configuración</b><span>Porcentajes del reparto, equipo con acceso y cambios programados.</span></button>
+      </div>
+    </section>
+
+    <!-- RESUMEN -->
+    <section class="ag-vista" id="resumen" data-vista="resumen" hidden>
+      <div class="ag-chips" id="paises-chips" data-source="paises" style="margin-bottom:12px"></div>
+      <div class="ag-grid">
+        <div class="ag-card ag-kpi"><span class="lb">Ventas</span><span class="v" data-k="ventas_total_n" data-source="resumen" data-field="ventas_total_n">—</span><span class="s" id="k-ventas-s">número de ventas</span></div>
+        <div class="ag-card ag-kpi"><span class="lb">Facturación</span><span class="v ag-gold" data-k="ventas_total_cop" data-source="resumen" data-field="ventas_total_cop">—</span><span class="s">en pesos colombianos</span><span class="ag-local" id="k-fact-local" data-source="resumen" data-field="ventas_local" hidden><b id="k-fact-loc-v">—</b><em id="k-fact-tasa">—</em></span></div>
+        <div class="ag-card ag-kpi"><span class="lb">Pauta con IVA</span><span class="v" data-k="gasto_iva" data-source="resumen" data-field="gasto_iva">—</span><span class="s">gasto en Meta × 1,19</span></div>
+        <div class="ag-card ag-kpi"><span class="lb">Conversaciones</span><span class="v" data-k="conversaciones" data-source="resumen" data-field="conversaciones">—</span><span class="s">chats iniciados desde los anuncios</span></div>
+      </div>
+      <div class="ag-grid" style="margin-top:14px">
+        <div class="ag-card ag-kpi"><div class="ag-ringrow"><div><span class="lb">Utilidad</span><div class="v" data-k="ganancia" data-source="resumen" data-field="ganancia">—</div><span class="s">ventas − pauta con IVA</span></div><svg class="ag-ring" id="ring-margen" viewBox="0 0 100 100" data-source="resumen"></svg></div></div>
+        <div class="ag-card ag-kpi"><div class="ag-ringrow"><div><span class="lb">ROAS</span><div class="v" data-k="roas" data-source="resumen" data-field="roas">—</div><span class="s">ventas ÷ pauta con IVA · meta 2,0</span></div><svg class="ag-ring" id="ring-roas" viewBox="0 0 100 100" data-source="resumen"></svg></div></div>
+        <div class="ag-card ag-kpi"><span class="lb">% conversión</span><span class="v" data-k="pct_conv" data-source="resumen" data-field="pct_conv">—</span><span class="s">ventas ÷ conversaciones</span></div>
+        <div class="ag-card ag-kpi"><span class="lb">Costo por conversación</span><span class="v" data-k="costo_conv" data-source="resumen" data-field="costo_conv">—</span><span class="s">gasto sin IVA ÷ conversaciones</span></div>
+      </div>
+      <div class="ag-card" style="margin-top:14px" id="combo-card">
+        <h2>Pauta, utilidad y ROAS por día</h2>
+        <div class="ag-legend"><span><i style="background:var(--ag-gold)"></i>Pauta con IVA</span><span><i style="background:var(--ag-teal)"></i>Utilidad</span><span><i style="background:#A3E635"></i>ROAS</span></div>
+        <div class="ag-chart" id="combo" data-source="diario"></div>
+        <div class="ag-lectura" id="lectura"><b>LECTURA</b><span class="dash-skeleton">—</span></div>
+      </div>
+      <div class="ag-card" style="margin-top:14px">
+        <h2>Por país</h2>
+        <p class="ag-note">Toca un país para filtrar el resumen y las campañas.</p>
+        <div class="ag-mapbox"><svg class="ag-map" id="mapa" role="img" aria-label="Mapa de países" data-source="resumen"></svg></div>
+      </div>
+      <div class="ag-card" style="margin-top:14px">
+        <h2>Resultado por país</h2>
+        <p class="ag-note" id="pais-nota">Del periodo elegido.</p>
+        <div class="ag-scroll"><table class="ag-table" id="t-paises" data-source="resumen" data-row-key="clave"></table></div>
+      </div>
+    </section>
+
+    <!-- CAMPAÑAS -->
+    <section class="ag-vista" id="campanas" data-vista="campanas" hidden>
+      <div class="ag-card">
+        <div class="ag-top"><div><h2>Diagnóstico de campañas</h2><p class="ag-note" id="diag-nota">Del periodo elegido. Toca una campaña para ver sus anuncios.</p></div><div class="ag-chips" id="diag-chips"></div></div>
+        <div class="ag-chips" style="margin-bottom:10px"><select class="ag-sel" id="diag-estado" aria-label="Estado en Meta"><option value="act">Solo activas en Meta</option><option value="todas">Todas con gasto</option></select><select class="ag-sel" id="diag-pais" aria-label="País"></select></div>
+        <div class="ag-scroll" style="max-height:none"><table class="ag-table" id="t-campanas" data-source="resumen" data-row-key="clave"></table></div>
+        <p class="ag-note" style="margin-top:10px">Regla: <b class="ag-pos">Escalar</b> ROAS ≥ 2,0 · <b class="ag-gold">Mantener</b> 1,8–2,0 · <b style="color:var(--ag-warn)">Bajar presupuesto</b> 1,0–1,8 · <b class="ag-neg">Apagar</b> menor a 1,0 (no cubre la pauta con IVA) con más de $20.000 de gasto. Nada se cambia solo.</p>
+      </div>
+      <div class="ag-card" style="margin-top:14px">
+        <h2>Listos para escalar (3 días)</h2>
+        <p class="ag-note" id="esc-nota">Anuncios con ROAS igual o mayor a 2,0 en cada uno de los 3 días evaluados (corte de las 9 p. m.).</p>
+        <p class="ag-empty" id="esc-vacio" hidden>Ningún anuncio cumple la regla en este corte.</p>
+        <div class="ag-scroll"><table class="ag-table" id="t-esc" data-source="escalado" data-row-key="clave"></table></div>
+      </div>
+      <div class="ag-card" style="margin-top:14px">
+        <h2>Apagar o cambiar presupuesto</h2>
+        <p class="ag-note">Para hacerlo <b>ya</b>, pídemelo en un chat con Claude (por ejemplo: “apaga la campaña Chi_arte_test_4 QR” o “sube a 50.000 el presupuesto de CHILE_ESC_VD5 QR”); te confirmo antes de aplicarlo. Para <b>programarlo</b>, anótalo en la pestaña <b>Cambios_programados</b> de la hoja: a las 3:30 a. m. te llega un aviso con lo pendiente y lo aplico cuando me respondas.</p>
+        <div class="ag-scroll"><table class="ag-table" id="t-cambios" data-source="cambios" data-row-key="fila"></table></div>
+        <p class="ag-empty" id="cambios-vacio" hidden>No hay cambios programados pendientes.</p>
+      </div>
+    </section>
+
+    <!-- GRÁFICAS -->
+    <section class="ag-vista" id="graficas" data-vista="graficas" hidden>
+      <div class="ag-card">
+        <div class="ag-top"><h2>Comparar día a día</h2>
+          <div class="ag-chips"><select class="ag-sel" id="g-serie" aria-label="Qué comparar"><option value="pais">Por país</option><option value="campana">Por campaña</option></select></div></div>
+        <div class="ag-chips" id="g-metricas" style="margin:8px 0 10px">
+          <button type="button" class="ag-btn" data-m="ganancia">Utilidad</button>
+          <button type="button" class="ag-btn" data-m="roas">ROAS</button>
+          <button type="button" class="ag-btn" data-m="gasto_iva">Pauta con IVA</button>
+          <button type="button" class="ag-btn" data-m="ventas_cop">Ventas</button>
+          <button type="button" class="ag-btn" data-m="conversaciones">Conversaciones</button>
+          <button type="button" class="ag-btn" data-m="pct_conv">% conversión</button>
+        </div>
+        <div class="ag-legend" id="g-leyenda"></div>
+        <div class="ag-chart" id="g-chart" data-source="diario"></div>
+        <p class="ag-note" id="g-nota"></p>
+      </div>
+    </section>
+
+    <!-- FAN PAGES -->
+    <section class="ag-vista" id="paginas" data-vista="paginas" hidden>
+      <div class="ag-card">
+        <h2>Fan pages</h2>
+        <p class="ag-note">Todas tus páginas. «Pautando ahora» = tiene al menos un anuncio activo en Meta en este momento; se ven sus campañas, países y la cuenta publicitaria.</p>
+        <div class="ag-scroll"><table class="ag-table" id="t-paginas" data-source="paginas_uso" data-row-key="page_id"></table></div>
+      </div>
+      <div class="ag-card" style="margin-top:14px">
+        <h2>Números de WhatsApp (bots)</h2>
+        <p class="ag-note">El <b>código</b> se asigna solo (B1, B2, B3…). Un número nuevo entra en <b>CALENTAMIENTO</b>. El estado cambia solo: pasa a <b>ACTIVO</b> cuando su fan page vinculada tiene anuncios activos en Meta y a <b>SIN USO</b> cuando esas campañas se apagan. Meta no entrega el número de WhatsApp de cada anuncio (solo la fan page que lo publica), así que el vínculo número ↔ fan page lo indicas tú una vez con «Editar»; desde ahí el estado, la página donde se pauta, las campañas y las conversaciones de hoy se actualizan solos. PAUSADO y BLOQUEADO los pones tú y no cambian solos.</p>
+        <div class="ag-scroll"><table class="ag-table" id="t-numeros" data-source="numeros_uso" data-row-key="codigo"></table></div>
+        <p class="ag-empty" id="numeros-vacio" hidden>Todavía no hay números. Agrega el primero abajo.</p>
+        <div class="ag-form" id="f-num">
+          <label>Código<input class="ag-in" id="n-codigo" readonly title="Se asigna solo"></label>
+          <label>Número business<input class="ag-in" id="n-numero" placeholder="300 000 0000"></label>
+          <label>Celular<input class="ag-in" id="n-celular" placeholder="XIAOMI 4"></label>
+          <label>Día que se agrega<input class="ag-in" type="date" id="n-inicio" min="2020-01-01" max="2099-12-31"></label>
+          <label>Fan page vinculada (opcional)<select class="ag-sel" id="n-pagina" data-source="meta_paginas"></select></label>
+          <label class="n-ed" hidden>Estado<select class="ag-sel" id="n-estado"><option>CALENTAMIENTO</option><option>ACTIVO</option><option>SIN USO</option><option>PAUSADO</option><option>BLOQUEADO</option></select></label>
+          <label class="n-ed" hidden>País<input class="ag-in" id="n-pais" placeholder="CH, MXN-VZLA…"></label>
+          <label class="n-ed" hidden>Portafolio<input class="ag-in" id="n-portafolio" placeholder="ANT / ALE"></label>
+          <label class="n-ed" hidden>Nota<input class="ag-in" id="n-nota"></label>
+          <button type="button" class="ag-btn pri" id="n-guardar">Agregar número</button>
+          <button type="button" class="ag-btn" id="n-limpiar" hidden>Cancelar edición</button>
+        </div>
+        <p class="ag-msg" id="n-msg"></p>
+        <a class="ag-link" href="https://docs.google.com/spreadsheets/d/1f0jljK5Pxt908HcQuAO9xorqN9XaVH2PdlkIBLIKLvw/edit" target="_blank" rel="noopener">Abrir la hoja (pestaña Numeros)</a>
+      </div>
+    </section>
+
+    <!-- CONTABILIDAD -->
+    <section class="ag-vista" id="contabilidad" data-vista="contabilidad" hidden>
+      <div class="ag-card">
+        <div class="ag-top"><div><h2 id="liq-titulo">Cierre global</h2><p class="ag-note" id="liq-nota">Elige el periodo a liquidar.</p></div>
+          <div class="ag-chips"><select class="ag-sel" id="liq-vista" aria-label="Cierre de" data-source="liquidacion_paises"><option value="">Global (todos los países)</option></select><select class="ag-sel" id="liq-periodo" aria-label="Periodo del cierre" data-source="liquidacion"></select></div></div>
+        <div class="ag-grid">
+          <div class="ag-kpi"><span class="lb">Ventas</span><span class="v ag-gold" data-l="ventas" data-source="liquidacion" data-field="ventas">—</span></div>
+          <div class="ag-kpi"><span class="lb">Pauta con IVA</span><span class="v" data-l="pauta_iva" data-source="liquidacion" data-field="pauta_iva">—</span></div>
+          <div class="ag-kpi"><span class="lb">Gastos</span><span class="v" data-l="gastos" data-source="liquidacion" data-field="gastos">—</span></div>
+          <div class="ag-kpi"><span class="lb">Utilidad total</span><span class="v" data-l="utilidad_total" data-source="liquidacion" data-field="utilidad_total">—</span><span class="s" id="liq-rent"></span></div>
+        </div>
+      </div>
+      <div style="margin-top:14px;min-width:0">
+        <div class="ag-card">
+          <h2>Reparto</h2>
+          <p class="ag-note" id="rep-nota">Porcentajes de la pestaña Config.</p>
+          <div class="ag-split" id="reparto" data-source="liquidacion"></div>
+        </div>
+        <div class="ag-card" style="margin-top:14px">
+          <h2>Por país</h2>
+          <p class="ag-note">Utilidad de cada país = ventas − pauta con IVA. Comisión del proveedor = % de esa utilidad (si es positiva). En pesos y en la moneda de cada país (tasa de la pestaña Tasas al cierre del periodo).</p>
+          <div class="ag-scroll"><table class="ag-table" id="t-liq-paises" data-source="liquidacion_paises" data-row-key="clave"></table></div>
+        </div>
+      </div>
+      <div class="ag-card" style="margin-top:14px">
+        <h2>Comprobantes para proveedores de cuentas</h2>
+        <p class="ag-note">Uno por país con utilidad en el periodo.</p>
+        <div class="ag-recibos" id="recibos" data-source="liquidacion_paises"></div>
+      </div>
+      <div class="ag-card" style="margin-top:14px">
+        <h2>Gastos del periodo</h2>
+        <p class="ag-note">Gastos aparte de la pauta de Meta (bots, IA, herramientas y otros). Se cargan al país que elijas, o a «General» si son de toda la empresa; entran al cierre según su fecha.</p>
+        <div class="ag-scroll"><table class="ag-table" id="t-gastos" data-source="gastos" data-row-key="fila"></table></div>
+        <p class="ag-empty" id="gastos-vacio" hidden>Sin gastos anotados en este periodo.</p>
+        <div class="ag-form">
+          <label>Fecha<input class="ag-in" type="date" id="g-fecha" min="2020-01-01" max="2099-12-31"></label>
+          <label>Concepto<input class="ag-in" id="g-concepto" placeholder="ManyChat, ChatGPT…"></label>
+          <label>Quién lo pagó<select class="ag-sel" id="g-quien"><option>Empresa</option><option>Anthony Guiñan</option><option>Alejandra Acosta</option></select></label>
+          <label>Valor (COP)<input class="ag-in" type="number" id="g-valor" min="0" step="1"></label>
+          <label>Se carga a<select class="ag-sel" id="g-pais" data-source="paises"><option value="General">General (todos)</option></select></label>
+          <button type="button" class="ag-btn pri" id="g-guardar">Agregar gasto</button>
+        </div>
+        <p class="ag-msg" id="g-msg"></p>
+      </div>
+      <div class="ag-card" style="margin-top:14px">
+        <h2>Bitácora de cierres</h2>
+        <p class="ag-note" id="hist-nota">Por quincena: ventas, pauta + gastos y utilidad. Las barras claras son quincenas en curso. Los cierres se guardan solos el 16 y el 1.º de cada mes.</p>
+        <div class="ag-legend"><span><i style="background:#F5B800"></i>Ventas</span><span><i style="background:#60A5FA"></i>Pauta con IVA + gastos</span><span><i style="background:#2DD4BF"></i>Utilidad</span></div>
+        <div class="ag-chart" id="hist-chart" data-source="liquidacion" style="min-height:260px"></div>
+        <div class="ag-scroll"><table class="ag-table" id="t-cierres" data-source="cierres" data-row-key="id"></table></div>
+        <p class="ag-empty" id="cierres-vacio" hidden>Todavía no hay cierres guardados. El primero se guarda el 1.º de noviembre.</p>
+      </div>
+    </section>
+
+    <!-- CONFIG -->
+    <section class="ag-vista" id="config" data-vista="config" hidden>
+      <div class="ag-grid2">
+        <div class="ag-card">
+          <h2>Porcentajes del reparto</h2>
+          <p class="ag-note">Cámbialos aquí y pulsa Guardar: el dashboard y los cierres automáticos usan estos valores.</p>
+          <div class="ag-scroll"><table class="ag-table" id="t-config" data-source="config" data-row-key="parametro"></table></div>
+          <div class="ag-form">
+            <label>Proveedores (% utilidad por país)<input class="ag-in" type="number" id="c-prov" min="0" max="100" step="0.5"></label>
+            <label id="c-trab-l">Trabajadoras (% utilidad total)<input class="ag-in" type="number" id="c-trab" min="0" max="100" step="0.5"></label>
+            <label>Empresa (% utilidad total)<input class="ag-in" type="number" id="c-emp" min="0" max="100" step="0.5"></label>
+            <label>Anthony Guiñan (% del resto)<input class="ag-in" type="number" id="c-s1" min="0" max="100" step="0.5"></label>
+            <label>Alejandra Acosta (% del resto)<input class="ag-in" type="number" id="c-s2" min="0" max="100" step="0.5"></label>
+            <button type="button" class="ag-btn pri" id="c-guardar">Guardar porcentajes</button>
+          </div>
+          <p class="ag-msg" id="c-msg"></p>
+        </div>
+        <div class="ag-card">
+          <h2>Equipo con acceso</h2>
+          <p class="ag-note">Para dar o quitar acceso: compártele (o quítale) este dashboard, la hoja de Google y el acceso a la cuenta publicitaria en tu Business Manager.</p>
+          <div class="ag-scroll"><table class="ag-table" id="t-equipo" data-source="config" data-row-key="nombre"></table></div>
+        </div>
+      </div>
+      <div class="ag-card" style="margin-top:14px">
+        <h2>Trabajadores</h2>
+        <p class="ag-note" id="trab-nota">Cada trabajador cobra su % de la utilidad del periodo. La nómina total es la suma de esos %.</p>
+        <div class="ag-scroll"><table class="ag-table" id="t-trab" data-source="config" data-row-key="parametro"></table></div>
+        <p class="ag-empty" id="trab-vacio" hidden>Todavía no hay trabajadores. Mientras tanto la nómina usa el % de «Trabajadoras» de arriba.</p>
+        <div class="ag-form">
+          <label>Nombre<input class="ag-in" id="w-nombre" placeholder="Nombre del trabajador"></label>
+          <label>% de pago (de la utilidad)<input class="ag-in" type="number" id="w-pct" min="0" max="100" step="0.5"></label>
+          <label>Nota<input class="ag-in" id="w-nota" placeholder="Cargo, cuenta…"></label>
+          <button type="button" class="ag-btn pri" id="w-guardar">Agregar trabajador</button>
+          <button type="button" class="ag-btn" id="w-cancelar" hidden>Cancelar edición</button>
+        </div>
+        <p class="ag-msg" id="w-msg"></p>
+      </div>
+      <div class="ag-card" style="margin-top:14px">
+        <h2>De dónde salen los datos</h2>
+        <ul class="ag-list">
+          <li>Gasto, conversaciones, estados y presupuestos: Meta Ads, en vivo (las 5 cuentas; la cuenta en euros se sumará cuando la pestaña Tasas tenga la columna EUR).</li>
+          <li>Historial día a día: pestaña Meta_diario (se completa sola cada madrugada).</li>
+          <li>Ventas: archivo VEN 2026, hojas que nombra la pestaña Productos; convertidas a COP con la pestaña Tasas.</li>
+          <li>Gastos, porcentajes, números y cierres: pestañas Gastos, Config, Numeros, Cierres y Cierres_paises (<a class="ag-link" href="https://docs.google.com/spreadsheets/d/1f0jljK5Pxt908HcQuAO9xorqN9XaVH2PdlkIBLIKLvw/edit" target="_blank" rel="noopener">abrir la hoja</a>).</li>
+        </ul>
+      </div>
+    </section>
+    <div class="ag-tip" id="tip" hidden></div>
+  </main>
+</div>
+<script src="map.js"></script>
+<script>
+/* Lectura de datos y cálculos */
+(function () {
+  const CUENTAS = [['833750669763474', 'Vzla'], ['2453307908465571', 'VENEZUELA'], ['985534177360479', 'COLOMBIA'], ['2675892466135634', 'testeo1'], ['998190215723784', 'Europa (EUR)']];
+  const ESTADOS_TODOS = ['ACTIVE', 'PAUSED', 'DELETED', 'ARCHIVED', 'CAMPAIGN_PAUSED', 'ADSET_PAUSED', 'WITH_ISSUES', 'DISAPPROVED', 'IN_PROCESS', 'PENDING_REVIEW', 'PREAPPROVED', 'PENDING_BILLING_INFO'];
+  const comoObjeto = (a) => {
+    let x = typeof a === 'string' ? JSON.parse(a) : a;
+    if (x && Array.isArray(x.content) && x.content[0] && typeof x.content[0].text === 'string') x = JSON.parse(x.content[0].text);
+    return x;
+  };
+  const fallo = (x) => {
+    if (x && (x.error || x.isError)) throw new Error(typeof x.error === 'string' ? x.error : (x.error && x.error.message) || 'Meta devolvió un error');
+  };
+  const leerFecha = (texto) => {
+    const s = String(texto || '').trim();
+    let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
+    return null;
+  };
+  const leerValor = (texto) => {
+    let s = String(texto || '').replace(/[^\d.,-]/g, '');
+    if (!s) return null;
+    if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+    else if (/\.\d{3}$/.test(s) || (s.match(/\./g) || []).length > 1) s = s.replace(/\./g, '');
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  };
+  const numHoja = (t) => { const n = Number(String(t ?? '').replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
+  const leerNumeroComa = (texto) => { const n = Number(String(texto || '').replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) && n > 0 ? n : null; };
+  const valores = (answer) => { const a = comoObjeto(answer); if (a && a.error) throw new Error(a.error.message || String(a.error)); return (a && a.values) || []; };
+
+  // --- Meta Ads ---
+  const entidades = (answer) => {
+    const a = comoObjeto(answer);
+    fallo(a);
+    let e = a && a.ad_entities;
+    if (typeof e === 'string') e = JSON.parse(e);
+    return { filas: Array.isArray(e) ? e : [], cursor: a && a.pagination && a.pagination.next_cursor };
+  };
+  const resultadoConv = (r) => {
+    const res = r.results || {};
+    if (!/messaging_conversation_started/.test(String(res.indicator || ''))) return 0;
+    const v = Array.isArray(res.values) && res.values[0] ? res.values[0].value : res.value;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const monto = (x) => { const n = Number(x && typeof x === 'object' ? x.value : x); return Number.isFinite(n) ? n : 0; };
+  const rangoDe = (args) => { try { const t = JSON.parse(args.time_range); return [t.since, t.until]; } catch (e) { return [null, null]; } };
+  const todasLasCuentas = async (answer, call, args, mapear) => {
+    const filas = [];
+    const leer = async (resp, cuenta, a) => {
+      let r = entidades(resp);
+      r.filas.forEach((x) => filas.push(mapear(x, cuenta)));
+      for (let i = 0; r.cursor && i < 5; i++) {
+        r = entidades(await call('ads_get_ad_entities', { ...a, cursor: r.cursor }));
+        r.filas.forEach((x) => filas.push(mapear(x, cuenta)));
+      }
+    };
+    const principal = CUENTAS.find((c) => c[0] === args.ad_account_id) || [args.ad_account_id, args.ad_account_id];
+    await leer(answer, principal, args);
+    const omitidas = [];
+    for (const c of CUENTAS) {
+      if (c[0] === args.ad_account_id) continue;
+      const a = { ...args, ad_account_id: c[0] };
+      try { await leer(await call('ads_get_ad_entities', a), c, a); } catch (e) { omitidas.push(c[1]); }
+    }
+    return { filas, omitidas };
+  };
+  const anuncioMeta = (args) => (x, cuenta) => {
+    const [desde, hasta] = rangoDe(args);
+    return {
+      ad_id: String(x.id), anuncio: String(x.name || ''), campana_id: String(x.campaign_id || ''), campana: String(x.campaign_name || ''),
+      conjunto_id: String(x.adset_id || ''), conjunto: String(x.adset_name || ''), cuenta: cuenta[1],
+      moneda: String((x.amount_spent && x.amount_spent.unit) || 'COP'), gasto: monto(x.amount_spent), conversaciones: resultadoConv(x), impresiones: Number(x.impressions) || 0,
+      frecuencia: x.frequency == null ? null : Number(x.frequency), estado: String(x.effective_status || ''), rango_desde: desde, rango_hasta: hasta,
+    };
+  };
+  const COLS_AD = ['moneda', 'ad_id', 'anuncio', 'campana_id', 'campana', 'conjunto_id', 'conjunto', 'cuenta', 'gasto', 'conversaciones', 'impresiones', 'frecuencia', 'estado', 'rango_desde', 'rango_hasta'];
+  const loaderAnuncios = (desc) => ({
+    description: desc,
+    fn: async ({ answer, call, args }) => {
+      const r = await todasLasCuentas(answer, call, args, anuncioMeta(args));
+      return { columns: COLS_AD, rows: r.filas, meta: r.omitidas.length ? [{ label: 'Cuentas que no respondieron', value: r.omitidas.join(', ') }] : [] };
+    },
+  });
+  dash.loader('meta_rango', loaderAnuncios('La respuesta de Meta como filas: un anuncio por fila con su gasto en COP y conversaciones del rango, sumando todas las cuentas en COP (la primera se pide aquí y las demás con la misma consulta).'));
+  dash.loader('meta_hoy', loaderAnuncios('La respuesta de Meta como filas: gasto y conversaciones de hoy por anuncio, sumando todas las cuentas en COP.'));
+
+  dash.loader('meta_campanas', {
+    description: 'La respuesta de Meta como filas: cada campaña con su estado y presupuesto diario, de todas las cuentas en COP.',
+    fn: async ({ answer, call, args }) => {
+      const r = await todasLasCuentas(answer, call, args, (x, c) => ({ campana_id: String(x.id), campana: String(x.name || ''), cuenta: c[1], cuenta_id: c[0], estado: String(x.effective_status || ''), presupuesto: x.daily_budget ? monto(x.daily_budget) : null }));
+      return { columns: ['campana_id', 'campana', 'cuenta', 'cuenta_id', 'estado', 'presupuesto'], rows: r.filas };
+    },
+  });
+  dash.loader('meta_conjuntos', {
+    description: 'La respuesta de Meta como filas: cada conjunto con su campaña, estado y presupuesto diario, de todas las cuentas en COP.',
+    fn: async ({ answer, call, args }) => {
+      const r = await todasLasCuentas(answer, call, args, (x, c) => ({ conjunto_id: String(x.id), conjunto: String(x.name || ''), campana_id: String(x.campaign_id || ''), cuenta: c[1], estado: String(x.effective_status || ''), presupuesto: x.daily_budget ? monto(x.daily_budget) : null }));
+      return { columns: ['conjunto_id', 'conjunto', 'campana_id', 'cuenta', 'estado', 'presupuesto'], rows: r.filas };
+    },
+  });
+  dash.loader('meta_paginas', {
+    description: 'Las páginas que el usuario puede usar para pautar, y en qué cuentas publicitarias Meta las registra como usadas en anuncios.',
+    fn: async ({ answer, call, args }) => {
+      const a = comoObjeto(answer); fallo(a);
+      const pags = ((a && a.pages) || []).map((p) => ({ page_id: String(p.page_id), pagina: String(p.page_name || ''), cuentas: [] }));
+      const porId = Object.fromEntries(pags.map((p) => [p.page_id, p]));
+      for (const c of CUENTAS) {
+        try {
+          const r = comoObjeto(await call('ads_get_ad_account_pages', { ...args, ad_account_id: c[0] }));
+          ((r && r.pages) || []).forEach((p) => {
+            const id = String(p.page_id);
+            if (!porId[id]) { porId[id] = { page_id: id, pagina: String(p.page_name || ''), cuentas: [] }; pags.push(porId[id]); }
+            porId[id].cuentas.push(c[1]);
+          });
+        } catch (e) { /* cuenta sin acceso */ }
+      }
+      return { columns: ['page_id', 'pagina', 'usada_en', 'pauta'], rows: pags.map((p) => ({ page_id: p.page_id, pagina: p.pagina, usada_en: p.cuentas.join(', '), pauta: p.cuentas.length ? 'Sí' : 'No' })) };
+    },
+  });
+
+  dash.loader('meta_creativos', {
+    description: 'Los anuncios activos de todas las cuentas y, de su creativo en Meta, la fan page que publica cada uno (la primera parte del ID de la publicación).',
+    fn: async ({ answer, call, args }) => {
+      const r = await todasLasCuentas(answer, call, args, (x, c) => ({ ad_id: String(x.id), anuncio: String(x.name || ''), campana_id: String(x.campaign_id || ''), campana: String(x.campaign_name || ''), creative_id: String(x.creative_id || ''), cuenta: c[1], cuenta_id: c[0], estado: String(x.effective_status || '') }));
+      const porCuenta = {};
+      r.filas.forEach((f) => { if (f.creative_id) (porCuenta[f.cuenta_id] = porCuenta[f.cuenta_id] || new Set()).add(f.creative_id); });
+      const info = {};
+      for (const [cuenta, set] of Object.entries(porCuenta)) {
+        const ids = [...set];
+        for (let i = 0; i < ids.length; i += 50) {
+          const a = comoObjeto(await call('ads_get_creatives', { client_conversation_id: args.client_conversation_id, client_model: args.client_model, advertiser_job: args.advertiser_job, advertiser_request: args.advertiser_request, ad_account_id: cuenta, creative_ids: ids.slice(i, i + 50), fields: ['id', 'effective_object_story_id', 'object_story_id', 'call_to_action_type'] }));
+          fallo(a);
+          ((a && a.ad_creatives) || []).forEach((c) => { const sid = String(c.effective_object_story_id || c.object_story_id || ''); info[String(c.id)] = { page_id: sid.includes('_') ? sid.split('_')[0] : '', boton: String(c.call_to_action_type || '') }; });
+        }
+      }
+      return { columns: ['ad_id', 'anuncio', 'campana_id', 'campana', 'creative_id', 'cuenta', 'cuenta_id', 'estado', 'page_id', 'boton'], rows: r.filas.map((f) => ({ ...f, page_id: (info[f.creative_id] || {}).page_id || '', boton: (info[f.creative_id] || {}).boton || '' })) };
+    },
+  });
+
+  // --- Google Sheets ---
+  dash.loader('meta_diario', {
+    description: 'La pestaña Meta_diario como filas: gasto en COP y conversaciones de cada anuncio por día.',
+    fn: ({ answer }) => {
+      const v = valores(answer);
+      const filas = v.slice(1).filter((r) => r[0] && r[7]).map((r) => ({
+        fecha: leerFecha(r[0]), cuenta: String(r[2] || ''), campana_id: String(r[3] || ''), campana: String(r[4] || ''), conjunto_id: String(r[5] || ''), conjunto: String(r[6] || ''),
+        ad_id: String(r[7]), anuncio: String(r[8] || ''), gasto: numHoja(r[9]), conversaciones: numHoja(r[10]), impresiones: numHoja(r[11]),
+      }));
+      return { columns: ['fecha', 'cuenta', 'campana_id', 'campana', 'conjunto_id', 'conjunto', 'ad_id', 'anuncio', 'gasto', 'conversaciones', 'impresiones'], rows: filas };
+    },
+  });
+  const leerPaises = (answer) => valores(answer).slice(1)
+    .map((r) => ({ producto: String(r[0] || '').trim(), palabra: String(r[1] || '').trim(), pais: String(r[2] || '').trim(), hoja: String(r[3] || '').trim(), prefijo: String(r[4] || '').trim(), moneda: String(r[5] || '').trim().toUpperCase() }))
+    .filter((r) => r.producto && r.pais && r.prefijo && r.moneda);
+  dash.loader('paises', {
+    description: 'La pestaña Productos como filas: producto, palabra de sus campañas, país, hoja de ventas, prefijo de campañas y moneda.',
+    fn: ({ answer }) => ({ columns: ['producto', 'palabra', 'pais', 'hoja', 'prefijo', 'moneda'], rows: leerPaises(answer) }),
+  });
+  dash.loader('ventas', {
+    description: 'Lee la pestaña Productos y luego, de cada hoja de ventas que nombra (archivo VEN 2026), las columnas FECHA, PAGO DEPURADO y AD ID: una fila por venta.',
+    fn: async ({ answer, call }) => {
+      const ID = '1LV6ubaW7XlUn79u7Zu6uD4DjVOiI-IymxKAWokwBNjY';
+      const meta = comoObjeto(await call('get_spreadsheet', { spreadsheetId: ID, fields: ['sheets.properties.title'] }));
+      const existentes = new Set(((meta && meta.sheets) || []).map((s) => s.properties && s.properties.title));
+      const config = leerPaises(answer).filter((p) => p.hoja && existentes.has(p.hoja));
+      const cols = ['hoja', 'fila', 'producto', 'pais', 'moneda', 'fecha', 'valor_local', 'ad_id'];
+      if (!config.length) return { columns: cols, rows: [] };
+      const ref = (h) => "'" + h.replace(/'/g, "''") + "'";
+      const a = comoObjeto(await call('get_spreadsheet', {
+        spreadsheetId: ID, includeGridData: true,
+        ranges: config.flatMap((p) => ['C', 'E', 'G'].map((c) => ref(p.hoja) + '!' + c + '2:' + c)),
+        fields: ['sheets.properties.title', 'sheets.data.startRow', 'sheets.data.startColumn', 'sheets.data.rowData.values.formattedValue'],
+      }));
+      if (a && a.error) throw new Error(a.error.message || String(a.error));
+      const porHoja = Object.fromEntries(config.map((p) => [p.hoja, p]));
+      const filas = [];
+      (a.sheets || []).forEach((hoja) => {
+        const titulo = hoja.properties && hoja.properties.title;
+        const info = porHoja[titulo];
+        if (!info) return;
+        const porFila = {};
+        (hoja.data || []).forEach((bloque) => {
+          const col = { 2: 'fecha', 4: 'valor', 6: 'ad' }[bloque.startColumn || 0];
+          if (!col) return;
+          (bloque.rowData || []).forEach((r, i) => {
+            const fila = (bloque.startRow || 0) + i + 1;
+            const v = r && r.values && r.values[0] && r.values[0].formattedValue;
+            (porFila[fila] = porFila[fila] || {})[col] = v;
+          });
+        });
+        Object.keys(porFila).forEach((k) => {
+          const c = porFila[k];
+          const ad = String(c.ad || '').replace(/\D/g, '');
+          filas.push({ hoja: titulo, fila: Number(k), producto: info.producto, pais: info.pais, moneda: info.moneda, fecha: leerFecha(c.fecha), valor_local: leerValor(c.valor), ad_id: ad.length >= 10 ? ad : '' });
+        });
+      });
+      return { columns: cols, rows: filas };
+    },
+  });
+  dash.loader('tasas', {
+    description: 'La hoja Tasas como filas: COP por 1 unidad de cada moneda configurada, por día.',
+    fn: ({ answer }) => {
+      const v = valores(answer);
+      const cab = (v[0] || []).map((x) => String(x || '').trim().toUpperCase());
+      const monedas = cab.slice(1).filter((m) => /^[A-Z]{3}$/.test(m));
+      const filas = v.slice(1).filter((r) => r[0]).map((r) => {
+        const o = { fecha: String(r[0]) };
+        cab.forEach((m, i) => { if (i > 0 && /^[A-Z]{3}$/.test(m)) o[m] = leerNumeroComa(r[i]); });
+        return o;
+      });
+      return { columns: ['fecha', ...monedas], rows: filas };
+    },
+  });
+  dash.loader('config', {
+    description: 'La pestaña Config como filas: cada porcentaje del reparto, el equipo con acceso y cada trabajador con su porcentaje de pago (con el número de fila de la hoja).',
+    fn: ({ answer }) => {
+      const v = valores(answer);
+      const filas = [];
+      let seccion = 'porcentaje';
+      v.slice(1).forEach((r, i) => {
+        const a = String(r[0] || '').trim();
+        const fila = i + 2;
+        if (!a) return;
+        if (/^equipo/i.test(a)) { seccion = 'equipo'; return; }
+        if (/^trabajadores$/i.test(a)) { seccion = 'trabajador'; return; }
+        if (seccion === 'equipo') filas.push({ tipo: 'equipo', parametro: 'equipo:' + a, nombre: a, valor: null, rol: String(r[1] || ''), correo: String(r[2] || ''), nota: '', fila });
+        else if (seccion === 'trabajador') filas.push({ tipo: 'trabajador', parametro: 'trab:' + a + ':' + fila, nombre: a, valor: leerValor(r[1]), rol: 'Trabajador', correo: '', nota: String(r[2] || ''), fila });
+        else filas.push({ tipo: 'porcentaje', parametro: a, nombre: a, valor: leerValor(r[1]), rol: '', correo: '', nota: String(r[2] || ''), fila });
+      });
+      return { columns: ['tipo', 'parametro', 'nombre', 'valor', 'rol', 'correo', 'nota', 'fila'], rows: filas };
+    },
+  });
+  dash.loader('numeros', {
+    description: 'La pestaña Numeros como filas: cada número de WhatsApp (bot) con su código, celular, país, portafolio, estado, fecha de inicio y la fan page a la que está vinculado.',
+    fn: ({ answer }) => ({
+      columns: ['fila', 'codigo', 'numero', 'celular', 'pais', 'portafolio', 'estado', 'inicio', 'fan_page', 'nota'],
+      rows: valores(answer).slice(1).map((r, i) => ({ fila: i + 2, codigo: String(r[0] || '').trim(), numero: String(r[1] || '').trim(), celular: String(r[2] || '').trim(), pais: String(r[3] || '').trim(), portafolio: String(r[4] || '').trim(), estado: String(r[5] || '').trim().toUpperCase(), inicio: leerFecha(r[6]) || String(r[6] || ''), fan_page: String(r[7] || '').trim(), nota: String(r[8] || '') }))
+        .filter((r) => r.codigo && (r.numero || r.celular)),
+    }),
+  });
+  dash.loader('gastos', {
+    description: 'La pestaña Gastos como filas: fecha, concepto, categoría, valor en COP, quién lo pagó y a qué país se carga (General si a ninguno) de cada gasto que no es pauta.',
+    fn: ({ answer }) => ({
+      columns: ['fila', 'fecha', 'concepto', 'categoria', 'valor', 'pagado_por', 'nota', 'pais'],
+      rows: valores(answer).slice(1).map((r, i) => ({ fila: i + 2, fecha: leerFecha(r[0]), concepto: String(r[1] || ''), categoria: String(r[2] || ''), valor: leerValor(r[3]), pagado_por: String(r[4] || ''), nota: String(r[5] || ''), pais: String(r[6] || '').trim() || 'General' }))
+        .filter((r) => r.fecha && r.valor),
+    }),
+  });
+  const COLS_CIERRE = ['id', 'tipo', 'desde', 'hasta', 'ventas', 'pauta_iva', 'utilidad_paises', 'gastos', 'detalle_gastos', 'utilidad_total', 'proveedores', 'pct_trab', 'nomina', 'pct_emp', 'empresa', 'socio1', 'socio2', 'rentabilidad', 'roas', 'ventas_n', 'registrado', 'estado'];
+  dash.loader('cierres', {
+    description: 'La pestaña Cierres como filas: cada cierre guardado con sus totales y el reparto.',
+    fn: ({ answer }) => ({
+      columns: COLS_CIERRE,
+      rows: valores(answer).slice(1).filter((r) => r[0]).map((r) => {
+        const o = {};
+        COLS_CIERRE.forEach((c, i) => { o[c] = ['id', 'tipo', 'detalle_gastos', 'registrado', 'estado'].includes(c) ? String(r[i] || '') : ['desde', 'hasta'].includes(c) ? leerFecha(r[i]) : leerValor(r[i]); });
+        return o;
+      }),
+    }),
+  });
+  dash.loader('cambios', {
+    description: 'La pestaña Cambios_programados como filas: cada cambio pedido para Meta, cuándo se aplica y su estado.',
+    fn: ({ answer }) => ({
+      columns: ['fila', 'solicitado', 'cuenta', 'nivel', 'meta_id', 'nombre', 'accion', 'presupuesto', 'aplicar', 'estado', 'resultado'],
+      rows: valores(answer).slice(1).map((r, i) => ({ fila: i + 2, solicitado: String(r[0] || ''), cuenta: String(r[1] || ''), nivel: String(r[2] || ''), meta_id: String(r[3] || ''), nombre: String(r[4] || ''), accion: String(r[5] || ''), presupuesto: leerValor(r[6]), aplicar: String(r[7] || ''), estado: String(r[8] || ''), resultado: String(r[9] || '') }))
+        .filter((r) => r.nombre || r.meta_id),
+    }),
+  });
+
+  // --- Cálculos ---
+  // Colchón de la tasa: cada tasa de la pestaña Tasas se usa un X % más baja, para no mostrar utilidad que no existe
+  // cuando el dinero se cambie a pesos. Por defecto 3 %; se cambia con una fila «Colchón tasa» en la pestaña Config.
+  const COLCHON_TASA_DEF = 3;
+  const colchonTasa = () => {
+    const C = window.dash.data('config');
+    const f = C.status === 'ok' ? C.data.find((c) => c.tipo === 'porcentaje' && /tasa|colch/i.test(c.parametro)) : null;
+    const v = f && Number.isFinite(f.valor) ? f.valor : COLCHON_TASA_DEF;
+    return Math.min(50, Math.max(0, v));
+  };
+  dash.calc('tasas_aj', {
+    title: 'Tasas con colchón',
+    description: 'La hoja Tasas con cada tasa rebajada por el colchón de seguridad (por defecto 3 %). Las columnas <MONEDA>_real guardan la tasa original de la hoja.',
+    inputs: ['tasas'],
+    fn: (tasas) => {
+      const k = 1 - colchonTasa() / 100;
+      return tasas.map((t) => {
+        const o = { fecha: t.fecha };
+        Object.keys(t).forEach((m) => { if (/^[A-Z]{3}$/.test(m) && t[m]) { o[m] = Math.round(t[m] * k * 10000) / 10000; o[m + '_real'] = t[m]; } });
+        return o;
+      });
+    },
+  });
+  dash.calc('ventas_cop', {
+    title: 'Ventas en pesos colombianos',
+    description: 'Cada venta convertida a COP con la tasa (ya con colchón) de su día, o la del último día con tasa.',
+    inputs: ['ventas', 'tasas_aj'],
+    fn: (ventas, tasas) => {
+      const fechas = tasas.map((t) => t.fecha).sort();
+      const porFecha = Object.fromEntries(tasas.map((t) => [t.fecha, t]));
+      return ventas.filter((v) => v.fecha && v.valor_local > 0 && v.fecha >= fechas[0]).map((v) => {
+        const dia = fechas.filter((f) => f <= v.fecha).pop();
+        const tasa = v.moneda === 'COP' ? 1 : porFecha[dia] && porFecha[dia][v.moneda];
+        return { ...v, tasa, valor_cop: tasa ? Math.round(v.valor_local * tasa) : null };
+      });
+    },
+  });
+
+  dash.calc('meta_dias', {
+    title: 'Pauta por anuncio y día',
+    description: 'Días cerrados de la pestaña Meta_diario más el día de hoy en vivo desde Meta: gasto y conversaciones por anuncio y día (solo cuentas en COP; una cuenta en otra moneda necesita su tasa en la pestaña Tasas).',
+    inputs: ['meta_diario', 'meta_hoy'],
+    fn: (meta_diario, meta_hoy) => {
+      const hoy = meta_hoy.length ? meta_hoy[0].rango_desde : null;
+      const m = {};
+      meta_diario.filter((r) => r.fecha && (!hoy || r.fecha < hoy)).forEach((r) => { m[r.fecha + '|' + r.ad_id] = { fecha: r.fecha, ad_id: r.ad_id, anuncio: r.anuncio, campana_id: r.campana_id, campana: r.campana, conjunto: r.conjunto, gasto: r.gasto, conversaciones: r.conversaciones }; });
+      meta_hoy.filter((r) => r.moneda === 'COP' && (r.gasto > 0 || r.conversaciones > 0)).forEach((r) => { m[r.rango_desde + '|' + r.ad_id] = { fecha: r.rango_desde, ad_id: r.ad_id, anuncio: r.anuncio, campana_id: r.campana_id, campana: r.campana, conjunto: r.conjunto, gasto: r.gasto, conversaciones: r.conversaciones }; });
+      return Object.values(m).map((r) => ({ clave: r.fecha + '|' + r.ad_id, ...r }));
+    },
+  });
+
+
+  dash.calc('resumen', {
+    title: 'Resultados del rango elegido',
+    description: 'Gasto, pauta con IVA (19 %), ventas, utilidad, ROAS, conversaciones, % de conversión, costo por conversación y recomendación del rango (Escalar ROAS ≥ 2; Mantener 1,8–2; Bajar 1–1,8; Apagar < 1 con más de $20.000 de gasto): total, por país, por campaña y por anuncio. Utilidad = ventas − gasto × 1,19; ROAS = ventas ÷ (gasto × 1,19); % conversión = ventas ÷ conversaciones.',
+    inputs: ['meta_rango', 'ventas_cop', 'meta_campanas', 'meta_conjuntos', 'paises', 'tasas_aj'],
+    fn: (meta_rango, ventas_cop, meta_campanas, meta_conjuntos, paises, tasas) => {
+      const IVA = 1.19;
+      const monedaDe = {}; paises.forEach((x) => { if (!monedaDe[x.pais]) monedaDe[x.pais] = x.moneda; });
+      const fechasT = tasas.map((t) => t.fecha).sort();
+      const tasaAl = (mon, f, campo) => { if (mon === 'COP') return 1; const d = fechasT.filter((x) => x <= f).reverse().find((x) => { const t = tasas.find((y) => y.fecha === x); return t && t[mon]; }); const t = d && tasas.find((y) => y.fecha === d); return t ? t[campo || mon] : null; };
+      const REGLA = (roas, gasto) => (gasto < 20000 && (roas === null || roas < 1.8) ? 'Datos insuficientes' : roas >= 2 ? 'Escalar' : roas >= 1.8 ? 'Mantener' : roas >= 1 ? 'Bajar presupuesto' : 'Apagar');
+      if (!meta_rango.length) return [];
+      const desde = meta_rango[0].rango_desde, hasta = meta_rango[0].rango_hasta;
+      const ESTADOS = { ACTIVE: 'Activa', PAUSED: 'Pausada', CAMPAIGN_PAUSED: 'Pausada', ADSET_PAUSED: 'Pausada', ARCHIVED: 'Archivada', DELETED: 'Eliminada', DISAPPROVED: 'Rechazada', PENDING_REVIEW: 'En revisión', IN_PROCESS: 'En revisión', WITH_ISSUES: 'Con problemas' };
+      const prefijos = paises.map((p) => [p.prefijo.toLowerCase(), p.pais]).sort((x, y) => y[0].length - x[0].length);
+      const paisDe = (c) => (prefijos.find(([p]) => c.toLowerCase().startsWith(p)) || [null, 'Otro'])[1];
+      const camp = Object.fromEntries(meta_campanas.map((c) => [c.campana_id, c]));
+      const conjPorCamp = {};
+      meta_conjuntos.forEach((j) => { if (j.estado === 'ACTIVE' && j.presupuesto) conjPorCamp[j.campana_id] = (conjPorCamp[j.campana_id] || 0) + j.presupuesto; });
+      meta_rango = meta_rango.filter((r) => r.moneda === 'COP');
+      if (!meta_rango.length) return [];
+      const anuncios = Object.fromEntries(meta_rango.map((r) => [r.ad_id, r]));
+      const g = {};
+      const base = (clave, b) => (g[clave] = g[clave] || { clave, ...b, gasto: 0, conversaciones: 0, ventas_n: 0, ventas_cop: 0, sin_atrib_n: 0, sin_atrib_cop: 0, v_loc: 0, v_otra_cop: 0 });
+      const sumarLocal = (x, v) => { if (monedaDe[x.pais] && v.moneda === monedaDe[x.pais]) x.v_loc += v.valor_local; else x.v_otra_cop += v.valor_cop; };
+      const niveles = (ad, pais) => {
+        const a = anuncios[ad];
+        const out = [base('total|todos', { nivel: 'total', pais: 'todos', nombre: 'Total' }), base('pais|' + pais, { nivel: 'pais', pais, nombre: pais })];
+        if (a) {
+          out.push(base('campana|' + a.campana_id, { nivel: 'campana', pais, nombre: a.campana, campana_id: a.campana_id, cuenta: a.cuenta }));
+          out.push(base('anuncio|' + ad, { nivel: 'anuncio', pais, nombre: a.anuncio, campana_id: a.campana_id, campana: a.campana, conjunto: a.conjunto, ad_id: ad, estado_ad: a.estado, frecuencia: a.frecuencia }));
+        }
+        return out;
+      };
+      base('total|todos', { nivel: 'total', pais: 'todos', nombre: 'Total' });
+      paises.forEach((p) => base('pais|' + p.pais, { nivel: 'pais', pais: p.pais, nombre: p.pais }));
+      meta_rango.forEach((r) => niveles(r.ad_id, paisDe(r.campana)).forEach((x) => { x.gasto += r.gasto; x.conversaciones += r.conversaciones; }));
+      ventas_cop.filter((v) => v.fecha >= desde && v.fecha <= hasta && v.valor_cop).forEach((v) => {
+        const a = anuncios[v.ad_id];
+        if (a) niveles(v.ad_id, paisDe(a.campana)).forEach((x) => { x.ventas_n += 1; x.ventas_cop += v.valor_cop; sumarLocal(x, v); });
+        else niveles(null, v.pais).forEach((x) => { x.sin_atrib_n += 1; x.sin_atrib_cop += v.valor_cop; sumarLocal(x, v); });
+      });
+      return Object.values(g).map((x) => {
+        const ventas = x.ventas_cop + x.sin_atrib_cop;
+        // Moneda local: solo cuando el renglón es de un país (o de una campaña/anuncio de ese país)
+        const moneda = x.nivel !== 'total' ? monedaDe[x.pais] || null : null;
+        const tasa = moneda ? tasaAl(moneda, hasta) : null;
+        const tasa_real = moneda ? tasaAl(moneda, hasta, moneda + '_real') : null;
+        const loc = {
+          moneda, tasa, tasa_real: moneda === 'COP' ? 1 : tasa_real, colchon_tasa: colchonTasa(),
+          ventas_local: moneda && tasa ? Math.round((x.v_loc + x.v_otra_cop / tasa) * 100) / 100 : null,
+        };
+        const n = x.ventas_n + x.sin_atrib_n;
+        const roas = x.gasto > 0 ? Math.round((ventas / (x.gasto * IVA)) * 100) / 100 : null;
+        const c = x.campana_id ? camp[x.campana_id] : null;
+        const extra = x.nivel === 'campana' ? {
+          estado_meta: c ? ESTADOS[c.estado] || c.estado : 'Archivada',
+          activa: c ? c.estado === 'ACTIVE' : false,
+          presupuesto: c ? c.presupuesto || conjPorCamp[x.campana_id] || null : null,
+          presupuesto_tipo: c && c.presupuesto ? 'Campaña' : 'Conjuntos activos',
+        } : x.nivel === 'anuncio' ? { estado_meta: ESTADOS[x.estado_ad] || x.estado_ad, activa: x.estado_ad === 'ACTIVE' } : {};
+        return {
+          ...x, ...extra, ...loc, desde, hasta,
+          gasto_iva: Math.round(x.gasto * IVA), ventas_total_cop: ventas, ventas_total_n: n,
+          ganancia: Math.round(ventas - x.gasto * IVA), roas,
+          margen: ventas > 0 ? Math.round(((ventas - x.gasto * IVA) / ventas) * 1000) / 10 : null,
+          pct_conv: x.conversaciones > 0 ? Math.round((x.ventas_n / x.conversaciones) * 1000) / 10 : null,
+          costo_conv: x.conversaciones > 0 ? Math.round(x.gasto / x.conversaciones) : null,
+          recomendacion: x.nivel === 'campana' || x.nivel === 'anuncio' ? REGLA(roas, x.gasto) : null,
+        };
+      });
+    },
+  });
+
+  dash.calc('diario', {
+    title: 'Resultados día a día',
+    description: 'Por día: pauta con IVA, ventas, utilidad, ROAS, conversaciones y % de conversión, en total, por país y por campaña (días cerrados de Meta_diario y hoy en vivo).',
+    inputs: ['meta_dias', 'ventas_cop', 'paises'],
+    fn: (meta_dias, ventas_cop, paises) => {
+      const IVA = 1.19;
+      const prefijos = paises.map((p) => [p.prefijo.toLowerCase(), p.pais]).sort((x, y) => y[0].length - x[0].length);
+      const paisDe = (c) => (prefijos.find(([p]) => c.toLowerCase().startsWith(p)) || [null, 'Otro'])[1];
+      const adInfo = {};
+      meta_dias.forEach((r) => { adInfo[r.ad_id] = r; });
+      const g = {};
+      const sumar = (fecha, nivel, id, nombre, campo, v) => { const k = fecha + '|' + nivel + '|' + id; (g[k] = g[k] || { clave: k, fecha, nivel, id, nombre, gasto: 0, conversaciones: 0, ventas_n: 0, ventas_cop: 0, ventas_atrib_n: 0 })[campo] += v; };
+      const todos = (fecha, ad, pais, campo, v) => {
+        sumar(fecha, 'total', 'todos', 'Total', campo, v);
+        sumar(fecha, 'pais', pais, pais, campo, v);
+        const a = adInfo[ad];
+        if (a) sumar(fecha, 'campana', a.campana_id, a.campana, campo, v);
+      };
+      const fechas = meta_dias.map((r) => r.fecha).sort();
+      const min = fechas[0], max = fechas[fechas.length - 1];
+      meta_dias.forEach((r) => { const p = paisDe(r.campana); todos(r.fecha, r.ad_id, p, 'gasto', r.gasto); todos(r.fecha, r.ad_id, p, 'conversaciones', r.conversaciones); });
+      ventas_cop.filter((v) => v.valor_cop && v.fecha >= min && v.fecha <= max).forEach((v) => {
+        const a = adInfo[v.ad_id];
+        const p = a ? paisDe(a.campana) : v.pais;
+        todos(v.fecha, a ? v.ad_id : null, p, 'ventas_n', 1);
+        todos(v.fecha, a ? v.ad_id : null, p, 'ventas_cop', v.valor_cop);
+        if (a) todos(v.fecha, v.ad_id, p, 'ventas_atrib_n', 1);
+      });
+      return Object.values(g).map((r) => ({
+        ...r, gasto_iva: Math.round(r.gasto * IVA), ganancia: Math.round(r.ventas_cop - r.gasto * IVA),
+        roas: r.gasto > 0 ? Math.round((r.ventas_cop / (r.gasto * IVA)) * 100) / 100 : null,
+        pct_conv: r.conversaciones > 0 ? Math.round((r.ventas_atrib_n / r.conversaciones) * 1000) / 10 : null,
+      }));
+    },
+  });
+
+  dash.calc('escalado', {
+    title: 'Regla de escalado (3 días)',
+    description: 'Dos ventanas de 3 días por anuncio: cierre de hoy (antier, ayer y hoy en vivo) y cierre anterior (los 3 días cerrados antes de hoy). ROAS (ventas ÷ pauta con IVA) de cada día, combinado, y si los tres días tienen ROAS igual o mayor a 2,0. El tablero muestra el cierre de hoy desde las 9 p. m. (hora Colombia) y el anterior antes de esa hora.',
+    inputs: ['meta_dias', 'meta_hoy', 'ventas_cop'],
+    fn: (meta_dias, meta_hoy, ventas_cop) => {
+      const IVA = 1.19;
+      const fechas = meta_dias.map((r) => r.fecha).filter(Boolean).sort();
+      if (!fechas.length) return [];
+      const mas = (f, n) => new Date(Date.parse(f + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+      const D = meta_hoy.length ? meta_hoy[0].rango_desde : mas(fechas[fechas.length - 1], 1);
+      const ventanas = { cierre_hoy: [mas(D, -2), mas(D, -1), D], cierre_anterior: [mas(D, -3), mas(D, -2), mas(D, -1)] };
+      const out = [];
+      Object.entries(ventanas).forEach(([ventana, dias]) => {
+        const ads = {};
+        meta_dias.filter((r) => dias.includes(r.fecha)).forEach((r) => {
+          const a = (ads[r.ad_id] = ads[r.ad_id] || { ad_id: r.ad_id, anuncio: r.anuncio, campana: r.campana, gasto: [0, 0, 0], ventas: [0, 0, 0] });
+          a.gasto[dias.indexOf(r.fecha)] += r.gasto;
+        });
+        ventas_cop.filter((v) => ads[v.ad_id] && dias.includes(v.fecha) && v.valor_cop).forEach((v) => { ads[v.ad_id].ventas[dias.indexOf(v.fecha)] += v.valor_cop; });
+        Object.values(ads).forEach((a) => {
+          const r = a.gasto.map((g, i) => (g > 0 ? Math.round((a.ventas[i] / (g * IVA)) * 100) / 100 : null));
+          const gasto = a.gasto.reduce((s, x) => s + x, 0), ventas = a.ventas.reduce((s, x) => s + x, 0);
+          out.push({
+            clave: ventana + '|' + a.ad_id, ventana, ad_id: a.ad_id, anuncio: a.anuncio, campana: a.campana, dia1: dias[0], dia2: dias[1], dia3: dias[2],
+            roas_dia1: r[0], roas_dia2: r[1], roas_dia3: r[2],
+            roas_combinado: gasto > 0 ? Math.round((ventas / (gasto * IVA)) * 100) / 100 : null,
+            ganancia_3d: Math.round(ventas - gasto * IVA), cumple: r.every((x) => x !== null && x >= 2),
+          });
+        });
+      });
+      return out;
+    },
+  });
+
+  dash.calc('paginas_uso', {
+    title: 'Uso de cada fan page',
+    description: 'Por página: si tiene anuncios activos ahora (pautando), en qué cuentas publicitarias, con qué campañas, en qué países (por el prefijo de la campaña) y cuántas conversaciones de WhatsApp han iniciado hoy sus anuncios activos.',
+    inputs: ['meta_paginas', 'meta_creativos', 'paises', 'meta_hoy'],
+    fn: (meta_paginas, meta_creativos, paises, meta_hoy) => {
+      const convHoy = {}; meta_hoy.forEach((r) => { convHoy[r.ad_id] = (convHoy[r.ad_id] || 0) + r.conversaciones; });
+      const prefijos = paises.map((p) => [p.prefijo.toLowerCase(), p.pais]).sort((x, y) => y[0].length - x[0].length);
+      const paisDe = (c) => (prefijos.find(([p]) => c.toLowerCase().startsWith(p)) || [null, 'Otro'])[1];
+      const pags = {};
+      meta_paginas.forEach((p) => { pags[p.page_id] = { page_id: p.page_id, pagina: p.pagina, registrada_en: p.usada_en, cuentas: new Set(), campanas: new Set(), paises: new Set(), anuncios: 0 }; });
+      meta_creativos.filter((a) => a.estado === 'ACTIVE' && a.page_id).forEach((a) => {
+        const p = (pags[a.page_id] = pags[a.page_id] || { page_id: a.page_id, pagina: 'Página ' + a.page_id, registrada_en: '', cuentas: new Set(), campanas: new Set(), paises: new Set(), anuncios: 0 });
+        p.cuentas.add(a.cuenta); p.campanas.add(a.campana); p.paises.add(paisDe(a.campana)); p.anuncios += 1; p.conv_hoy = (p.conv_hoy || 0) + (convHoy[a.ad_id] || 0);
+      });
+      return Object.values(pags).map((p) => ({
+        page_id: p.page_id, pagina: p.pagina, pautando: p.anuncios > 0 ? 'Sí' : 'No', anuncios: p.anuncios, conv_hoy: p.conv_hoy || 0,
+        cuenta: p.cuentas.size ? [...p.cuentas].join(', ') : p.registrada_en || '—',
+        campanas: [...p.campanas].sort().join(', '), paises: [...p.paises].sort().join(', '),
+      }));
+    },
+  });
+  dash.calc('numeros_uso', {
+    title: 'Uso de cada número de WhatsApp',
+    description: 'Cada número de la pestaña Numeros con su estado automático: ACTIVO si su fan page vinculada tiene anuncios activos; SIN USO si estuvo activo y ya no; si no, el estado de la hoja (CALENTAMIENTO, PAUSADO, BLOQUEADO). Incluye en qué fan page y campañas se está pautando.',
+    inputs: ['numeros', 'paginas_uso'],
+    fn: (numeros, paginas_uso) => {
+      const norm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+      return numeros.map((n) => {
+        const p = n.fan_page ? paginas_uso.find((x) => x.page_id === n.fan_page || norm(x.pagina) === norm(n.fan_page)) : null;
+        const pautando = !!p && p.pautando === 'Sí';
+        const manual = n.estado || 'CALENTAMIENTO';
+        const estado_auto = ['BLOQUEADO', 'PAUSADO'].includes(manual) ? manual : pautando ? 'ACTIVO' : manual === 'ACTIVO' || manual === 'SIN USO' ? 'SIN USO' : manual;
+        const disponible = estado_auto === 'ACTIVO' ? 'No · pautando en ' + p.pagina + ' (' + p.paises + ') · ' + p.conv_hoy + ' conversaciones hoy' : estado_auto === 'CALENTAMIENTO' ? 'En calentamiento' + (n.fan_page ? '' : ' · sin fan page') : estado_auto === 'BLOQUEADO' ? 'Bloqueado' : estado_auto === 'PAUSADO' ? 'Pausado' : !n.fan_page ? 'Sí, sin uso (asígnale fan page)' : !p ? 'Fan page no encontrada' : 'Sí, sin uso · ' + p.pagina + ' sin anuncios activos';
+        return { ...n, estado_hoja: manual, estado: estado_auto, page_id: p ? p.page_id : '', pagina: p ? p.pagina : n.fan_page, campanas: p ? p.campanas : '', paises_pauta: p ? p.paises : '', anuncios: p ? p.anuncios : 0, conv_hoy: p ? p.conv_hoy : 0, pautando, disponible };
+      });
+    },
+  });
+
+  dash.calc('liquidacion', {
+    title: 'Cierres por quincena y mes',
+    description: 'Por periodo (filas total) y por periodo y país (filas pais, también en moneda local con la tasa de Tasas al cierre del periodo): ventas, pauta con IVA, utilidad de países, gastos, utilidad total, comisión de proveedores (% de la utilidad de cada país, si es positiva), nómina (% de la utilidad total; si hay trabajadores en Config, la suma de sus % y una fila trabajador por persona con su pago), empresa (% de la utilidad total) y lo que queda para cada socio, con los porcentajes de la pestaña Config.',
+    inputs: ['meta_dias', 'ventas_cop', 'gastos', 'config', 'paises', 'tasas_aj'],
+    fn: (meta_dias, ventas_cop, gastos, config, paises, tasas) => {
+      const periodosDe = (fechas) => {
+        const meses = [...new Set(fechas.map((f) => f.slice(0, 7)))].sort();
+        const out = [];
+        meses.forEach((m) => {
+          const [y, mm] = m.split('-').map(Number);
+          const fin = new Date(Date.UTC(y, mm, 0)).getUTCDate();
+          out.push({ periodo: m + '-Q1', tipo: 'Quincena', desde: m + '-01', hasta: m + '-15' });
+          out.push({ periodo: m + '-Q2', tipo: 'Quincena', desde: m + '-16', hasta: m + '-' + String(fin).padStart(2, '0') });
+          out.push({ periodo: m, tipo: 'Mes', desde: m + '-01', hasta: m + '-' + String(fin).padStart(2, '0') });
+        });
+        return out;
+      };
+      const pct = (config, re, def) => { const f = config.find((c) => c.tipo === 'porcentaje' && re.test(c.parametro)); return f && f.valor !== null ? f.valor : def; };
+        const IVA = 1.19;
+        const monedaDe = {}; paises.forEach((x) => { if (!monedaDe[x.pais]) monedaDe[x.pais] = x.moneda; });
+        const fechasT = tasas.map((t) => t.fecha).sort();
+        const tasaAl = (mon, f) => { if (mon === 'COP') return 1; const d = fechasT.filter((x) => x <= f).reverse().find((x) => { const t = tasas.find((y) => y.fecha === x); return t && t[mon]; }); const t = d && tasas.find((y) => y.fecha === d); return t ? t[mon] : null; };
+        const P_PROV = pct(config, /proveedor/i, 10), P_TRAB0 = pct(config, /trabajador/i, 15), P_EMP = pct(config, /empresa/i, 10);
+        const trabajadores = config.filter((c) => c.tipo === 'trabajador' && c.valor > 0);
+        const P_TRAB = trabajadores.length ? Math.round(trabajadores.reduce((x, c) => x + c.valor, 0) * 100) / 100 : P_TRAB0;
+        const pagos = [];
+        const socios = config.filter((c) => c.tipo === 'porcentaje' && /^socio/i.test(c.parametro));
+        const S1 = socios[0] ? socios[0].valor : 50, S2 = socios[1] ? socios[1].valor : 50;
+        const prefijos = paises.map((p) => [p.prefijo.toLowerCase(), p.pais]).sort((x, y) => y[0].length - x[0].length);
+        const paisDe = (c) => (prefijos.find(([p]) => c.toLowerCase().startsWith(p)) || [null, 'Otro'])[1];
+        const fechas = meta_dias.map((r) => r.fecha).sort();
+        if (!fechas.length) return [];
+        const datosDesde = fechas[0], hoy = fechas[fechas.length - 1];
+        const tot = [], pai = [];
+        periodosDe(fechas).filter((p) => p.desde <= hoy && p.hasta >= datosDesde).forEach((p) => {
+          const enP = (f) => f >= p.desde && f <= p.hasta;
+          const porPais = {};
+          paises.forEach((x) => { porPais[x.pais] = { pais: x.pais, gasto: 0, ventas: 0, ventas_n: 0, conversaciones: 0 }; });
+          const pp = (k) => (porPais[k] = porPais[k] || { pais: k, gasto: 0, ventas: 0, ventas_n: 0, conversaciones: 0 });
+          const adPais = {};
+          meta_dias.forEach((r) => { adPais[r.ad_id] = paisDe(r.campana); });
+          meta_dias.filter((r) => enP(r.fecha)).forEach((r) => { const x = pp(paisDe(r.campana)); x.gasto += r.gasto; x.conversaciones += r.conversaciones; });
+          ventas_cop.filter((v) => v.valor_cop && enP(v.fecha)).forEach((v) => { const x = pp(adPais[v.ad_id] || v.pais); x.ventas += v.valor_cop; x.ventas_n += 1; if (v.moneda === monedaDe[x.pais]) x.ventas_local = (x.ventas_local || 0) + v.valor_local; else x.ventas_otra = (x.ventas_otra || 0) + v.valor_cop; });
+          const gs = gastos.filter((g) => enP(g.fecha));
+          const gastoPais = {};
+          gs.forEach((g) => { gastoPais[g.pais] = (gastoPais[g.pais] || 0) + g.valor; if (g.pais !== 'General') pp(g.pais); });
+          let ventas = 0, pauta = 0, prov = 0, util_p = 0, n = 0, conv = 0;
+          Object.values(porPais).forEach((x) => {
+            const pauta_iva = Math.round(x.gasto * IVA);
+            const util = Math.round(x.ventas - pauta_iva);
+            const com = util > 0 ? Math.round((util * P_PROV) / 100) : 0;
+            ventas += x.ventas; pauta += pauta_iva; prov += com; util_p += util; n += x.ventas_n; conv += x.conversaciones;
+            const moneda = monedaDe[x.pais] || 'COP';
+            const tasa = tasaAl(moneda, p.hasta < hoy ? p.hasta : hoy);
+            const loc = (cop) => (tasa ? Math.round((cop / tasa) * 100) / 100 : null);
+            const ventas_local = tasa ? Math.round(((x.ventas_local || 0) + (x.ventas_otra || 0) / tasa) * 100) / 100 : null;
+            const g_p = Math.round(gastoPais[x.pais] || 0);
+            const ut_p = util - g_p, base_p = Math.max(ut_p, 0);
+            const nom_p = Math.round((base_p * P_TRAB) / 100), emp_p = Math.round((base_p * P_EMP) / 100);
+            const resto_p = ut_p - com - nom_p - emp_p;
+            if (x.gasto || x.ventas || g_p) pai.push({ clave: p.periodo + '|' + x.pais, periodo: p.periodo, tipo: p.tipo, pais: x.pais, desde: p.desde, hasta: p.hasta, completo: p.hasta < hoy, ventas: Math.round(x.ventas), ventas_n: x.ventas_n, pauta_iva, utilidad: util, pct_prov: P_PROV, comision: com, conversaciones: x.conversaciones,
+              gastos: g_p, utilidad_total: ut_p, proveedores: com, pct_trab: P_TRAB, nomina: nom_p, pct_emp: P_EMP, empresa: emp_p, pct_s1: S1, pct_s2: S2, socio1: Math.round((resto_p * S1) / 100), socio2: Math.round((resto_p * S2) / 100),
+              rentabilidad: pauta_iva > 0 ? Math.round((ut_p / pauta_iva) * 1000) / 10 : null, roas: x.gasto > 0 ? Math.round((x.ventas / (x.gasto * IVA)) * 100) / 100 : null,
+              moneda, tasa, ventas_local, pauta_local: loc(pauta_iva), utilidad_local: ventas_local === null ? null : Math.round((ventas_local - pauta_iva / tasa) * 100) / 100, comision_local: ventas_local === null ? null : Math.max(0, Math.round((ventas_local - pauta_iva / tasa) * P_PROV) / 100) });
+          });
+          const gasto_total = Math.round(gs.reduce((s, g) => s + g.valor, 0));
+          const util_total = util_p - gasto_total;
+          const base = Math.max(util_total, 0);
+          const nomina = Math.round((base * P_TRAB) / 100), empresa = Math.round((base * P_EMP) / 100);
+          trabajadores.forEach((w) => pagos.push({ nivel: 'trabajador', clave: p.periodo + '|trab|' + w.nombre, periodo: p.periodo, nombre: w.nombre, pct: w.valor, pago: Math.round((base * w.valor) / 100) }));
+          const resto = util_total - prov - nomina - empresa;
+          tot.push({
+            periodo: p.periodo, tipo: p.tipo, desde: p.desde, hasta: p.hasta, completo: p.hasta < hoy, datos_desde: datosDesde, parcial: p.desde < datosDesde,
+            ventas: Math.round(ventas), ventas_n: n, conversaciones: conv, pauta_iva: pauta, utilidad_paises: util_p, gastos: gasto_total, utilidad_total: util_total,
+            pct_prov: P_PROV, proveedores: prov, pct_trab: P_TRAB, nomina, pct_emp: P_EMP, empresa, pct_s1: S1, pct_s2: S2,
+            socio1: Math.round((resto * S1) / 100), socio2: Math.round((resto * S2) / 100),
+            rentabilidad: pauta > 0 ? Math.round((util_total / pauta) * 1000) / 10 : null,
+            roas: pauta > 0 ? Math.round((ventas / pauta) * 100) / 100 : null,
+          });
+        });
+          return [...tot.map((t) => ({ nivel: 'total', clave: t.periodo, ...t })), ...pai.map((p) => ({ nivel: 'pais', ...p })), ...pagos];
+    },
+  });
+  dash.calc('liquidacion_paises', {
+    title: 'Cierres por país',
+    description: 'Las filas por país del cálculo de cierres: el cierre de cada país con sus ventas, pauta con IVA, gastos cargados a ese país, utilidad, comisión del proveedor, nómina, empresa y socios, también en moneda local.',
+    inputs: ['liquidacion'],
+    fn: (liquidacion) => liquidacion.filter((r) => r.nivel === 'pais'),
+  });
+})();
+</script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const cop = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+  const num = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
+  const dec = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fLocal = (v, mon) => { if (v === null || v === undefined || !Number.isFinite(v)) return '—'; try { return new Intl.NumberFormat('es-CO', { style: 'currency', currency: mon || 'COP', maximumFractionDigits: mon === 'COP' || mon === 'CLP' ? 0 : 2 }).format(v); } catch (e) { return num.format(v) + ' ' + mon; } };
+  const fTasa = (v) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : new Intl.NumberFormat('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: v < 10 ? 4 : 2 }).format(v));
+  const corto = new Intl.NumberFormat('es-CO', { notation: 'compact', maximumFractionDigits: 1 });
+  const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const MESES_L = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const fCorta = (f) => (f ? Number(f.slice(8, 10)) + ' ' + MESES[Number(f.slice(5, 7)) - 1] : '');
+  const fLarga = (f) => (f ? Number(f.slice(8, 10)) + ' de ' + MESES_L[Number(f.slice(5, 7)) - 1] : '');
+  const DINERO = ['gasto', 'gasto_iva', 'ventas_cop', 'ventas_total_cop', 'ganancia', 'costo_conv', 'presupuesto', 'ganancia_3d', 'ventas', 'pauta_iva', 'utilidad', 'comision', 'gastos', 'utilidad_total', 'utilidad_paises', 'proveedores', 'nomina', 'empresa', 'socio1', 'socio2', 'valor', 'sin_atrib_cop'];
+  const fmt = (campo, v) => {
+    if (v === null || v === undefined || v === '' || (typeof v === 'number' && !Number.isFinite(v))) return '—';
+    if (DINERO.includes(campo)) return cop.format(v);
+    if (/^roas/.test(campo)) return dec.format(v) + 'x';
+    if (campo === 'pct_conv' || campo === 'margen' || campo === 'rentabilidad') return dec.format(v) + '%';
+    if (/^pct_/.test(campo)) return num.format(v) + '%';
+    if (campo === 'frecuencia') return dec.format(v);
+    if (typeof v === 'number') return num.format(v);
+    return String(v);
+  };
+  const enc = (s) => String(s).replace(/[%&=]/g, encodeURIComponent);
+  const hoyBog = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+  const sumar = (f, n) => new Date(Date.parse(f + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+  const SVGNS = 'http://www.w3.org/2000/svg';
+
+  // ---------- Fechas ----------
+  const HOY = hoyBog();
+  const rangoRapido = (k) => {
+    if (k === 'hoy') return [HOY, HOY];
+    if (k === 'ayer') return [sumar(HOY, -1), sumar(HOY, -1)];
+    if (k === 'quincena') return [HOY.slice(0, 8) + (Number(HOY.slice(8)) <= 15 ? '01' : '16'), HOY];
+    if (k === 'mes') return [HOY.slice(0, 8) + '01', HOY];
+    const n = Number(k) || 7;
+    return [sumar(HOY, -(n - 1)), HOY];
+  };
+  const fijarRango = (d, h) => {
+    if (h > HOY) h = HOY;
+    if (d > h) d = h;
+    dash.setParams({ desde: d, hasta: h, t_rango: JSON.stringify({ since: d, until: h }), t_hoy: JSON.stringify({ since: HOY, until: HOY }) });
+  };
+  const porDefecto = () => { $('r-rapido').value = '7'; fijarRango(...rangoRapido('7')); };
+  porDefecto();
+  $('r-rapido').addEventListener('change', (e) => { if (e.target.value !== 'custom') fijarRango(...rangoRapido(e.target.value)); });
+  ['f-desde', 'f-hasta'].forEach((id) => {
+    const el = $(id);
+    el.addEventListener('change', () => {
+      if (!el.value || !el.validity.valid) return;
+      $('r-rapido').value = 'custom';
+      const p = dash.params();
+      fijarRango(id === 'f-desde' ? el.value : p.desde, id === 'f-hasta' ? el.value : p.hasta);
+    });
+    el.addEventListener('blur', () => { el.value = dash.params()[id === 'f-desde' ? 'desde' : 'hasta'] || ''; });
+  });
+  const FUENTES = ['meta_rango', 'meta_hoy', 'meta_campanas', 'meta_conjuntos', 'meta_diario', 'meta_creativos', 'meta_paginas', 'ventas', 'tasas', 'gastos', 'config', 'cierres', 'cambios', 'numeros'];
+  $('actualizar').addEventListener('click', () => FUENTES.forEach((id) => dash.refresh(id)));
+
+  // ---------- Navegación ----------
+  let vista = 'inicio';
+  const mostrar = (v) => {
+    vista = v;
+    document.querySelectorAll('[data-vista]').forEach((s) => { s.hidden = s.dataset.vista !== v; });
+    document.querySelectorAll('#nav button').forEach((b) => { if (b.dataset.v === v) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
+    $('rango').style.visibility = v === 'contabilidad' || v === 'config' || v === 'paginas' ? 'hidden' : 'visible';
+    dash.setLink(v);
+    dibujar();
+  };
+  $('nav').addEventListener('click', (e) => { const b = e.target.closest('button[data-v]'); if (b) mostrar(b.dataset.v); });
+  document.querySelectorAll('[data-ir]').forEach((b) => b.addEventListener('click', () => mostrar(b.dataset.ir)));
+
+  // ---------- Estado local ----------
+  let paisSel = null;
+  let metrica = 'ganancia';
+  let abierta = null;
+  let periodoSel = null;
+  let paisCierre = null;
+  $('g-metricas').addEventListener('click', (e) => { const b = e.target.closest('[data-m]'); if (b) { metrica = b.dataset.m; dibujar(); } });
+  $('g-serie').addEventListener('change', dibujarSeguro);
+  $('diag-estado').addEventListener('change', dibujarSeguro);
+  $('diag-pais').addEventListener('change', (e) => { paisSel = e.target.value || null; dibujar(); });
+  $('liq-periodo').addEventListener('change', (e) => { periodoSel = e.target.value; dibujar(); });
+  $('liq-vista').addEventListener('change', (e) => { paisCierre = e.target.value || null; dibujar(); });
+  function dibujarSeguro() { dibujar(); }
+
+  const tip = $('tip');
+  const mostrarTip = (caja, x, y, html) => {
+    const r = caja.getBoundingClientRect(), R = tip.parentElement.getBoundingClientRect();
+    tip.replaceChildren();
+    html.forEach(([t, cls, color]) => { const d = document.createElement('div'); if (cls) d.className = cls; if (color) { const i = document.createElement('i'); i.style.cssText = 'display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:' + color; d.appendChild(i); } d.appendChild(document.createTextNode(t)); tip.appendChild(d); });
+    tip.hidden = false;
+    const w = tip.offsetWidth;
+    let left = r.left - R.left + x + 12; if (left + w > R.width) left = r.left - R.left + x - w - 12;
+    tip.style.left = Math.max(0, left) + 'px'; tip.style.top = (r.top - R.top + y - 10) + 'px';
+  };
+  const ocultarTip = () => { tip.hidden = true; };
+
+  const fallaEn = (el, ids) => {
+    const st = ids.map((id) => dash.data(id).status);
+    if (st.includes('error') || st.includes('connect') || st.includes('declined')) { el.replaceChildren(); el.classList.remove('dash-skeleton'); const d = document.createElement('div'); d.className = 'ag-fail'; d.textContent = st.includes('connect') ? 'Falta conectar la fuente' : 'No cargó'; el.appendChild(d); return 'fail'; }
+    if (st.some((s) => s !== 'ok')) { el.replaceChildren(); el.classList.add('dash-skeleton'); return 'loading'; }
+    el.classList.remove('dash-skeleton');
+    return 'ok';
+  };
+  const tabla = (t, cols, filas, opts = {}) => {
+    t.replaceChildren();
+    const tr = t.createTHead().insertRow();
+    cols.forEach(([c, n, cls]) => { const th = document.createElement('th'); th.dataset.field = c; th.textContent = n; if (cls) th.className = cls; tr.appendChild(th); });
+    const tb = t.createTBody();
+    filas.forEach((f) => {
+      const r = tb.insertRow(); r.dataset.key = f[opts.key || 'clave'];
+      if (opts.rowClass) r.className = opts.rowClass(f) || '';
+      cols.forEach(([c, , cls]) => {
+        const td = r.insertCell(); if (cls) td.className = cls;
+        if (opts.celda && opts.celda(td, c, f)) return;
+        td.textContent = fmt(c, f[c]);
+        if (['ganancia', 'utilidad', 'utilidad_total'].includes(c)) td.classList.add(f[c] > 0 ? 'ag-pos' : f[c] < 0 ? 'ag-neg' : 'x');
+      });
+      if (opts.despues) opts.despues(r, f, tb);
+    });
+    return tb;
+  };
+  const pill = (txt) => { const s = document.createElement('span'); s.className = 'ag-pill r-' + String(txt || 'Sin').split(' ')[0]; s.textContent = txt || '—'; return s; };
+
+  // ---------- Anillos ----------
+  const anillo = (svg, frac, color, texto, sub) => {
+    svg.replaceChildren();
+    const mk = (tag, at) => { const e = document.createElementNS(SVGNS, tag); Object.entries(at).forEach(([k, v]) => e.setAttribute(k, v)); svg.appendChild(e); return e; };
+    mk('circle', { cx: 50, cy: 50, r: 40, fill: 'none', stroke: 'rgba(255,255,255,.08)', 'stroke-width': 9 });
+    const L = 2 * Math.PI * 40, f = Math.max(0, Math.min(1, frac || 0));
+    mk('circle', { cx: 50, cy: 50, r: 40, fill: 'none', stroke: color, 'stroke-width': 9, 'stroke-linecap': 'round', 'stroke-dasharray': (L * f) + ' ' + L, transform: 'rotate(-90 50 50)', style: 'filter: drop-shadow(0 0 6px ' + color + '66)' });
+    const t = mk('text', { x: 50, y: 52, 'text-anchor': 'middle', fill: '#E8EDF7', 'font-size': 16, 'font-weight': 600 }); t.textContent = texto;
+    const s2 = mk('text', { x: 50, y: 66, 'text-anchor': 'middle', fill: '#8D9AB3', 'font-size': 8 }); s2.textContent = sub;
+  };
+
+  // ---------- Gráfico combinado ----------
+  const combo = (caja, dias) => {
+    caja.replaceChildren();
+    const W = Math.max(caja.clientWidth, 300), H = 300, m = { t: 22, r: 44, b: 30, l: 56 };
+    const svg = d3.select(caja).append('svg').attr('width', '100%').attr('viewBox', [0, 0, W, H]);
+    const x = d3.scaleBand(dias.map((d) => d.fecha), [m.l, W - m.r]).padding(0.25);
+    const lo = Math.min(0, d3.min(dias, (d) => Math.min(d.ganancia, 0)) || 0), hi = Math.max(1, d3.max(dias, (d) => Math.max(d.gasto_iva, d.ganancia)) || 1);
+    const y = d3.scaleLinear([lo, hi], [H - m.b, m.t]).nice();
+    const rmax = Math.max(2.5, d3.max(dias, (d) => d.roas || 0) || 0);
+    const y2 = d3.scaleLinear([0, rmax], [H - m.b, m.t]).nice();
+    svg.append('g').selectAll('line').data(y.ticks(5)).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y).attr('y2', y).attr('stroke', 'rgba(255,255,255,.06)');
+    svg.append('g').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5).tickFormat((v) => '$' + corto.format(v)).tickSize(0).tickPadding(8)).attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').remove());
+    svg.append('g').attr('transform', `translate(${W - m.r},0)`).call(d3.axisRight(y2).ticks(4).tickFormat((v) => dec.format(v) + 'x').tickSize(0).tickPadding(6)).attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').remove());
+    const cada = Math.ceil(dias.length / Math.max(1, Math.floor((W - m.l - m.r) / 52)));
+    svg.append('g').attr('transform', `translate(0,${H - m.b})`).call(d3.axisBottom(x).tickValues(dias.filter((d, i) => i % cada === 0).map((d) => d.fecha)).tickFormat(fCorta).tickSize(0).tickPadding(10)).attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').attr('stroke', 'rgba(255,255,255,.12)'));
+    const bw = Math.min(28, x.bandwidth() / 2);
+    const g = svg.append('g');
+    dias.forEach((d) => {
+      const cx = x(d.fecha) + x.bandwidth() / 2;
+      g.append('rect').attr('x', cx - bw - 1).attr('width', bw).attr('y', y(Math.max(0, d.gasto_iva))).attr('height', Math.abs(y(d.gasto_iva) - y(0))).attr('rx', 3).attr('fill', '#F5B800');
+      g.append('rect').attr('x', cx + 1).attr('width', bw).attr('y', y(Math.max(0, d.ganancia))).attr('height', Math.max(1, Math.abs(y(d.ganancia) - y(0)))).attr('rx', 3).attr('fill', d.ganancia >= 0 ? '#2DD4BF' : '#FB7185');
+    });
+    const pts = dias.filter((d) => d.roas !== null);
+    const linea = d3.line().x((d) => x(d.fecha) + x.bandwidth() / 2).y((d) => y2(d.roas)).curve(d3.curveMonotoneX);
+    svg.append('path').attr('d', linea(pts)).attr('fill', 'none').attr('stroke', '#A3E635').attr('stroke-width', 2).attr('stroke-linecap', 'round').attr('style', 'filter: drop-shadow(0 0 4px #A3E63599)');
+    svg.append('g').selectAll('circle').data(pts).join('circle').attr('cx', (d) => x(d.fecha) + x.bandwidth() / 2).attr('cy', (d) => y2(d.roas)).attr('r', 3).attr('fill', '#0A1120').attr('stroke', '#A3E635');
+    svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y2(2)).attr('y2', y2(2)).attr('stroke', 'rgba(163,230,53,.35)').attr('stroke-dasharray', '4 4');
+    svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', W - m.l - m.r).attr('height', H - m.t - m.b).attr('fill', 'transparent')
+      .on('mousemove', (ev) => {
+        const [mx] = d3.pointer(ev); const i = Math.max(0, Math.min(dias.length - 1, Math.floor((mx - m.l) / x.step())));
+        const d = dias[i];
+        mostrarTip(caja, mx * (caja.clientWidth / W), 20, [[fLarga(d.fecha), 'd'], ['Pauta con IVA ' + cop.format(d.gasto_iva), '', '#F5B800'], ['Utilidad ' + cop.format(d.ganancia), '', '#2DD4BF'], ['ROAS ' + (d.roas === null ? '—' : dec.format(d.roas) + 'x'), '', '#A3E635'], ['Conversaciones ' + num.format(d.conversaciones), 'd']]);
+      }).on('mouseleave', ocultarTip);
+  };
+
+  // ---------- Gráfico de líneas ----------
+  const COLORES = ['#F5B800', '#2DD4BF', '#60A5FA', '#FB7185', '#A3E635', '#C084FC', '#F97316', '#E8EDF7'];
+  const lineas = (caja, dias, series, campo) => {
+    caja.replaceChildren();
+    const W = Math.max(caja.clientWidth, 300), H = 320, m = { t: 16, r: 18, b: 30, l: 62 };
+    const vals = series.flatMap((s) => s.p.map((p) => p.v).filter((v) => v !== null));
+    if (!vals.length) return;
+    const y = d3.scaleLinear([Math.min(0, d3.min(vals)), Math.max(0, d3.max(vals))], [H - m.b, m.t]).nice();
+    const x = d3.scalePoint(dias, [m.l, W - m.r]).padding(0.3);
+    const svg = d3.select(caja).append('svg').attr('width', '100%').attr('viewBox', [0, 0, W, H]);
+    const tf = (v) => (DINERO.includes(campo) ? '$' + corto.format(v) : /roas/.test(campo) ? dec.format(v) + 'x' : campo === 'pct_conv' ? num.format(v) + '%' : num.format(v));
+    svg.append('g').selectAll('line').data(y.ticks(5)).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y).attr('y2', y).attr('stroke', 'rgba(255,255,255,.06)');
+    svg.append('g').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(tf).tickSize(0).tickPadding(8)).attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').remove());
+    const cada = Math.ceil(dias.length / Math.max(1, Math.floor((W - m.l - m.r) / 52)));
+    svg.append('g').attr('transform', `translate(0,${H - m.b})`).call(d3.axisBottom(x).tickValues(dias.filter((d, i) => i % cada === 0)).tickFormat(fCorta).tickSize(0).tickPadding(10)).attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').attr('stroke', 'rgba(255,255,255,.12)'));
+    series.forEach((s, i) => {
+      const l = d3.line().defined((p) => p.v !== null).x((p) => x(p.f)).y((p) => y(p.v));
+      svg.append('path').attr('d', l(s.p)).attr('fill', 'none').attr('stroke', COLORES[i % 8]).attr('stroke-width', 2).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round');
+      svg.append('g').selectAll('circle').data(s.p.filter((p) => p.v !== null)).join('circle').attr('cx', (p) => x(p.f)).attr('cy', (p) => y(p.v)).attr('r', 2.5).attr('fill', COLORES[i % 8]);
+    });
+    svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', W - m.l - m.r).attr('height', H - m.t - m.b).attr('fill', 'transparent')
+      .on('mousemove', (ev) => {
+        const [mx] = d3.pointer(ev);
+        const f = dias.reduce((b, d) => (Math.abs(x(d) - mx) < Math.abs(x(b) - mx) ? d : b), dias[0]);
+        mostrarTip(caja, mx * (caja.clientWidth / W), 20, [[fLarga(f), 'd'], ...series.map((s, i) => { const p = s.p.find((q) => q.f === f); return [s.n + ': ' + fmt(campo, p ? p.v : null), '', COLORES[i % 8]]; })]);
+      }).on('mouseleave', ocultarTip);
+  };
+
+  // ---------- Mapa ----------
+  const M = window.MAPA_MUNDO;
+  const mapa = $('mapa');
+  const formas = {}, golpes = {}, etiquetas = {};
+  const ETIQ = { Chile: [-16, 4], Argentina: [10, 0], Colombia: [-14, 6], Venezuela: [8, -6], México: [0, 0] };
+  if (M) {
+    mapa.setAttribute('viewBox', M.crop.join(' '));
+    M.paths.forEach((p) => { const el = document.createElementNS(SVGNS, 'path'); el.setAttribute('d', p.d); el.setAttribute('class', 'tierra'); mapa.appendChild(el); if (p.n) formas[p.n] = (formas[p.n] || []).concat(el); });
+    M.paths.filter((p) => p.n).forEach((p) => {
+      const h = document.createElementNS(SVGNS, 'path'); h.setAttribute('d', p.d); h.setAttribute('class', 'hit'); h.dataset.pais = p.n; h.style.display = 'none';
+      golpes[p.n] = (golpes[p.n] || []).concat(h);
+      if (etiquetas[p.n]) return;
+      const o = ETIQ[p.n] || [0, 0];
+      const t = document.createElementNS(SVGNS, 'text'); t.setAttribute('x', p.c[0] + o[0]); t.setAttribute('y', p.c[1] + o[1]); t.setAttribute('text-anchor', 'middle'); t.textContent = p.n; t.style.display = 'none';
+      etiquetas[p.n] = t;
+    });
+    Object.values(golpes).flat().forEach((h) => mapa.appendChild(h));
+    Object.values(etiquetas).forEach((t) => mapa.appendChild(t));
+  }
+  mapa.addEventListener('click', (e) => { const h = e.target.closest('[data-pais]'); if (h) { paisSel = paisSel === h.dataset.pais ? null : h.dataset.pais; dibujar(); } });
+  $('paises-chips').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { paisSel = b.dataset.pais || null; dibujar(); } });
+
+  // ---------- Dibujo ----------
+  function dibujar() {
+    const p = dash.params();
+    const fd = $('f-desde'), fh = $('f-hasta');
+    if (fd !== document.activeElement) fd.value = p.desde || '';
+    if (fh !== document.activeElement) fh.value = p.hasta || '';
+    fd.max = HOY; fh.max = HOY;
+
+    const R = dash.data('resumen'), okR = R.status === 'ok';
+    const filas = okR ? R.data : [];
+    const paises = dash.data('paises').status === 'ok' ? dash.data('paises').data : [];
+    const ORDEN = [...new Set(paises.map((x) => x.pais))];
+    if (paisSel && !ORDEN.includes(paisSel)) paisSel = null;
+    const clave = paisSel ? 'pais|' + paisSel : 'total|todos';
+    const sel = filas.find((f) => f.clave === clave);
+    const tot = filas.find((f) => f.clave === 'total|todos');
+    const rangoTxt = p.desde === p.hasta ? 'el ' + fLarga(p.desde) : 'del ' + fLarga(p.desde) + ' al ' + fLarga(p.hasta);
+
+    // Takeaway
+    const tk = $('takeaway'); tk.replaceChildren();
+    if (okR && tot) {
+      tk.append((tot.ganancia >= 0 ? 'Vas en positivo ' : 'Vas en pérdida ') + rangoTxt + ': utilidad de ');
+      const s = document.createElement('b'); s.dataset.source = 'resumen'; s.dataset.field = 'ganancia'; s.dataset.where = 'clave=total|todos'; s.textContent = cop.format(tot.ganancia); s.className = tot.ganancia >= 0 ? 'ag-pos' : 'ag-neg'; tk.append(s);
+      tk.append(' con ROAS de ');
+      const r2 = document.createElement('b'); r2.dataset.source = 'resumen'; r2.dataset.field = 'roas'; r2.dataset.where = 'clave=total|todos'; r2.textContent = fmt('roas', tot.roas); tk.append(r2);
+      tk.append('.');
+    } else if (okR) tk.textContent = 'Sin gasto en Meta ' + rangoTxt + '.';
+    else { const s = document.createElement('span'); s.className = 'dash-skeleton'; s.textContent = '—'; tk.append(s); }
+
+    // Inicio
+    const ar = $('a-res'); ar.classList.toggle('dash-skeleton', !okR); ar.textContent = tot ? 'Utilidad ' + cop.format(tot.ganancia) : '—';
+    const camps = filas.filter((f) => f.nivel === 'campana');
+    $('a-camp').textContent = okR ? num.format(camps.filter((c) => c.recomendacion === 'Escalar').length) + ' para escalar · ' + num.format(camps.filter((c) => c.recomendacion === 'Apagar').length) + ' para apagar' : '—';
+    const PG = dash.data('paginas_uso');
+    $('a-pag').textContent = PG.status === 'ok' ? num.format(PG.data.length) + ' páginas · ' + num.format(PG.data.filter((x) => x.pautando === 'Sí').length) + ' pautando' : '—';
+
+    if (vista === 'resumen') dibujarResumen(filas, okR, sel, clave, ORDEN, rangoTxt);
+    if (vista === 'campanas') dibujarCampanas(filas, okR, ORDEN, rangoTxt);
+    if (vista === 'graficas') dibujarGraficas(ORDEN);
+    if (vista === 'paginas') dibujarPaginas();
+    if (vista === 'contabilidad') dibujarContabilidad();
+    if (vista === 'config') dibujarConfig();
+  }
+
+  function dibujarResumen(filas, okR, sel, clave, ORDEN, rangoTxt) {
+    // Chips
+    const ch = $('paises-chips'); ch.replaceChildren();
+    [['', 'Todos los países'], ...ORDEN.map((x) => [x, x])].forEach(([v, n]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'ag-btn'; b.dataset.pais = v; b.textContent = n; b.setAttribute('aria-pressed', String((paisSel || '') === v)); ch.appendChild(b); });
+    document.querySelectorAll('[data-k]').forEach((el) => {
+      el.dataset.where = 'clave=' + enc(clave);
+      el.classList.toggle('dash-skeleton', !okR);
+      el.textContent = okR && sel ? fmt(el.dataset.k, sel[el.dataset.k]) : '—';
+      if (el.dataset.k === 'ganancia') { el.classList.toggle('ag-pos', !!sel && sel.ganancia > 0); el.classList.toggle('ag-neg', !!sel && sel.ganancia < 0); }
+    });
+    $('k-ventas-s').textContent = sel && sel.sin_atrib_n ? num.format(sel.sin_atrib_n) + ' sin anuncio (ORDER)' : 'número de ventas';
+    // Facturación en moneda local y tasa usada (solo con un país elegido que no venda en COP)
+    const kl = $('k-fact-local');
+    const conLocal = okR && sel && sel.moneda && sel.moneda !== 'COP';
+    kl.hidden = !conLocal;
+    if (conLocal) {
+      kl.dataset.where = 'clave=' + enc(clave);
+      $('k-fact-loc-v').textContent = fLocal(sel.ventas_local, sel.moneda) + ' ' + sel.moneda;
+      $('k-fact-tasa').textContent = sel.tasa ? 'Tasa usada: 1 ' + sel.moneda + ' = ' + fTasa(sel.tasa) + ' COP' + (sel.tasa_real ? ' (hoja ' + fTasa(sel.tasa_real) + ' − ' + num.format(sel.colchon_tasa) + '%)' : '') : 'Sin tasa para ' + sel.moneda + ' en la pestaña Tasas';
+    }
+    anillo($('ring-margen'), sel && sel.margen !== null ? sel.margen / 100 : 0, '#2DD4BF', sel && sel.margen !== null ? num.format(sel.margen) + '%' : '—', 'margen');
+    anillo($('ring-roas'), sel && sel.roas !== null ? sel.roas / 2 : 0, '#F5B800', sel && sel.roas !== null ? num.format(Math.min(999, (sel.roas / 2) * 100)) + '%' : '—', 'de la meta');
+
+    // Combo
+    const caja = $('combo');
+    const D = dash.data('diario');
+    const p = dash.params();
+    if (fallaEn(caja, ['diario']) === 'ok') {
+      const nivel = paisSel ? 'pais' : 'total', id = paisSel || 'todos';
+      const dias = [];
+      for (let f = p.desde; f <= p.hasta; f = sumar(f, 1)) {
+        const r = D.data.find((x) => x.fecha === f && x.nivel === nivel && x.id === id);
+        dias.push(r || { fecha: f, gasto_iva: 0, ganancia: 0, roas: null, conversaciones: 0 });
+      }
+      combo(caja, dias);
+    }
+    const lec = $('lectura'); lec.replaceChildren(); const b = document.createElement('b'); b.textContent = 'LECTURA'; lec.append(b);
+    if (okR && sel) {
+      const sp = document.createElement('span');
+      const peor = filas.filter((f) => f.nivel === 'campana' && (!paisSel || f.pais === paisSel) && f.gasto > 0).sort((a, c) => a.ganancia - c.ganancia)[0];
+      const mejor = filas.filter((f) => f.nivel === 'campana' && (!paisSel || f.pais === paisSel) && f.gasto > 0).sort((a, c) => c.ganancia - a.ganancia)[0];
+      sp.textContent = (paisSel ? paisSel + ': ' : '') + 'utilidad de ' + cop.format(sel.ganancia) + ' con ROAS de ' + fmt('roas', sel.roas) + ' ' + rangoTxt + (sel.ganancia >= 0 ? ' — vas en positivo.' : ' — vas en pérdida.') +
+        (sel.conversaciones ? ' De ' + num.format(sel.conversaciones) + ' conversaciones salieron ' + num.format(sel.ventas_n) + ' ventas atribuidas (' + fmt('pct_conv', sel.pct_conv) + ').' : '') +
+        (mejor ? ' Mejor campaña: ' + mejor.nombre + ' (' + cop.format(mejor.ganancia) + ').' : '') + (peor && peor !== mejor && peor.ganancia < 0 ? ' La que más pierde: ' + peor.nombre + ' (' + cop.format(peor.ganancia) + ').' : '');
+      lec.append(sp);
+    } else { const s = document.createElement('span'); s.className = 'dash-skeleton'; s.textContent = '—'; lec.append(s); }
+
+    // Mapa
+    Object.keys(golpes).forEach((n) => {
+      const f = filas.find((x) => x.clave === 'pais|' + n);
+      const activo = ORDEN.includes(n);
+      const color = !f || (f.gasto === 0 && f.ventas_total_cop === 0) ? '#3A4A7A' : f.ganancia > 0 ? '#34D399' : '#FB7185';
+      golpes[n].forEach((h) => { h.style.display = activo ? '' : 'none'; h.setAttribute('fill', color); h.setAttribute('fill-opacity', paisSel && paisSel !== n ? '.35' : '.9'); });
+      if (etiquetas[n]) etiquetas[n].style.display = activo ? '' : 'none';
+    });
+
+    // Tabla países
+    const pf = filas.filter((f) => f.nivel === 'pais').sort((a, c) => ORDEN.indexOf(a.pais) - ORDEN.indexOf(c.pais));
+    const t = $('t-paises');
+    if (!okR) { t.replaceChildren(); return; }
+    const tot = filas.find((f) => f.clave === 'total|todos');
+    tabla(t, [['nombre', 'País'], ['ventas_total_n', 'Ventas', 'num'], ['ventas_total_cop', 'Facturación', 'num'], ['ventas_local', 'Facturación local', 'num'], ['tasa', 'Tasa usada (COP)', 'num'], ['gasto_iva', 'Pauta IVA', 'num'], ['ganancia', 'Utilidad', 'num'], ['roas', 'ROAS', 'num'], ['conversaciones', 'Conv.', 'num'], ['pct_conv', '% conv.', 'num']], tot ? [...pf, tot] : pf, {
+      rowClass: (f) => (f.nivel === 'total' ? 'tot' : ''),
+      celda: (td, c, f) => {
+        if (c === 'ventas_local') { td.textContent = f.moneda && f.moneda !== 'COP' ? fLocal(f.ventas_local, f.moneda) + ' ' + f.moneda : '—'; return true; }
+        if (c === 'tasa') { td.textContent = f.moneda && f.moneda !== 'COP' ? fTasa(f.tasa) : '—'; if (f.tasa_real && f.moneda !== 'COP') td.title = 'Hoja: ' + fTasa(f.tasa_real) + ' COP · con colchón de ' + num.format(f.colchon_tasa) + '%'; return true; }
+        return false;
+      },
+    });
+    const tr0 = pf.find((f) => f.moneda && f.moneda !== 'COP');
+    $('pais-nota').textContent = 'Del periodo elegido. La facturación en pesos usa la tasa de la pestaña Tasas rebajada ' + num.format(tr0 ? tr0.colchon_tasa : 3) + '% (colchón para no contar utilidad que no existe).';
+  }
+
+  function dibujarCampanas(filas, okR, ORDEN, rangoTxt) {
+    const dp = $('diag-pais');
+    if (dp.options.length !== ORDEN.length + 1) { dp.replaceChildren(new Option('Todos los países', ''), ...ORDEN.map((x) => new Option(x, x))); }
+    dp.value = paisSel || '';
+    $('diag-nota').textContent = 'Resultados ' + rangoTxt + '. Toca una campaña para ver sus anuncios.';
+    const soloAct = $('diag-estado').value === 'act';
+    const camps = filas.filter((f) => f.nivel === 'campana' && (!paisSel || f.pais === paisSel) && (!soloAct || f.activa)).sort((a, b) => b.gasto - a.gasto);
+    const chips = $('diag-chips'); chips.replaceChildren();
+    ['Escalar', 'Mantener', 'Bajar presupuesto', 'Apagar'].forEach((r) => { const s = pill(num.format(camps.filter((c) => c.recomendacion === r).length) + ' ' + r); chips.appendChild(s); });
+    const t = $('t-campanas');
+    if (!okR) { t.replaceChildren(); return; }
+    const cols = [['nombre', 'Campaña'], ['pais', 'País'], ['estado_meta', 'Estado'], ['presupuesto', 'Presupuesto diario', 'num'], ['conversaciones', 'Conv.', 'num'], ['ventas_total_n', 'Ventas', 'num'], ['pct_conv', '% conv.', 'num'], ['gasto_iva', 'Pauta IVA', 'num'], ['ventas_total_cop', 'Facturación', 'num'], ['ganancia', 'Utilidad', 'num'], ['roas', 'ROAS', 'num'], ['costo_conv', 'Costo/conv.', 'num'], ['recomendacion', 'Acción']];
+    tabla(t, cols, camps, {
+      celda: (td, c, f) => {
+        if (c === 'recomendacion') { td.appendChild(pill(f.recomendacion)); return true; }
+        if (c === 'nombre') { const b = document.createElement('button'); b.className = 'ag-x'; b.type = 'button'; b.textContent = (abierta === f.clave ? '▾ ' : '▸ ') + f.nombre; b.addEventListener('click', () => { abierta = abierta === f.clave ? null : f.clave; dibujar(); }); td.appendChild(b); return true; }
+        if (c === 'estado_meta') { td.textContent = f.estado_meta || '—'; td.className = f.activa ? 'e-act' : 'e-pau'; return true; }
+        return false;
+      },
+      despues: (tr, f, tb) => {
+        if (abierta !== f.clave) return;
+        filas.filter((a) => a.nivel === 'anuncio' && a.campana_id === f.campana_id).sort((a, b) => b.gasto - a.gasto).forEach((a) => {
+          const r = tb.insertRow(); r.className = 'sub'; r.dataset.key = a.clave;
+          cols.forEach(([c, , cls]) => {
+            const td = r.insertCell(); if (cls) td.className = cls;
+            if (c === 'nombre') td.textContent = a.nombre + ' · ' + a.conjunto + ' · ' + a.ad_id;
+            else if (c === 'recomendacion') td.appendChild(pill(a.recomendacion));
+            else if (c === 'presupuesto') td.textContent = a.frecuencia ? 'frec. ' + dec.format(a.frecuencia) : '—';
+            else { td.textContent = fmt(c, a[c]); if (c === 'ganancia') td.classList.add(a.ganancia > 0 ? 'ag-pos' : a.ganancia < 0 ? 'ag-neg' : 'x'); }
+          });
+        });
+      },
+    });
+    // Escalado
+    const E = dash.data('escalado');
+    const te = $('t-esc');
+    if (E.status === 'ok') {
+      const hora = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Bogota', hour: '2-digit', hour12: false }).format(new Date()));
+      const ventana = hora >= 21 ? 'cierre_hoy' : 'cierre_anterior';
+      const filasV = E.data.filter((x) => x.ventana === ventana);
+      const ok = filasV.filter((x) => x.cumple).sort((a, b) => b.roas_combinado - a.roas_combinado);
+      $('esc-vacio').hidden = ok.length > 0;
+      const d0 = filasV[0];
+      if (d0) $('esc-nota').textContent = (ventana === 'cierre_hoy' ? 'Corte de hoy (9 p. m.): ' : 'Último corte de las 9 p. m. (el de hoy se evalúa desde las 9 p. m.): ') + fLarga(d0.dia1) + ', ' + fLarga(d0.dia2) + ' y ' + fLarga(d0.dia3) + (ventana === 'cierre_hoy' ? ' (hoy en vivo)' : '') + '. Anuncios con ROAS igual o mayor a 2,0 en cada uno de los 3 días. Nada se cambia solo.';
+      tabla(te, [['anuncio', 'Anuncio'], ['ad_id', 'Ad ID'], ['campana', 'Campaña'], ['roas_dia1', d0 ? fCorta(d0.dia1) : 'Día 1', 'num'], ['roas_dia2', d0 ? fCorta(d0.dia2) : 'Día 2', 'num'], ['roas_dia3', d0 ? fCorta(d0.dia3) : 'Día 3', 'num'], ['roas_combinado', 'ROAS 3 días', 'num'], ['ganancia_3d', 'Utilidad 3 días', 'num']], ok, { key: 'clave' });
+    } else te.replaceChildren();
+    // Cambios
+    const C = dash.data('cambios');
+    const tc = $('t-cambios');
+    if (C.status === 'ok') {
+      const pend = C.data.filter((x) => !/aplicado/i.test(x.estado));
+      $('cambios-vacio').hidden = pend.length > 0;
+      tabla(tc, [['solicitado', 'Pedido'], ['nombre', 'Campaña / anuncio'], ['accion', 'Acción'], ['presupuesto', 'Nuevo presupuesto', 'num'], ['aplicar', 'Cuándo'], ['estado', 'Estado']], pend, { key: 'fila' });
+    } else tc.replaceChildren();
+  }
+
+  function dibujarGraficas(ORDEN) {
+    const caja = $('g-chart');
+    document.querySelectorAll('#g-metricas [data-m]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.m === metrica)));
+    const ley = $('g-leyenda'); ley.replaceChildren();
+    if (fallaEn(caja, ['diario']) !== 'ok') return;
+    const p = dash.params();
+    const D = dash.data('diario').data.filter((r) => r.fecha >= p.desde && r.fecha <= p.hasta);
+    const dias = []; for (let f = p.desde; f <= p.hasta; f = sumar(f, 1)) dias.push(f);
+    const porCampana = $('g-serie').value === 'campana';
+    let ids;
+    if (porCampana) {
+      const g = {}; D.filter((r) => r.nivel === 'campana').forEach((r) => { g[r.id] = (g[r.id] || 0) + r.gasto; });
+      ids = Object.entries(g).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k]) => k);
+    } else ids = ORDEN.filter((x) => D.some((r) => r.nivel === 'pais' && r.id === x));
+    const nivel = porCampana ? 'campana' : 'pais';
+    const series = ids.map((id) => ({ n: (D.find((r) => r.nivel === nivel && r.id === id) || {}).nombre || id, p: dias.map((f) => { const r = D.find((x) => x.fecha === f && x.nivel === nivel && x.id === id); return { f, v: r ? r[metrica] : (['roas', 'pct_conv'].includes(metrica) ? null : 0) }; }) }));
+    series.forEach((s, i) => { const sp = document.createElement('span'); const ii = document.createElement('i'); ii.style.background = COLORES[i % 8]; sp.append(ii, s.n); ley.appendChild(sp); });
+    $('g-nota').textContent = porCampana ? 'Las 8 campañas con más gasto en el periodo.' : '';
+    if (!series.length) { caja.replaceChildren(); const d = document.createElement('p'); d.className = 'ag-empty'; d.textContent = 'Sin datos en el periodo.'; caja.appendChild(d); return; }
+    lineas(caja, dias, series, metrica);
+  }
+
+  function dibujarPaginas() {
+    const P = dash.data('paginas_uso');
+    const t = $('t-paginas');
+    if (fallaEn(t, ['paginas_uso']) === 'ok' || P.status === 'ok') {
+      tabla(t, [['pagina', 'Página'], ['page_id', 'ID'], ['cuenta', 'Cuenta publicitaria'], ['pautando', 'Pautando ahora'], ['anuncios', 'Anuncios activos', 'num'], ['conv_hoy', 'Conversaciones hoy', 'num'], ['campanas', 'Campañas'], ['paises', 'Países']],
+        [...P.data].sort((x, y) => (y.pautando === 'Sí') - (x.pautando === 'Sí') || x.pagina.localeCompare(y.pagina)),
+        { key: 'page_id', celda: (td, c, f) => {
+          if (c === 'pautando') { const sp = document.createElement('span'); sp.className = 'ag-pill ' + (f.pautando === 'Sí' ? 'r-Escalar' : 'r-Sin'); sp.textContent = f.pautando; td.appendChild(sp); return true; }
+          if (c === 'campanas') { td.textContent = f.campanas || '—'; td.style.whiteSpace = 'normal'; td.style.minWidth = '220px'; return true; }
+          return false;
+        } });
+    }
+    // Selector de fan pages del formulario
+    const MP = dash.data('meta_paginas');
+    const selP = $('n-pagina');
+    if (MP.status === 'ok' && selP.options.length !== MP.data.length + 1) {
+      const v = selP.value;
+      selP.replaceChildren(new Option('— Sin asignar —', ''), ...[...MP.data].sort((x, y) => x.pagina.localeCompare(y.pagina)).map((p) => new Option(p.pagina, p.pagina)));
+      selP.value = v;
+    }
+    const N = dash.data('numeros_uso');
+    const tn = $('t-numeros');
+    if (N.status !== 'ok') { tn.replaceChildren(); return; }
+    $('numeros-vacio').hidden = N.data.length > 0;
+    if (!enEdicion) { $('n-codigo').value = siguienteCodigo(); if (!$('n-inicio').value) $('n-inicio').value = HOY; }
+    tabla(tn, [['codigo', 'Código'], ['numero', 'Business'], ['celular', 'Celular'], ['pais', 'País'], ['portafolio', 'Portafolio'], ['estado', 'Estado (cámbialo aquí)'], ['inicio', 'Agregado'], ['pagina', 'Fan page'], ['campanas', 'Campañas que lo usan'], ['disponible', '¿Disponible? / dónde se pauta'], ['editar', '']], N.data, {
+      key: 'codigo',
+      celda: (td, c, f) => {
+        if (c === 'estado') {
+          const sp = document.createElement('span'); sp.className = 'ag-pill ' + (f.estado === 'ACTIVO' ? 'r-Escalar' : f.estado === 'CALENTAMIENTO' ? 'r-Mantener' : f.estado === 'BLOQUEADO' ? 'r-Apagar' : 'r-Sin'); sp.textContent = f.estado || '—'; td.appendChild(sp);
+          const se = document.createElement('select'); se.className = 'ag-sel'; se.style.cssText = 'margin-left:6px;padding:3px 6px;font-size:11.5px'; se.setAttribute('aria-label', 'Cambiar estado de ' + f.codigo);
+          ['CALENTAMIENTO', 'ACTIVO', 'SIN USO', 'PAUSADO', 'BLOQUEADO'].forEach((o) => se.appendChild(new Option(o, o))); se.value = f.estado_hoja || 'CALENTAMIENTO';
+          se.addEventListener('change', () => cambiarEstado(f, se.value, se)); td.appendChild(se);
+          return true;
+        }
+        if (c === 'inicio') { td.textContent = /^\d{4}-\d{2}-\d{2}$/.test(f.inicio) ? fLarga(f.inicio) + ' ' + f.inicio.slice(0, 4) : f.inicio || '—'; return true; }
+        if (c === 'campanas') { td.textContent = f.campanas || '—'; td.style.whiteSpace = 'normal'; td.style.minWidth = '200px'; return true; }
+        if (c === 'disponible') { td.textContent = f.disponible; td.style.whiteSpace = 'normal'; td.style.minWidth = '220px'; td.className = /^Sí/.test(f.disponible) ? 'ag-pos' : /^No|Bloq/.test(f.disponible) ? 'ag-neg' : 'ag-gold'; return true; }
+        if (c === 'editar') { const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'ag-x'; bt.textContent = 'Editar'; bt.addEventListener('click', () => editarNumero(f)); td.appendChild(bt); return true; }
+        return false;
+      },
+    });
+  }
+
+  function dibujarContabilidad() {
+    const L = dash.data('liquidacion');
+    const sel = $('liq-periodo');
+    if (L.status !== 'ok') { sel.replaceChildren(); return; }
+    const tots = L.data.filter((r) => r.nivel === 'total');
+    const hoyQ = HOY.slice(0, 7) + (Number(HOY.slice(8)) <= 15 ? '-Q1' : '-Q2');
+    if (!periodoSel || !tots.find((t) => t.periodo === periodoSel)) periodoSel = tots.find((t) => t.periodo === hoyQ) ? hoyQ : (tots[tots.length - 1] || {}).periodo;
+    const etq = (t) => (t.tipo === 'Mes' ? 'Mes de ' + MESES_L[Number(t.periodo.slice(5, 7)) - 1] + ' ' + t.periodo.slice(0, 4) : (t.periodo.endsWith('Q1') ? '1.ª' : '2.ª') + ' quincena de ' + MESES_L[Number(t.periodo.slice(5, 7)) - 1]) + (t.completo ? '' : ' (en curso)');
+    const opts = [...tots].reverse();
+    if (sel.options.length !== opts.length || sel.dataset.v !== opts.map((o) => o.periodo + o.completo).join()) { sel.replaceChildren(...opts.map((t) => new Option(etq(t), t.periodo))); sel.dataset.v = opts.map((o) => o.periodo + o.completo).join(); }
+    sel.value = periodoSel;
+    const tg = tots.find((x) => x.periodo === periodoSel);
+    if (!tg) return;
+    const LP = dash.data('liquidacion_paises');
+    const PA = dash.data('paises');
+    const ORD = PA.status === 'ok' ? [...new Set(PA.data.map((x) => x.pais))] : [];
+    const sv = $('liq-vista');
+    if (sv.options.length !== ORD.length + 1) sv.replaceChildren(new Option('Global (todos los países)', ''), ...ORD.map((x) => new Option('Cierre de ' + x, x)));
+    sv.value = paisCierre || '';
+    const filasLP = LP.status === 'ok' ? LP.data : [];
+    const vacia = (pais) => ({ clave: periodoSel + '|' + pais, pais, ventas: 0, ventas_n: 0, pauta_iva: 0, gastos: 0, utilidad_total: 0, proveedores: 0, nomina: 0, empresa: 0, socio1: 0, socio2: 0, rentabilidad: null, roas: null, pct_prov: tg.pct_prov, pct_trab: tg.pct_trab, pct_emp: tg.pct_emp, pct_s1: tg.pct_s1, pct_s2: tg.pct_s2, moneda: 'COP', tasa: 1 });
+    const t = paisCierre ? filasLP.find((r) => r.periodo === periodoSel && r.pais === paisCierre) || vacia(paisCierre) : tg;
+    const fuente = paisCierre ? 'liquidacion_paises' : 'liquidacion';
+    const enLocal = (v) => (paisCierre && t.moneda && t.moneda !== 'COP' && t.tasa ? ' · ' + fLocal(v / t.tasa, t.moneda) : '');
+    $('liq-titulo').textContent = paisCierre ? 'Cierre de ' + paisCierre : 'Cierre global';
+    $('liq-nota').textContent = 'Del ' + fLarga(tg.desde) + ' al ' + fLarga(tg.hasta) + (tg.completo ? '.' : ' — en curso, cifras parciales.') + (tg.parcial ? ' La pauta día a día solo está desde el ' + fLarga(tg.datos_desde) + '.' : '') + (paisCierre ? ' Incluye solo los gastos cargados a ' + paisCierre + '; los gastos «General» van al cierre global.' : '');
+    document.querySelectorAll('[data-l]').forEach((el) => { el.dataset.source = fuente; el.dataset.where = 'clave=' + enc(t.clave); el.textContent = fmt(el.dataset.l, t[el.dataset.l]); if (el.dataset.l === 'utilidad_total') el.className = 'v ' + (t.utilidad_total >= 0 ? 'ag-pos' : 'ag-neg'); });
+    $('liq-rent').textContent = 'Rentabilidad sobre pauta: ' + fmt('rentabilidad', t.rentabilidad) + ' · ROAS ' + fmt('roas', t.roas) + enLocal(t.utilidad_total);
+    $('rep-nota').textContent = (paisCierre ? 'Reparto de lo que deja ' + paisCierre + ': proveedor ' + t.pct_prov + '% de su utilidad · ' : 'Proveedores ' + t.pct_prov + '% de la utilidad de cada país · ') + 'trabajadores ' + num.format(t.pct_trab) + '% y empresa ' + t.pct_emp + '% de la utilidad · el resto, ' + t.pct_s1 + '/' + t.pct_s2 + ' entre los socios.';
+    const rep = $('reparto'); rep.replaceChildren(); rep.dataset.source = fuente;
+    const base = Math.max(1, Math.abs(t.utilidad_total));
+    const filaRep = (n, sub, valor, col, src, campo, claveR) => {
+      const row = document.createElement('div'); row.className = 'row';
+      const a = document.createElement('div'); a.textContent = n; const sm = document.createElement('small'); sm.textContent = sub + enLocal(valor); a.appendChild(sm);
+      const v = document.createElement('div'); v.className = 'v ' + (valor < 0 ? 'ag-neg' : ''); v.dataset.source = src; v.dataset.field = campo; v.dataset.where = 'clave=' + enc(claveR); v.textContent = cop.format(valor);
+      const bar = document.createElement('div'); bar.className = 'bar'; const i = document.createElement('i'); i.style.width = Math.min(100, (Math.abs(valor) / base) * 100) + '%'; i.style.background = col; bar.appendChild(i);
+      row.append(a, v, bar); rep.appendChild(row);
+    };
+    filaRep(paisCierre ? 'Proveedor de cuentas de ' + paisCierre : 'Proveedores de cuentas', t.pct_prov + '% utilidad ' + (paisCierre ? 'del país' : 'por país'), t.proveedores, '#60A5FA', fuente, 'proveedores', t.clave);
+    const pagos = paisCierre ? [] : L.data.filter((r) => r.nivel === 'trabajador' && r.periodo === periodoSel);
+    if (pagos.length) pagos.forEach((w) => filaRep(w.nombre, num.format(w.pct) + '% de la utilidad', w.pago, '#C084FC', 'liquidacion', 'pago', w.clave));
+    else filaRep('Nómina trabajadores', num.format(t.pct_trab) + '% de la utilidad', t.nomina, '#C084FC', fuente, 'nomina', t.clave);
+    filaRep('Empresa (ahorro e inversión)', t.pct_emp + '% utilidad', t.empresa, '#2DD4BF', fuente, 'empresa', t.clave);
+    filaRep('Anthony Guiñan', t.pct_s1 + '% del resto', t.socio1, '#F5B800', fuente, 'socio1', t.clave);
+    filaRep('Alejandra Acosta', t.pct_s2 + '% del resto', t.socio2, '#F5B800', fuente, 'socio2', t.clave);
+
+    const filasP = filasLP.filter((r) => r.periodo === periodoSel && (!paisCierre || r.pais === paisCierre));
+    tabla($('t-liq-paises'), [['pais', 'País'], ['ventas_n', 'Ventas', 'num'], ['ventas', 'Facturación COP', 'num'], ['pauta_iva', 'Pauta IVA COP', 'num'], ['gastos', 'Gastos COP', 'num'], ['utilidad', 'Utilidad COP', 'num'], ['comision', 'Comisión COP', 'num'], ['moneda', 'Moneda'], ['ventas_local', 'Facturación local', 'num'], ['pauta_local', 'Pauta local', 'num'], ['utilidad_local', 'Utilidad local', 'num'], ['comision_local', 'Comisión local', 'num']], filasP, {
+      celda: (td, c, f) => { if (/_local$/.test(c)) { td.textContent = fLocal(f[c], f.moneda); if (c === 'utilidad_local') td.className = 'num ' + (f[c] > 0 ? 'ag-pos' : f[c] < 0 ? 'ag-neg' : ''); return true; } return false; },
+    });
+    const rc = $('recibos'); rc.replaceChildren();
+    filasP.filter((r) => r.comision > 0).forEach((r) => {
+      const d = document.createElement('div'); d.className = 'ag-recibo';
+      const h = document.createElement('h3'); h.textContent = 'Comprobante · ' + r.pais; d.appendChild(h);
+      [['Periodo', fLarga(r.desde) + ' – ' + fLarga(r.hasta)], ['Ventas', cop.format(r.ventas) + (r.moneda !== 'COP' ? ' · ' + fLocal(r.ventas_local, r.moneda) : '')], ['Pauta con IVA', cop.format(r.pauta_iva) + (r.moneda !== 'COP' ? ' · ' + fLocal(r.pauta_local, r.moneda) : '')], ['Utilidad del país', cop.format(r.utilidad) + (r.moneda !== 'COP' ? ' · ' + fLocal(r.utilidad_local, r.moneda) : '')], ['Porcentaje', r.pct_prov + '%']].forEach(([k, v]) => { const l = document.createElement('div'); l.className = 'ln'; const a = document.createElement('span'); a.textContent = k; const b = document.createElement('span'); b.textContent = v; l.append(a, b); d.appendChild(l); });
+      const tt = document.createElement('div'); tt.className = 'ln tt'; const a = document.createElement('span'); a.textContent = 'A pagar al proveedor'; const b = document.createElement('span'); b.dataset.source = 'liquidacion_paises'; b.dataset.field = 'comision'; b.dataset.where = 'clave=' + enc(r.clave); b.textContent = cop.format(r.comision); tt.append(a, b); d.appendChild(tt);
+      if (r.moneda !== 'COP') { const lc = document.createElement('div'); lc.className = 'ln tt'; const a2 = document.createElement('span'); a2.textContent = 'En ' + r.moneda + ' (tasa ' + (r.tasa ? dec.format(r.tasa) + ' COP' : '—') + ')'; const b2 = document.createElement('span'); b2.dataset.source = 'liquidacion_paises'; b2.dataset.field = 'comision_local'; b2.dataset.where = 'clave=' + enc(r.clave); b2.textContent = fLocal(r.comision_local, r.moneda); lc.append(a2, b2); d.appendChild(lc); }
+      rc.appendChild(d);
+    });
+    if (!rc.children.length) { const e = document.createElement('p'); e.className = 'ag-empty'; e.textContent = 'Ningún país tuvo utilidad en este periodo.'; rc.appendChild(e); }
+
+    // Gastos del periodo
+    const gp = $('g-pais');
+    if (gp.options.length !== ORD.length + 1) { const v = gp.value; gp.replaceChildren(new Option('General (todos)', 'General'), ...ORD.map((x) => new Option(x, x))); gp.value = v || 'General'; }
+    const G = dash.data('gastos');
+    const gs = G.status === 'ok' ? G.data.filter((g) => g.fecha >= tg.desde && g.fecha <= tg.hasta && (!paisCierre || g.pais === paisCierre)) : [];
+    $('gastos-vacio').hidden = gs.length > 0 || G.status !== 'ok';
+    tabla($('t-gastos'), [['fecha', 'Fecha'], ['concepto', 'Concepto'], ['pagado_por', 'Pagado por'], ['pais', 'Se carga a'], ['valor', 'Valor', 'num'], ['borrar', '']], gs, {
+      key: 'fila',
+      celda: (td, c, f) => {
+        if (c !== 'borrar') return false;
+        const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'ag-x'; bt.textContent = 'Eliminar';
+        bt.addEventListener('click', async () => {
+          if (bt.dataset.seguro !== '1') { bt.dataset.seguro = '1'; bt.textContent = '¿Seguro? Toca otra vez'; bt.style.color = 'var(--ag-bad)'; setTimeout(() => { bt.dataset.seguro = ''; bt.textContent = 'Eliminar'; bt.style.color = ''; }, 4000); return; }
+          bt.disabled = true; bt.textContent = 'Eliminando…';
+          try { await escribir('batch_clear_values', { ranges: ['Gastos!A' + f.fila + ':G' + f.fila] }); avisar('g-msg', 'Gasto eliminado: ' + f.concepto + ' · ' + cop.format(f.valor) + '.', true); dash.refresh('gastos'); }
+          catch (e) { avisar('g-msg', textoError(e), false); bt.disabled = false; bt.textContent = 'Eliminar'; }
+        });
+        td.appendChild(bt); return true;
+      },
+    });
+    if (!$('g-fecha').value) $('g-fecha').value = HOY;
+
+    // Bitácora: barras agrupadas por quincena
+    const hc = $('hist-chart');
+    const hist = paisCierre
+      ? tots.filter((x) => x.tipo === 'Quincena').map((x) => filasLP.find((r) => r.periodo === x.periodo && r.pais === paisCierre) || { ...vacia(paisCierre), periodo: x.periodo, tipo: 'Quincena', completo: x.completo })
+      : tots.filter((x) => x.tipo === 'Quincena');
+    hc.replaceChildren();
+    hc.dataset.source = paisCierre ? 'liquidacion_paises' : 'liquidacion';
+    if (hist.length) {
+      const W = Math.max(hc.clientWidth, 300), H = 260, m = { t: 14, r: 10, b: 30, l: 60 };
+      const SER = [['ventas', '#F5B800'], ['costos', '#60A5FA'], ['utilidad_total', '#2DD4BF']];
+      const datos = hist.map((h) => ({ ...h, costos: (h.pauta_iva || 0) + (h.gastos || 0) }));
+      const x0 = d3.scaleBand(datos.map((h) => h.periodo), [m.l, W - m.r]).padding(0.25);
+      const x1 = d3.scaleBand(SER.map((z) => z[0]), [0, x0.bandwidth()]).padding(0.12);
+      const lo = Math.min(0, d3.min(datos, (h) => h.utilidad_total)), hi = Math.max(1, d3.max(datos, (h) => Math.max(h.ventas, h.costos, h.utilidad_total)));
+      const y = d3.scaleLinear([lo, hi], [H - m.b, m.t]).nice();
+      const svg = d3.select(hc).append('svg').attr('width', '100%').attr('viewBox', [0, 0, W, H]);
+      svg.append('g').selectAll('line').data(y.ticks(4)).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y).attr('y2', y).attr('stroke', 'rgba(255,255,255,.06)');
+      svg.append('g').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(4).tickFormat((v) => '$' + corto.format(v)).tickSize(0).tickPadding(8)).attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').remove());
+      svg.append('g').attr('transform', `translate(0,${H - m.b})`).call(d3.axisBottom(x0).tickFormat((k) => MESES[Number(k.slice(5, 7)) - 1] + (k.endsWith('Q1') ? ' 1–15' : ' 16–fin')).tickSize(0).tickPadding(10)).attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').attr('stroke', 'rgba(255,255,255,.12)'));
+      const grp = svg.append('g').selectAll('g').data(datos).join('g').attr('transform', (h) => `translate(${x0(h.periodo)},0)`);
+      grp.selectAll('rect').data((h) => SER.map(([k, col]) => ({ h, k, col, v: h[k] || 0 }))).join('rect')
+        .attr('x', (d) => x1(d.k)).attr('width', Math.min(30, x1.bandwidth())).attr('y', (d) => y(Math.max(0, d.v))).attr('height', (d) => Math.max(1, Math.abs(y(d.v) - y(0)))).attr('rx', 4)
+        .attr('fill', (d) => (d.k === 'utilidad_total' && d.v < 0 ? '#FB7185' : d.col)).attr('fill-opacity', (d) => (d.h.completo ? 1 : 0.45))
+        .on('mousemove', (ev, d) => { const [mx, my] = d3.pointer(ev, hc); mostrarTip(hc, mx, my, [[etq(d.h) + (paisCierre ? ' · ' + paisCierre : ''), 'd'], ['Ventas ' + cop.format(d.h.ventas), '', '#F5B800'], ['Pauta + gastos ' + cop.format(d.h.costos), '', '#60A5FA'], ['Utilidad ' + cop.format(d.h.utilidad_total), '', '#2DD4BF'], ['Cada socio ' + cop.format(d.h.socio1), 'd']]); })
+        .on('mouseleave', ocultarTip);
+    }
+    const C = dash.data('cierres');
+    const ci = C.status === 'ok' ? C.data : [];
+    $('cierres-vacio').hidden = ci.length > 0 || C.status !== 'ok';
+    tabla($('t-cierres'), [['id', 'Cierre'], ['ventas', 'Ventas', 'num'], ['pauta_iva', 'Pauta IVA', 'num'], ['gastos', 'Gastos', 'num'], ['utilidad_total', 'Utilidad', 'num'], ['nomina', 'Nómina', 'num'], ['socio1', 'Anthony', 'num'], ['socio2', 'Alejandra', 'num'], ['rentabilidad', 'Rentab.', 'num']], [...ci].reverse(), { key: 'id' });
+  }
+
+  function dibujarConfig() {
+    const C = dash.data('config');
+    if (C.status !== 'ok') return;
+    tabla($('t-config'), [['nombre', 'Parámetro'], ['valor', 'Porcentaje', 'num'], ['nota', 'Cómo se aplica']], C.data.filter((r) => r.tipo === 'porcentaje'), { key: 'parametro', celda: (td, c, f) => { if (c === 'valor') { td.textContent = f.valor === null ? '—' : num.format(f.valor) + '%'; return true; } return false; } });
+    tabla($('t-equipo'), [['nombre', 'Persona'], ['rol', 'Rol'], ['correo', 'Correo']], C.data.filter((r) => r.tipo === 'equipo'), { key: 'parametro' });
+    const trabs = C.data.filter((r) => r.tipo === 'trabajador');
+    const suma = trabs.reduce((x, r) => x + (r.valor || 0), 0);
+    $('trab-vacio').hidden = trabs.length > 0;
+    $('trab-nota').textContent = trabs.length ? 'Nómina total: ' + num.format(suma) + '% de la utilidad del periodo (suma de los % de cada trabajador).' : 'Cada trabajador cobra su % de la utilidad del periodo. La nómina total es la suma de esos %.';
+    tabla($('t-trab'), [['nombre', 'Trabajador'], ['valor', '% de pago', 'num'], ['nota', 'Nota'], ['acciones', '']], trabs, {
+      key: 'parametro',
+      celda: (td, c, f) => {
+        if (c === 'valor') { td.textContent = f.valor === null ? '—' : num.format(f.valor) + '%'; return true; }
+        if (c !== 'acciones') return false;
+        const ed = document.createElement('button'); ed.type = 'button'; ed.className = 'ag-x'; ed.textContent = 'Editar'; ed.style.marginRight = '12px';
+        ed.addEventListener('click', () => { trabEdicion = f; $('w-nombre').value = f.nombre; $('w-pct').value = f.valor ?? ''; $('w-nota').value = f.nota || ''; $('w-guardar').textContent = 'Guardar cambios'; $('w-cancelar').hidden = false; });
+        const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'ag-x'; bt.textContent = 'Eliminar';
+        bt.addEventListener('click', async () => {
+          if (bt.dataset.seguro !== '1') { bt.dataset.seguro = '1'; bt.textContent = '¿Seguro? Toca otra vez'; bt.style.color = 'var(--ag-bad)'; setTimeout(() => { bt.dataset.seguro = ''; bt.textContent = 'Eliminar'; bt.style.color = ''; }, 4000); return; }
+          bt.disabled = true;
+          try { await escribir('batch_clear_values', { ranges: ['Config!A' + f.fila + ':C' + f.fila] }); avisar('w-msg', f.nombre + ' eliminado.', true); dash.refresh('config'); }
+          catch (e) { avisar('w-msg', textoError(e), false); bt.disabled = false; }
+        });
+        td.append(ed, bt); return true;
+      },
+    });
+    const pcts = C.data.filter((r) => r.tipo === 'porcentaje');
+    const val = (re, i) => { const f = re ? pcts.find((r) => re.test(r.parametro)) : pcts.filter((r) => /^socio/i.test(r.parametro))[i]; return f ? f.valor : null; };
+    [['c-prov', val(/proveedor/i)], ['c-trab', trabs.length ? suma : val(/trabajador/i)], ['c-emp', val(/empresa/i)], ['c-s1', val(null, 0)], ['c-s2', val(null, 1)]].forEach(([id, v]) => { const el = $(id); if (el !== document.activeElement && !el.dataset.sucio) el.value = v ?? ''; });
+    $('c-trab').readOnly = trabs.length > 0;
+    $('c-trab-l').firstChild.textContent = trabs.length ? 'Trabajadores (suma de la lista de abajo)' : 'Trabajadoras (% utilidad total)';
+  }
+
+  // ---------- Escritura en la hoja (con los conectores del visor) ----------
+  const HOJA = '1f0jljK5Pxt908HcQuAO9xorqN9XaVH2PdlkIBLIKLvw';
+  let mcpProm = null;
+  const conMcp = () => {
+    if (!mcpProm) mcpProm = window.claude && typeof window.claude.use === 'function' ? Promise.resolve(window.claude.use('mcp')).catch(() => null) : Promise.resolve(null);
+    return mcpProm;
+  };
+  const escribir = async (tool, input) => {
+    const m = await conMcp();
+    if (!m) { const e = new Error('sin_mcp'); e.code = 'sin_mcp'; throw e; }
+    const r = await m.callTool('Google Sheets', tool, { spreadsheetId: HOJA, ...input }, { cache: false });
+    return r && r.payload;
+  };
+  const textoError = (e) => {
+    const c = e && e.code;
+    if (c === 'sin_mcp') return 'Este visor no deja escribir desde el dashboard. Anótalo en la hoja o pídemelo en un chat.';
+    if (c === 'not_in_manifest' || c === 'not_granted' || c === 'denied' || c === 'consent_denied') return 'Hay que permitir que el dashboard use Google Sheets (se pide al guardar). Si lo rechazaste, ábrelo de nuevo y acepta.';
+    if (c === 'server_not_connected' || c === 'needs_reauth') return 'Conecta (o vuelve a conectar) Google Sheets en tu cuenta de Claude.';
+    return 'No se pudo guardar: ' + ((e && (e.message || c)) || 'error desconocido');
+  };
+  const avisar = (id, txt, ok) => { const el = $(id); el.textContent = txt; el.className = 'ag-msg ' + (ok ? 'ok' : 'err'); };
+  const ocupado = (btn, si) => { btn.disabled = si; btn.style.opacity = si ? '.5' : ''; };
+
+  // Gastos
+  $('g-guardar').addEventListener('click', async (ev) => {
+    const fecha = $('g-fecha').value, concepto = $('g-concepto').value.trim(), valor = Number($('g-valor').value), pais = $('g-pais').value || 'General';
+    if (!fecha || !concepto || !(valor > 0)) { avisar('g-msg', 'Completa fecha, concepto, quién lo pagó y un valor mayor a 0.', false); return; }
+    ocupado(ev.target, true); avisar('g-msg', 'Guardando…', true);
+    try {
+      await escribir('append_values', { range: 'Gastos!A1:G1', values: [[fecha, concepto, '', valor, $('g-quien').value, 'desde el dashboard', pais]] });
+      avisar('g-msg', 'Gasto agregado: ' + concepto + ' · ' + cop.format(valor) + ' · cargado a ' + pais + '.', true);
+      $('g-concepto').value = ''; $('g-valor').value = '';
+      dash.refresh('gastos');
+    } catch (e) { avisar('g-msg', textoError(e), false); }
+    ocupado(ev.target, false);
+  });
+
+  // Porcentajes
+  ['c-prov', 'c-trab', 'c-emp', 'c-s1', 'c-s2'].forEach((id) => $(id).addEventListener('input', () => { $(id).dataset.sucio = '1'; }));
+  $('c-guardar').addEventListener('click', async (ev) => {
+    const v = ['c-prov', 'c-trab', 'c-emp', 'c-s1', 'c-s2'].map((id) => Number($(id).value));
+    if (v.some((x) => !Number.isFinite(x) || x < 0 || x > 100)) { avisar('c-msg', 'Cada porcentaje debe estar entre 0 y 100.', false); return; }
+    if (Math.abs(v[3] + v[4] - 100) > 0.001) { avisar('c-msg', 'Los porcentajes de los dos socios deben sumar 100.', false); return; }
+    if (v[1] + v[2] >= 100) { avisar('c-msg', 'Trabajadores + empresa deben sumar menos de 100.', false); return; }
+    ocupado(ev.target, true); avisar('c-msg', 'Guardando…', true);
+    try {
+      await escribir('update_values', { range: 'Config!B2:B6', values: v.map((x) => [x]) });
+      ['c-prov', 'c-trab', 'c-emp', 'c-s1', 'c-s2'].forEach((id) => { delete $(id).dataset.sucio; });
+      avisar('c-msg', 'Porcentajes guardados. El reparto ya los usa.', true);
+      dash.refresh('config');
+    } catch (e) { avisar('c-msg', textoError(e), false); }
+    ocupado(ev.target, false);
+  });
+
+  // Trabajadores
+  let trabEdicion = null;
+  const limpiarTrab = () => { trabEdicion = null; ['w-nombre', 'w-pct', 'w-nota'].forEach((id) => { $(id).value = ''; }); $('w-guardar').textContent = 'Agregar trabajador'; $('w-cancelar').hidden = true; };
+  $('w-cancelar').addEventListener('click', limpiarTrab);
+  $('w-guardar').addEventListener('click', async (ev) => {
+    const nombre = $('w-nombre').value.trim(), pctW = Number($('w-pct').value);
+    if (!nombre) { avisar('w-msg', 'Escribe el nombre del trabajador.', false); return; }
+    if (!Number.isFinite(pctW) || pctW <= 0 || pctW > 100) { avisar('w-msg', 'El % de pago debe ser mayor a 0 y máximo 100.', false); return; }
+    const C = dash.data('config');
+    const otros = C.status === 'ok' ? C.data.filter((r) => r.tipo === 'trabajador' && (!trabEdicion || r.fila !== trabEdicion.fila)) : [];
+    const emp = C.status === 'ok' ? (C.data.find((r) => r.tipo === 'porcentaje' && /empresa/i.test(r.parametro)) || {}).valor || 0 : 0;
+    if (otros.reduce((x, r) => x + (r.valor || 0), 0) + pctW + emp >= 100) { avisar('w-msg', 'Con este % la nómina + empresa llegaría a 100% o más de la utilidad.', false); return; }
+    ocupado(ev.target, true); avisar('w-msg', 'Guardando…', true);
+    try {
+      const fila = [nombre, pctW, $('w-nota').value.trim()];
+      if (trabEdicion) await escribir('update_values', { range: 'Config!A' + trabEdicion.fila + ':C' + trabEdicion.fila, values: [fila] });
+      else await escribir('append_values', { range: 'Config!A12:C12', values: [fila] });
+      avisar('w-msg', (trabEdicion ? 'Cambios guardados: ' : 'Trabajador agregado: ') + nombre + ' · ' + num.format(pctW) + '%.', true);
+      limpiarTrab();
+      dash.refresh('config');
+    } catch (e) { avisar('w-msg', textoError(e), false); }
+    ocupado(ev.target, false);
+  });
+
+  // Números
+  let enEdicion = null;
+  const siguienteCodigo = () => { const N = dash.data('numeros'); const usados = N.status === 'ok' ? N.data.map((x) => Number(String(x.codigo).replace(/\D/g, '')) || 0) : []; return 'B' + (Math.max(0, ...usados) + 1); };
+  const limpiarNum = () => {
+    enEdicion = null;
+    ['n-numero', 'n-celular', 'n-pagina', 'n-pais', 'n-portafolio', 'n-nota'].forEach((id) => { $(id).value = ''; });
+    $('n-estado').value = 'CALENTAMIENTO'; $('n-inicio').value = HOY; $('n-codigo').value = siguienteCodigo();
+    document.querySelectorAll('.n-ed').forEach((l) => { l.hidden = true; });
+    $('n-guardar').textContent = 'Agregar número'; $('n-limpiar').hidden = true;
+  };
+  function editarNumero(f) {
+    enEdicion = f;
+    $('n-codigo').value = f.codigo; $('n-numero').value = f.numero; $('n-celular').value = f.celular; $('n-pais').value = f.pais; $('n-portafolio').value = f.portafolio;
+    $('n-estado').value = f.estado_hoja || 'CALENTAMIENTO'; $('n-inicio').value = /^\d{4}-\d{2}-\d{2}$/.test(f.inicio) ? f.inicio : ''; $('n-pagina').value = f.fan_page || ''; $('n-nota').value = f.nota || '';
+    document.querySelectorAll('.n-ed').forEach((l) => { l.hidden = false; });
+    $('n-guardar').textContent = 'Guardar cambios de ' + f.codigo; $('n-limpiar').hidden = false;
+    $('f-num').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  async function cambiarEstado(f, estado, sel) {
+    sel.disabled = true;
+    try { await escribir('update_values', { range: 'Numeros!F' + f.fila, values: [[estado]] }); avisar('n-msg', f.codigo + ' quedó en ' + estado + '.', true); dash.refresh('numeros'); }
+    catch (e) { avisar('n-msg', textoError(e), false); sel.value = f.estado_hoja; }
+    sel.disabled = false;
+  }
+  $('n-limpiar').addEventListener('click', limpiarNum);
+  $('n-guardar').addEventListener('click', async (ev) => {
+    const numero = $('n-numero').value.trim();
+    if (!numero) { avisar('n-msg', 'Escribe el número business.', false); return; }
+    if (!$('n-celular').value.trim()) { avisar('n-msg', 'Escribe en qué celular está.', false); return; }
+    const codigo = enEdicion ? enEdicion.codigo : siguienteCodigo();
+    const fila = [codigo, numero, $('n-celular').value.trim(), $('n-pais').value.trim().toUpperCase(), $('n-portafolio').value.trim().toUpperCase(), enEdicion ? $('n-estado').value : 'CALENTAMIENTO', $('n-inicio').value || HOY, $('n-pagina').value, $('n-nota').value.trim()];
+    ocupado(ev.target, true); avisar('n-msg', 'Guardando…', true);
+    try {
+      if (enEdicion) await escribir('update_values', { range: 'Numeros!A' + enEdicion.fila + ':I' + enEdicion.fila, values: [fila] });
+      else await escribir('append_values', { range: 'Numeros!A1:I1', values: [fila] });
+      avisar('n-msg', (enEdicion ? 'Cambios guardados en ' : 'Número agregado como ') + codigo + (enEdicion ? '.' : ' en CALENTAMIENTO.'), true);
+      limpiarNum();
+      dash.refresh('numeros');
+    } catch (e) { avisar('n-msg', textoError(e), false); }
+    ocupado(ev.target, false);
+  });
+
+  dash.onData(dibujar);
+  const ini = (location.hash || '').slice(1);
+  mostrar(['inicio', 'resumen', 'campanas', 'graficas', 'paginas', 'contabilidad', 'config'].includes(ini) ? ini : 'inicio');
+})();
+</script>
+
+</div>
+<script>
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+</body>
+</html>
