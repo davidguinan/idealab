@@ -395,7 +395,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
       </div>
       <div class="ag-grid" style="margin-top:14px">
         <div class="ag-card ag-kpi"><div class="ag-ringrow"><div><span class="lb">Utilidad</span><div class="v" data-k="ganancia" data-source="resumen" data-field="ganancia">—</div><span class="s">ventas − pauta con IVA</span></div><svg class="ag-ring" id="ring-margen" viewBox="0 0 100 100" data-source="resumen"></svg></div></div>
-        <div class="ag-card ag-kpi"><div class="ag-ringrow"><div><span class="lb">ROAS</span><div class="v" data-k="roas" data-source="resumen" data-field="roas">—</div><span class="s">ventas ÷ gasto · meta 2,0</span></div><svg class="ag-ring" id="ring-roas" viewBox="0 0 100 100" data-source="resumen"></svg></div></div>
+        <div class="ag-card ag-kpi"><div class="ag-ringrow"><div><span class="lb">ROAS</span><div class="v" data-k="roas" data-source="resumen" data-field="roas">—</div><span class="s">ventas ÷ pauta con IVA · meta 2,0</span></div><svg class="ag-ring" id="ring-roas" viewBox="0 0 100 100" data-source="resumen"></svg></div></div>
         <div class="ag-card ag-kpi"><span class="lb">% conversión</span><span class="v" data-k="pct_conv" data-source="resumen" data-field="pct_conv">—</span><span class="s">ventas ÷ conversaciones</span></div>
         <div class="ag-card ag-kpi"><span class="lb">Costo por conversación</span><span class="v" data-k="costo_conv" data-source="resumen" data-field="costo_conv">—</span><span class="s">gasto sin IVA ÷ conversaciones</span></div>
       </div>
@@ -423,7 +423,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
         <div class="ag-top"><div><h2>Diagnóstico de campañas</h2><p class="ag-note" id="diag-nota">Del periodo elegido. Toca una campaña para ver sus anuncios.</p></div><div class="ag-chips" id="diag-chips"></div></div>
         <div class="ag-chips" style="margin-bottom:10px"><select class="ag-sel" id="diag-estado" aria-label="Estado en Meta"><option value="act">Solo activas en Meta</option><option value="todas">Todas con gasto</option></select><select class="ag-sel" id="diag-pais" aria-label="País"></select></div>
         <div class="ag-scroll" style="max-height:none"><table class="ag-table" id="t-campanas" data-source="resumen" data-row-key="clave"></table></div>
-        <p class="ag-note" style="margin-top:10px">Regla: <b class="ag-pos">Escalar</b> ROAS ≥ 2,0 · <b class="ag-gold">Mantener</b> 1,8–2,0 · <b style="color:var(--ag-warn)">Bajar presupuesto</b> 1,19–1,8 · <b class="ag-neg">Apagar</b> menor a 1,19 (no cubre la pauta con IVA) con más de $20.000 de gasto. Nada se cambia solo.</p>
+        <p class="ag-note" style="margin-top:10px">Regla: <b class="ag-pos">Escalar</b> ROAS ≥ 2,0 · <b class="ag-gold">Mantener</b> 1,8–2,0 · <b style="color:var(--ag-warn)">Bajar presupuesto</b> 1,0–1,8 · <b class="ag-neg">Apagar</b> menor a 1,0 (no cubre la pauta con IVA) con más de $20.000 de gasto. Nada se cambia solo.</p>
       </div>
       <div class="ag-card" style="margin-top:14px">
         <h2>Listos para escalar (3 días)</h2>
@@ -920,14 +920,14 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 
   dash.calc('resumen', {
     title: 'Resultados del rango elegido',
-    description: 'Gasto, pauta con IVA (19 %), ventas, utilidad, ROAS, conversaciones, % de conversión, costo por conversación y recomendación del rango (Escalar ROAS ≥ 2; Mantener 1,8–2; Bajar 1,19–1,8; Apagar < 1,19 con más de $20.000 de gasto): total, por país, por campaña y por anuncio. Utilidad = ventas − gasto × 1,19; ROAS = ventas ÷ gasto; % conversión = ventas ÷ conversaciones.',
+    description: 'Gasto, pauta con IVA (19 %), ventas, utilidad, ROAS, conversaciones, % de conversión, costo por conversación y recomendación del rango (Escalar ROAS ≥ 2; Mantener 1,8–2; Bajar 1–1,8; Apagar < 1 con más de $20.000 de gasto): total, por país, por campaña y por anuncio. Utilidad = ventas − gasto × 1,19; ROAS = ventas ÷ (gasto × 1,19); % conversión = ventas ÷ conversaciones.',
     inputs: ['meta_rango', 'ventas_cop', 'meta_campanas', 'meta_conjuntos', 'paises', 'tasas_aj'],
     fn: (meta_rango, ventas_cop, meta_campanas, meta_conjuntos, paises, tasas) => {
       const IVA = 1.19;
       const monedaDe = {}; paises.forEach((x) => { if (!monedaDe[x.pais]) monedaDe[x.pais] = x.moneda; });
       const fechasT = tasas.map((t) => t.fecha).sort();
       const tasaAl = (mon, f, campo) => { if (mon === 'COP') return 1; const d = fechasT.filter((x) => x <= f).reverse().find((x) => { const t = tasas.find((y) => y.fecha === x); return t && t[mon]; }); const t = d && tasas.find((y) => y.fecha === d); return t ? t[campo || mon] : null; };
-      const REGLA = (roas, gasto) => (gasto < 20000 && (roas === null || roas < 1.8) ? 'Datos insuficientes' : roas >= 2 ? 'Escalar' : roas >= 1.8 ? 'Mantener' : roas >= 1.19 ? 'Bajar presupuesto' : 'Apagar');
+      const REGLA = (roas, gasto) => (gasto < 20000 && (roas === null || roas < 1.8) ? 'Datos insuficientes' : roas >= 2 ? 'Escalar' : roas >= 1.8 ? 'Mantener' : roas >= 1 ? 'Bajar presupuesto' : 'Apagar');
       if (!meta_rango.length) return [];
       const desde = meta_rango[0].rango_desde, hasta = meta_rango[0].rango_hasta;
       const ESTADOS = { ACTIVE: 'Activa', PAUSED: 'Pausada', CAMPAIGN_PAUSED: 'Pausada', ADSET_PAUSED: 'Pausada', ARCHIVED: 'Archivada', DELETED: 'Eliminada', DISAPPROVED: 'Rechazada', PENDING_REVIEW: 'En revisión', IN_PROCESS: 'En revisión', WITH_ISSUES: 'Con problemas' };
@@ -970,7 +970,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
           ventas_local: moneda && tasa ? Math.round((x.v_loc + x.v_otra_cop / tasa) * 100) / 100 : null,
         };
         const n = x.ventas_n + x.sin_atrib_n;
-        const roas = x.gasto > 0 ? Math.round((ventas / x.gasto) * 100) / 100 : null;
+        const roas = x.gasto > 0 ? Math.round((ventas / (x.gasto * IVA)) * 100) / 100 : null;
         const c = x.campana_id ? camp[x.campana_id] : null;
         const extra = x.nivel === 'campana' ? {
           estado_meta: c ? ESTADOS[c.estado] || c.estado : 'Archivada',
@@ -1021,7 +1021,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
       });
       return Object.values(g).map((r) => ({
         ...r, gasto_iva: Math.round(r.gasto * IVA), ganancia: Math.round(r.ventas_cop - r.gasto * IVA),
-        roas: r.gasto > 0 ? Math.round((r.ventas_cop / r.gasto) * 100) / 100 : null,
+        roas: r.gasto > 0 ? Math.round((r.ventas_cop / (r.gasto * IVA)) * 100) / 100 : null,
         pct_conv: r.conversaciones > 0 ? Math.round((r.ventas_atrib_n / r.conversaciones) * 1000) / 10 : null,
       }));
     },
@@ -1029,7 +1029,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 
   dash.calc('escalado', {
     title: 'Regla de escalado (3 días)',
-    description: 'Dos ventanas de 3 días por anuncio: cierre de hoy (antier, ayer y hoy en vivo) y cierre anterior (los 3 días cerrados antes de hoy). ROAS sin IVA de cada día, combinado, y si los tres días tienen ROAS igual o mayor a 2,0. El tablero muestra el cierre de hoy desde las 9 p. m. (hora Colombia) y el anterior antes de esa hora.',
+    description: 'Dos ventanas de 3 días por anuncio: cierre de hoy (antier, ayer y hoy en vivo) y cierre anterior (los 3 días cerrados antes de hoy). ROAS (ventas ÷ pauta con IVA) de cada día, combinado, y si los tres días tienen ROAS igual o mayor a 2,0. El tablero muestra el cierre de hoy desde las 9 p. m. (hora Colombia) y el anterior antes de esa hora.',
     inputs: ['meta_dias', 'meta_hoy', 'ventas_cop'],
     fn: (meta_dias, meta_hoy, ventas_cop) => {
       const IVA = 1.19;
@@ -1047,12 +1047,12 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
         });
         ventas_cop.filter((v) => ads[v.ad_id] && dias.includes(v.fecha) && v.valor_cop).forEach((v) => { ads[v.ad_id].ventas[dias.indexOf(v.fecha)] += v.valor_cop; });
         Object.values(ads).forEach((a) => {
-          const r = a.gasto.map((g, i) => (g > 0 ? Math.round((a.ventas[i] / g) * 100) / 100 : null));
+          const r = a.gasto.map((g, i) => (g > 0 ? Math.round((a.ventas[i] / (g * IVA)) * 100) / 100 : null));
           const gasto = a.gasto.reduce((s, x) => s + x, 0), ventas = a.ventas.reduce((s, x) => s + x, 0);
           out.push({
             clave: ventana + '|' + a.ad_id, ventana, ad_id: a.ad_id, anuncio: a.anuncio, campana: a.campana, dia1: dias[0], dia2: dias[1], dia3: dias[2],
             roas_dia1: r[0], roas_dia2: r[1], roas_dia3: r[2],
-            roas_combinado: gasto > 0 ? Math.round((ventas / gasto) * 100) / 100 : null,
+            roas_combinado: gasto > 0 ? Math.round((ventas / (gasto * IVA)) * 100) / 100 : null,
             ganancia_3d: Math.round(ventas - gasto * IVA), cumple: r.every((x) => x !== null && x >= 2),
           });
         });
@@ -1161,7 +1161,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
             const resto_p = ut_p - com - nom_p - emp_p;
             if (x.gasto || x.ventas || g_p) pai.push({ clave: p.periodo + '|' + x.pais, periodo: p.periodo, tipo: p.tipo, pais: x.pais, desde: p.desde, hasta: p.hasta, completo: p.hasta < hoy, ventas: Math.round(x.ventas), ventas_n: x.ventas_n, pauta_iva, utilidad: util, pct_prov: P_PROV, comision: com, conversaciones: x.conversaciones,
               gastos: g_p, utilidad_total: ut_p, proveedores: com, pct_trab: P_TRAB, nomina: nom_p, pct_emp: P_EMP, empresa: emp_p, pct_s1: S1, pct_s2: S2, socio1: Math.round((resto_p * S1) / 100), socio2: Math.round((resto_p * S2) / 100),
-              rentabilidad: pauta_iva > 0 ? Math.round((ut_p / pauta_iva) * 1000) / 10 : null, roas: x.gasto > 0 ? Math.round((x.ventas / x.gasto) * 100) / 100 : null,
+              rentabilidad: pauta_iva > 0 ? Math.round((ut_p / pauta_iva) * 1000) / 10 : null, roas: x.gasto > 0 ? Math.round((x.ventas / (x.gasto * IVA)) * 100) / 100 : null,
               moneda, tasa, ventas_local, pauta_local: loc(pauta_iva), utilidad_local: ventas_local === null ? null : Math.round((ventas_local - pauta_iva / tasa) * 100) / 100, comision_local: ventas_local === null ? null : Math.max(0, Math.round((ventas_local - pauta_iva / tasa) * P_PROV) / 100) });
           });
           const gasto_total = Math.round(gs.reduce((s, g) => s + g.valor, 0));
@@ -1176,7 +1176,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
             pct_prov: P_PROV, proveedores: prov, pct_trab: P_TRAB, nomina, pct_emp: P_EMP, empresa, pct_s1: S1, pct_s2: S2,
             socio1: Math.round((resto * S1) / 100), socio2: Math.round((resto * S2) / 100),
             rentabilidad: pauta > 0 ? Math.round((util_total / pauta) * 1000) / 10 : null,
-            roas: pauta > 0 ? Math.round((ventas / (pauta / IVA)) * 100) / 100 : null,
+            roas: pauta > 0 ? Math.round((ventas / pauta) * 100) / 100 : null,
           });
         });
           return [...tot.map((t) => ({ nivel: 'total', clave: t.periodo, ...t })), ...pai.map((p) => ({ nivel: 'pais', ...p })), ...pagos];
