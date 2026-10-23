@@ -112,9 +112,24 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     fijar('meta_campanas', { status: 'ok', data: j.meta.campanas.map((c) => ({ campana_id: c.id, campana: c.name, cuenta: c.cuenta, cuenta_id: c.cuenta_id, estado: c.effective_status, presupuesto: c.daily_budget ? Number(c.daily_budget) : null })) });
     fijar('meta_conjuntos', { status: 'ok', data: j.meta.conjuntos.map((c) => ({ conjunto_id: c.id, conjunto: c.name, campana_id: c.campaign_id, cuenta: c.cuenta, estado: c.effective_status, presupuesto: c.daily_budget ? Number(c.daily_budget) : null })) });
     fijar('meta_creativos', { status: 'ok', data: j.meta.activos.map((a) => { const sid = String((a.creative && a.creative.effective_object_story_id) || ''); return { ad_id: a.id, anuncio: a.name, campana_id: a.campaign ? a.campaign.id : '', campana: a.campaign ? a.campaign.name : '', cuenta: a.cuenta, cuenta_id: a.cuenta_id, estado: a.effective_status, page_id: sid.includes('_') ? sid.split('_')[0] : '' }; }) });
+    cargarFacturas(j);
     fijar('meta_paginas', { status: 'ok', data: j.meta.paginas.map((p) => ({ page_id: p.page_id, pagina: p.pagina, usada_en: (p.cuentas || []).join(', '), pauta: (p.cuentas || []).length ? 'Sí' : 'No' })) });
     calcular();
   };
+  // ---- facturas por pagar (pestaña Facturas): del servidor si la manda, o pidiéndola aparte
+  const buscarValues = (o, prof = 0) => { if (!o || typeof o !== 'object' || prof > 5) return null; if (Array.isArray(o.values) && (!o.values.length || Array.isArray(o.values[0]))) return o.values; for (const k of Object.keys(o)) { const r = buscarValues(o[k], prof + 1); if (r) return r; } return null; };
+  const leerFacturas = (vals) => vals.slice(1).map((r, i) => ({ fila: i + 2, creada: leerFecha(r[0]) || String(r[0] || ''), concepto: String(r[1] || '').trim(), valor: leerValor(r[2]), pagar_a: String(r[3] || '').trim(), estado: /pagad/i.test(String(r[4] || '')) ? 'Pagado' : 'Pendiente', fecha_pago: leerFecha(r[5]) || String(r[5] || ''), pagado_por: String(r[6] || '').trim(), nota: String(r[7] || '') })).filter((r) => r.concepto || r.valor);
+  const cargarFacturas = async (j) => {
+    const directo = j && j.hojas && (j.hojas.facturas || j.hojas.Facturas);
+    if (Array.isArray(directo)) { fijar('facturas', { status: 'ok', data: leerFacturas(directo) }); return; }
+    if (!estado.facturas || estado.facturas.status !== 'ok') fijar('facturas', { status: 'loading', data: [] });
+    const intentos = [() => enviar({ accion: 'facturas' }), () => enviar({ accion: 'hoja', tool: 'get_values', input: { range: 'Facturas!A1:I1000' } })];
+    for (const intento of intentos) {
+      try { const r = await intento(); const vals = buscarValues(r); if (vals) { fijar('facturas', { status: 'ok', data: leerFacturas(vals) }); avisar(); return; } } catch (e) {}
+    }
+    fijar('facturas', { status: 'error', data: [], message: 'sin_servidor' }); avisar();
+  };
+
   const calcular = () => {
     let pendientes = Object.keys(calcs);
     for (let vuelta = 0; vuelta < 10 && pendientes.length; vuelta++) {
@@ -217,7 +232,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 .ag * { box-sizing: border-box; }
 .ag-side { background: rgba(255,255,255,.02); border-right: 1px solid var(--ag-line); padding: 20px 14px; display: flex; flex-direction: column; gap: 18px; position: sticky; top: 0; align-self: start; min-height: 100vh; }
 .ag-brand { display: flex; align-items: center; gap: 10px; }
-.ag-brand img { width: 34px; height: 42px; object-fit: contain; }
+.ag-brand img { width: 52px; height: 60px; object-fit: contain; filter: drop-shadow(0 0 10px rgba(245,184,0,.35)); cursor: pointer; }
 .ag-brand b { display: block; font-size: 15px; letter-spacing: .06em; }
 .ag-brand span { display: block; font-size: 10px; color: var(--ag-muted); letter-spacing: .14em; text-transform: uppercase; }
 .ag-navt { font-size: 10px; color: var(--ag-muted); letter-spacing: .14em; text-transform: uppercase; margin: 4px 6px 0; }
@@ -251,6 +266,44 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 .ag-kpi .v { font-family: var(--font-anthropic-serif); font-size: clamp(22px, 2.4vw, 30px); font-variant-numeric: tabular-nums; line-height: 1.1; }
 .ag-kpi .s { font-size: 12px; color: var(--ag-muted); }
 .ag-x.ag-edit { margin-left: 10px; font-size: 11.5px; color: var(--ag-gold); }
+.g-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); margin-top: 10px; }
+.g-mini { border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 12px 12px 4px; background: rgba(0,0,0,.15); min-width: 0; }
+.g-mini-h { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.g-mini-h b { font-size: 14px; }
+.g-mini-h span { display: flex; gap: 10px; font-size: 12.5px; }
+.g-mini-h em { font-style: normal; font-variant-numeric: tabular-nums; }
+.ag-chart.g-mini-c { min-height: 0; }
+.cd-box .ag-chart { min-height: 0; }
+.vida-tl { display: grid; gap: 6px; margin-top: 10px; }
+.vida-row { display: grid; grid-template-columns: minmax(150px, 230px) 1fr 130px 74px; gap: 12px; align-items: center; width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid transparent; background: rgba(255,255,255,.025); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.vida-row:hover { border-color: rgba(245,184,0,.25); }
+.vida-row.on { border-color: rgba(245,184,0,.6); background: rgba(245,184,0,.06); }
+.vida-lb { min-width: 0; display: grid; gap: 2px; }
+.vida-lb b { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vida-lb span { font-size: 11.5px; color: var(--ag-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vida-strip { display: grid; gap: 2px; height: 22px; }
+.vida-strip i { display: block; border-radius: 3px; min-width: 2px; }
+.vida-strip i.vivo { box-shadow: 0 0 0 2px #2DD4BF inset; }
+.vida-n { display: grid; justify-items: end; gap: 2px; }
+.vida-n b { font-size: 13px; font-variant-numeric: tabular-nums; }
+.vida-n span { font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.vida-est { justify-self: end; font-size: 11px; padding: 3px 8px; border-radius: 99px; border: 1px solid; }
+.vida-est.act { color: #2DD4BF; border-color: rgba(45,212,191,.4); }
+.vida-est.off { color: var(--ag-muted); border-color: rgba(255,255,255,.15); }
+.vida-box { position: static; margin-top: 12px; }
+.vida-kpis { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+.vida-kpis div { display: grid; gap: 2px; padding: 10px; border-radius: 10px; background: rgba(255,255,255,.03); }
+.vida-kpis span { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ag-muted); }
+.vida-kpis b { font-size: 17px; font-variant-numeric: tabular-nums; }
+.vida-kpis em { font-style: normal; font-size: 11.5px; color: var(--ag-muted); }
+@media (max-width: 720px) { .vida-row { grid-template-columns: 1fr auto; } .vida-strip { grid-column: 1 / -1; grid-row: 2; } .vida-est { display: none; } }
+.cd-box { position: sticky; left: 0; display: grid; gap: 10px; padding: 14px; margin: 4px 0 8px; border-radius: 12px; background: rgba(0,0,0,.22); border: 1px solid rgba(245,184,0,.18); white-space: normal; text-align: left; }
+.cd-h { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.cd-h b { font-size: 14px; color: var(--ag-gold); }
+.cd-h span { font-size: 12px; color: var(--ag-muted); }
+.cd-box .ag-scroll { max-height: 340px; }
+tr.det > td { padding: 0 !important; background: transparent !important; }
+tr.cd-vacio td { opacity: .45; }
 .ag-pres { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
 .ag-pres .ag-in { width: 110px; padding: 6px 8px; }
 .ag-pres .ag-btn { padding: 6px 10px; font-size: 12px; white-space: nowrap; }
@@ -297,6 +350,15 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 .ag-area b { font-size: 17px; font-weight: 600; }
 .ag-area span { color: var(--ag-muted); font-size: 13px; line-height: 1.45; }
 .ag-area em { font-style: normal; font-family: var(--font-anthropic-serif); font-size: 20px; color: var(--ag-fg); }
+.ini-hero { display: flex; align-items: center; gap: clamp(16px, 4vw, 44px); flex-wrap: wrap; }
+.logo3d { --luz: 0; display: grid; justify-items: center; gap: 6px; user-select: none; -webkit-user-select: none; }
+.l3-stage { position: relative; width: clamp(170px, 26vw, 250px); aspect-ratio: 1; perspective: 900px; touch-action: none; cursor: grab; }
+.l3-stage:active { cursor: grabbing; }
+.l3-luz { position: absolute; inset: -18%; border-radius: 50%; pointer-events: none; background: radial-gradient(circle at 44% 40%, rgba(255,214,90, calc(.18 + .55 * var(--luz))) 0%, rgba(249,115,22, calc(.08 + .3 * var(--luz))) 32%, transparent 64%); filter: blur(calc(8px + 14px * var(--luz))); transform: scale(calc(.9 + .25 * var(--luz))); }
+.l3-obj { position: absolute; inset: 0; transform-style: preserve-3d; will-change: transform; }
+.l3-obj img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; -webkit-user-drag: none; backface-visibility: visible; }
+.l3-obj img.fr { filter: brightness(calc(1 + .45 * var(--luz))) saturate(calc(1 + .3 * var(--luz))) drop-shadow(0 0 calc(2px + 22px * var(--luz)) rgba(255,196,40, calc(.35 + .6 * var(--luz)))); }
+.l3-hint { margin: 0; font-size: 11.5px; color: var(--ag-muted); text-align: center; }
 .ag-hello { font-family: var(--font-anthropic-serif); font-size: clamp(26px, 4vw, 40px); margin: 6px 0 2px; font-weight: 400; }
 .ag-split { display: grid; gap: 8px; }
 .ag-split .row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--ag-line); border-radius: 10px; font-size: 13.5px; }
@@ -304,12 +366,31 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 .ag-split .row .bar i { display: block; height: 100%; border-radius: 99px; }
 .ag-split .row .v { font-variant-numeric: tabular-nums; font-weight: 600; }
 .ag-split .row small { color: var(--ag-muted); font-size: 11.5px; display: block; }
-.ag-recibos { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); }
+.ag-recibos { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
 .ag-recibo { border: 1px dashed rgba(245,184,0,.45); border-radius: 12px; padding: 14px; font-size: 13px; display: grid; gap: 6px; background: rgba(245,184,0,.03); }
 .ag-recibo h3 { margin: 0; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--ag-gold); font-weight: 600; }
 .ag-recibo .ln { display: flex; justify-content: space-between; gap: 8px; }
 .ag-recibo .ln span:first-child { color: var(--ag-muted); }
 .ag-recibo .tt { border-top: 1px solid var(--ag-line); padding-top: 6px; font-weight: 600; font-size: 15px; }
+.ag-recibo { --fl1: #F97316; --fl2: #F5B800; --fl3: #F97316; --fl-ac: #F5B800; position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,.08) !important; border-radius: 16px !important; padding: 0 0 14px !important; gap: 0 !important; background: linear-gradient(180deg, color-mix(in srgb, var(--fl-ac) 9%, transparent), rgba(255,255,255,.02) 46%) !important; }
+.ag-recibo::before { content: ''; display: block; height: 6px; background: linear-gradient(90deg, var(--fl1) 0 33.3%, var(--fl2) 33.3% 66.6%, var(--fl3) 66.6%); }
+.rc-cab { display: flex; gap: 12px; align-items: center; padding: 14px 16px 12px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.rc-flag { display: grid; grid-template-rows: 1fr 1fr 1fr; width: 34px; height: 23px; border-radius: 4px; overflow: hidden; flex: none; box-shadow: 0 0 0 1px rgba(255,255,255,.15); }
+.rc-flag i { display: block; }
+.rc-flag svg { display: block; grid-row: 1 / -1; }
+.rc-cab h3 { margin: 0 !important; font-size: 17px !important; letter-spacing: .02em !important; text-transform: none !important; color: #fff !important; }
+.rc-cab span { font-size: 12px; color: var(--ag-muted); }
+.rc-ln { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 10px 16px; border-bottom: 1px dashed rgba(255,255,255,.06); }
+.rc-lb { color: var(--ag-muted); font-size: 12.5px; }
+.rc-v { display: grid; justify-items: end; text-align: right; }
+.rc-v b { font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; }
+.rc-v em { font-style: normal; font-size: 11.5px; color: var(--ag-muted); font-variant-numeric: tabular-nums; }
+.rc-tot { display: grid; gap: 2px; margin: 12px 16px 0; padding: 12px 14px; border-radius: 12px; background: rgba(0,0,0,.25); border-left: 3px solid var(--fl-ac); }
+.rc-tot span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ag-muted); }
+.rc-tot b { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: 26px; color: var(--fl-ac); font-variant-numeric: tabular-nums; line-height: 1.15; }
+.rc-tot em { font-style: normal; font-size: 12px; color: var(--ag-muted); font-variant-numeric: tabular-nums; }
+.rc-gracias { margin: 12px 16px 0; font-size: 12.5px; line-height: 1.4; color: #E8EDF7; }
+.ag-recibo .ag-recibo-acc { padding: 0 16px; }
 .ag-recibo-acc { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
 .ag-recibo-acc .ag-btn { padding: 7px 12px; font-size: 12.5px; }
 .ag-recibo-msg { font-size: 11.5px; color: var(--ag-bad, #FB7185); }
@@ -339,6 +420,20 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 .g-pc { color: var(--ag-muted); }
 .g-v { text-align: right; font-variant-numeric: tabular-nums; color: var(--ag-gold); }
 .g-pie { font-size: 12px; text-align: right; }
+.f-res { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin: 10px 0 12px; }
+.f-res > div { display: grid; gap: 2px; padding: 12px; border-radius: 12px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); }
+.f-res span { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ag-muted); }
+.f-res b { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: 22px; font-variant-numeric: tabular-nums; }
+.f-res em { font-style: normal; font-size: 12px; color: var(--ag-muted); }
+.f-res .f-aviso { grid-column: 1 / -1; padding: 10px 12px; border-radius: 10px; border: 1px dashed rgba(245,184,0,.4); }
+.f-nota { font-size: 11.5px; color: var(--ag-muted); }
+.f-acc { display: flex; gap: 10px; align-items: center; justify-content: flex-end; white-space: nowrap; }
+.f-acc .ag-btn { padding: 6px 10px; font-size: 12px; }
+.f-pago { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; padding: 10px; border-radius: 10px; background: rgba(245,184,0,.05); }
+.f-pago label { display: grid; gap: 4px; font-size: 11px; color: var(--ag-muted); }
+.g-multi { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; color: var(--ag-gold); border: 1px solid rgba(245,184,0,.35); }
+.g-val { font-variant-numeric: tabular-nums; color: var(--ag-text, #E8EDF7); }
+tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 .ag-msg { font-size: 12.5px; margin: 8px 0 0; min-height: 1em; }
 .ag-msg.ok { color: var(--ag-ok); } .ag-msg.err { color: var(--ag-bad); }
 .ag-link { color: var(--ag-gold); font-size: 12.5px; }
@@ -398,8 +493,19 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 
     <!-- INICIO -->
     <section class="ag-vista" id="inicio" data-vista="inicio">
-      <p class="ag-take">Hola, Anthony y Alejandra.</p>
-      <h2 class="ag-hello">¿A qué área quieres entrar?</h2>
+      <div class="ini-hero">
+        <div class="logo3d" id="logo3d" role="img" aria-label="Logo de IdeaLab en 3D. Arrástralo para girarlo y tócalo para encender la luz.">
+          <div class="l3-stage" id="l3-stage">
+            <div class="l3-luz"></div>
+            <div class="l3-obj" id="l3-obj"></div>
+          </div>
+          <p class="l3-hint">Arrástralo para girarlo · tócalo para encender la luz</p>
+        </div>
+        <div>
+          <p class="ag-take">Hola, Anthony y Alejandra.</p>
+          <h2 class="ag-hello">¿A qué área quieres entrar?</h2>
+        </div>
+      </div>
       <div class="ag-areas" style="margin-top:14px">
         <button type="button" class="ag-area" data-ir="resumen"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><b>Resumen</b><span>Ventas, pauta, utilidad, ROAS y conversaciones del periodo, por país.</span><em data-source="resumen" data-field="ganancia" data-where="clave=total|todos" id="a-res" class="dash-skeleton">—</em></button>
         <button type="button" class="ag-area" data-ir="campanas"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l6 5V5L7 10H4a1 1 0 0 0-1 1zM17 8a5 5 0 0 1 0 8"/></svg><b>Campañas</b><span>Diagnóstico de cada campaña y anuncio: escalar, mantener, bajar o apagar.</span><em id="a-camp">—</em></button>
@@ -476,19 +582,18 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     <!-- GRÁFICAS -->
     <section class="ag-vista" id="graficas" data-vista="graficas" hidden>
       <div class="ag-card">
-        <div class="ag-top"><h2>Comparar día a día</h2>
+        <div class="ag-top"><div><h2>Día a día</h2><p class="ag-note" id="g-nota">Pauta con IVA, utilidad y ROAS de cada día, igual que en el Resumen.</p></div>
           <div class="ag-chips"><select class="ag-sel" id="g-serie" aria-label="Qué comparar"><option value="pais">Por país</option><option value="campana">Por campaña</option></select></div></div>
-        <div class="ag-chips" id="g-metricas" style="margin:8px 0 10px">
-          <button type="button" class="ag-btn" data-m="ganancia">Utilidad</button>
-          <button type="button" class="ag-btn" data-m="roas">ROAS</button>
-          <button type="button" class="ag-btn" data-m="gasto_iva">Pauta con IVA</button>
-          <button type="button" class="ag-btn" data-m="ventas_cop">Ventas</button>
-          <button type="button" class="ag-btn" data-m="conversaciones">Conversaciones</button>
-          <button type="button" class="ag-btn" data-m="pct_conv">% conversión</button>
-        </div>
-        <div class="ag-legend" id="g-leyenda"></div>
-        <div class="ag-chart" id="g-chart" data-source="diario"></div>
-        <p class="ag-note" id="g-nota"></p>
+        <div class="ag-legend"><span><i style="background:var(--ag-gold)"></i>Pauta con IVA</span><span><i style="background:var(--ag-teal)"></i>Utilidad</span><span><i style="background:#A3E635"></i>ROAS (línea punteada = meta 2,0)</span></div>
+        <div class="g-grid" id="g-grid" data-source="diario"></div>
+      </div>
+      <div class="ag-card" style="margin-top:14px">
+        <div class="ag-top"><div><h2>Durabilidad de los anuncios</h2><p class="ag-note" id="vida-nota">Desde el primer día que pautó hasta que se apagó.</p></div>
+          <div class="ag-chips"><select class="ag-sel" id="vida-orden" aria-label="Ordenar"><option value="ventas">Más ventas</option><option value="dias">Más días de vida</option><option value="recientes">Más recientes</option><option value="roas">Mejor ROAS</option></select><select class="ag-sel" id="vida-estado" aria-label="Estado"><option value="">Activos y apagados</option><option value="act">Solo activos</option><option value="off">Solo apagados</option></select></div></div>
+        <div class="ag-legend"><span><i style="background:#F5B800"></i>Día con ventas (más intenso = más facturación)</span><span><i style="background:#2B3A66"></i>Pautó sin ventas</span><span><i style="background:#2DD4BF"></i>Sigue activo</span></div>
+        <div class="vida-tl" id="vida-tl" data-source="vida_ads"></div>
+        <div id="vida-det"></div>
+        <button type="button" class="ag-x" id="vida-mas" hidden>Ver todos</button>
       </div>
     </section>
 
@@ -569,6 +674,22 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
           <button type="button" class="ag-btn pri" id="g-guardar">Agregar gasto</button>
         </div>
         <p class="ag-msg" id="g-msg"></p>
+      </div>
+      <div class="ag-card" style="margin-top:14px">
+        <div class="ag-top"><div><h2>Facturas por pagar</h2><p class="ag-note">Anota cada factura cuando llegue; márcala como pagada con la fecha y quién la pagó. Se guardan en la pestaña Facturas de la hoja.</p></div>
+          <div class="ag-chips" id="f-filtro"><button type="button" class="ag-btn" data-f="pend" aria-pressed="true">Pendientes</button><button type="button" class="ag-btn" data-f="pag">Pagadas</button><button type="button" class="ag-btn" data-f="todas">Todas</button></div></div>
+        <div class="f-res" id="f-res" data-source="facturas"></div>
+        <div class="ag-scroll"><table class="ag-table" id="t-facturas" data-source="facturas" data-row-key="fila"></table></div>
+        <p class="ag-empty" id="facturas-vacio" hidden>No hay facturas en esta lista.</p>
+        <div class="ag-form">
+          <label>Fecha de la factura<input class="ag-in" type="date" id="fa-fecha" min="2020-01-01" max="2099-12-31"></label>
+          <label>Concepto<input class="ag-in" id="fa-concepto" placeholder="Bots de octubre, proveedor Chile…"></label>
+          <label>Valor (COP)<input class="ag-in" type="number" id="fa-valor" min="0" step="1"></label>
+          <label>A quién se le paga<input class="ag-in" id="fa-a" placeholder="Proveedor, persona o empresa"></label>
+          <label>Nota<input class="ag-in" id="fa-nota" placeholder="Opcional"></label>
+          <button type="button" class="ag-btn pri" id="fa-guardar">Agregar factura</button>
+        </div>
+        <p class="ag-msg" id="fa-msg"></p>
       </div>
       <div class="ag-card" style="margin-top:14px">
         <h2>Bitácora de cierres</h2>
@@ -1066,6 +1187,49 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     },
   });
 
+  dash.calc('vida_ads', {
+    title: 'Vida de cada anuncio',
+    description: 'Por anuncio: primer y último día con pauta (Meta_diario + hoy), si sigue activo, días de vida, primera venta, ventas, pauta con IVA, utilidad, ROAS y su serie día a día.',
+    inputs: ['meta_dias', 'ventas_cop', 'meta_creativos', 'paises'],
+    fn: (meta_dias, ventas_cop, meta_creativos, paises) => {
+      const IVA = 1.19;
+      const prefijos = paises.map((p) => [p.prefijo.toLowerCase(), p.pais]).sort((x, y) => y[0].length - x[0].length);
+      const paisDe = (c) => (prefijos.find(([p]) => String(c || '').toLowerCase().startsWith(p)) || [null, 'Otro'])[1];
+      const activos = new Set(meta_creativos.filter((a) => a.estado === 'ACTIVE').map((a) => String(a.ad_id)));
+      const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+      const ads = {};
+      meta_dias.forEach((r) => {
+        const a = (ads[r.ad_id] = ads[r.ad_id] || { ad_id: r.ad_id, anuncio: r.anuncio, campana: r.campana, campana_id: r.campana_id, conjunto: r.conjunto, dias: {} });
+        const d = (a.dias[r.fecha] = a.dias[r.fecha] || { gasto: 0, conv: 0, n: 0, cop: 0 });
+        d.gasto += r.gasto || 0; d.conv += r.conversaciones || 0;
+        if (r.anuncio) a.anuncio = r.anuncio;
+      });
+      ventas_cop.forEach((v) => { const a = ads[v.ad_id]; if (!a || !v.valor_cop || !v.fecha) return; const d = (a.dias[v.fecha] = a.dias[v.fecha] || { gasto: 0, conv: 0, n: 0, cop: 0 }); d.n += 1; d.cop += v.valor_cop; });
+      return Object.values(ads).map((a) => {
+        const fechas = Object.keys(a.dias).sort();
+        const conG = fechas.filter((f) => a.dias[f].gasto > 0);
+        if (!conG.length) return null;
+        const conV = fechas.filter((f) => a.dias[f].n > 0);
+        const activo = activos.has(String(a.ad_id));
+        const inicio = conG[0], fin = activo ? (conG[conG.length - 1] > hoy ? conG[conG.length - 1] : hoy) : conG[conG.length - 1];
+        const dif = (x, y) => Math.round((Date.parse(y + 'T12:00:00Z') - Date.parse(x + 'T12:00:00Z')) / 864e5);
+        const serie = [];
+        for (let f = inicio; f <= fin; f = new Date(Date.parse(f + 'T12:00:00Z') + 864e5).toISOString().slice(0, 10)) { const d = a.dias[f] || { gasto: 0, conv: 0, n: 0, cop: 0 }; serie.push({ fecha: f, gasto: d.gasto, conversaciones: d.conv, ventas_n: d.n, ventas_cop: d.cop }); }
+        const gasto = serie.reduce((s, x) => s + x.gasto, 0), cop_ = serie.reduce((s, x) => s + x.ventas_cop, 0), n = serie.reduce((s, x) => s + x.ventas_n, 0);
+        const pico = serie.reduce((b, x) => (x.ventas_cop > (b ? b.ventas_cop : -1) ? x : b), null);
+        const pv = conV.find((f) => f >= inicio) || null;
+        return {
+          clave: a.ad_id, ad_id: a.ad_id, anuncio: a.anuncio, campana: a.campana, campana_id: a.campana_id, conjunto: a.conjunto, pais: paisDe(a.campana),
+          inicio, fin, activo, estado: activo ? 'Activo' : 'Apagado', dias_vida: dif(inicio, fin) + 1, dias_pauta: conG.length,
+          primera_venta: pv, dias_a_primera_venta: pv ? dif(inicio, pv) + 1 : null, dias_con_ventas: serie.filter((x) => x.ventas_n > 0).length,
+          ventas_n: n, ventas_cop: cop_, gasto, gasto_iva: Math.round(gasto * IVA), ganancia: Math.round(cop_ - gasto * IVA), roas: gasto > 0 ? Math.round((cop_ / (gasto * IVA)) * 100) / 100 : null,
+          pico_fecha: pico && pico.ventas_cop > 0 ? pico.fecha : null, pico_dia: pico && pico.ventas_cop > 0 ? dif(inicio, pico.fecha) + 1 : null, pico_cop: pico ? pico.ventas_cop : 0,
+          serie,
+        };
+      }).filter(Boolean);
+    },
+  });
+
   dash.calc('escalado', {
     title: 'Regla de escalado (3 días)',
     description: 'Dos ventanas de 3 días por anuncio: cierre de hoy (antier, ayer y hoy en vivo) y cierre anterior (los 3 días cerrados antes de hoy). ROAS (ventas ÷ pauta con IVA) de cada día, combinado, y si los tres días tienen ROAS igual o mayor a 2,0. El tablero muestra el cierre de hoy desde las 9 p. m. (hora Colombia) y el anterior antes de esa hora.',
@@ -1308,7 +1472,8 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
   let abierta = null;
   let periodoSel = null;
   let paisCierre = null;
-  $('g-metricas').addEventListener('click', (e) => { const b = e.target.closest('[data-m]'); if (b) { metrica = b.dataset.m; dibujar(); } });
+  ['vida-orden', 'vida-estado'].forEach((id) => $(id).addEventListener('change', () => { vidaTodos = false; dibujarSeguro(); }));
+  $('vida-mas').addEventListener('click', () => { vidaTodos = !vidaTodos; dibujarSeguro(); });
   $('g-serie').addEventListener('change', dibujarSeguro);
   $('horas-camp').addEventListener('change', (e) => { horasCamp = e.target.value; dibujarSeguro(); });
   $('diag-estado').addEventListener('change', dibujarSeguro);
@@ -1368,9 +1533,9 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
   };
 
   // ---------- Gráfico combinado ----------
-  const combo = (caja, dias) => {
+  const combo = (caja, dias, alto) => {
     caja.replaceChildren();
-    const W = Math.max(caja.clientWidth, 300), H = 300, m = { t: 22, r: 44, b: 30, l: 56 };
+    const W = Math.max(caja.clientWidth, 300), H = alto || 300, m = { t: 22, r: 44, b: 30, l: 56 };
     const svg = d3.select(caja).append('svg').attr('width', '100%').attr('viewBox', [0, 0, W, H]);
     const x = d3.scaleBand(dias.map((d) => d.fecha), [m.l, W - m.r]).padding(0.25);
     const lo = Math.min(0, d3.min(dias, (d) => Math.min(d.ganancia, 0)) || 0), hi = Math.max(1, d3.max(dias, (d) => Math.max(d.gasto_iva, d.ganancia)) || 1);
@@ -1694,6 +1859,61 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     lec.append(sp);
   };
 
+  // ---------- Detalle día a día de una campaña (cuando el rango tiene varios días) ----------
+  const detalleCampana = (tb, f, filas, ncols) => {
+    const p = dash.params();
+    if (!p.desde || !p.hasta || p.desde === p.hasta) return;
+    const tr = tb.insertRow(); tr.className = 'sub det';
+    const td = tr.insertCell(); td.colSpan = ncols;
+    const box = document.createElement('div'); box.className = 'cd-box';
+    const scroller = td.closest('.ag-scroll');
+    if (scroller) box.style.width = Math.max(280, scroller.clientWidth - 24) + 'px';
+    td.appendChild(box);
+    const D = dash.data('diario');
+    if (D.status !== 'ok') { box.textContent = 'Cargando el día a día…'; return; }
+    const anuncios = new Set(filas.filter((a) => a.nivel === 'anuncio' && a.campana_id === f.campana_id).map((a) => a.ad_id));
+    const ventasDia = {};
+    dash.data('ventas_cop').data.filter((v) => anuncios.has(v.ad_id) && v.fecha >= p.desde && v.fecha <= p.hasta && v.valor_cop).forEach((v) => {
+      const x = (ventasDia[v.fecha] = ventasDia[v.fecha] || { n: 0, cop: 0, loc: 0 });
+      x.n += 1; x.cop += v.valor_cop; x.loc += v.moneda === f.moneda ? v.valor_local : f.tasa ? v.valor_cop / f.tasa : 0;
+    });
+    const dias = [];
+    for (let d = p.desde; d <= p.hasta; d = sumar(d, 1)) {
+      const r = D.data.find((x) => x.fecha === d && x.nivel === 'campana' && x.id === f.campana_id) || { fecha: d, gasto: 0, gasto_iva: 0, ganancia: 0, roas: null, conversaciones: 0, ventas_cop: 0, ventas_n: 0, pct_conv: null };
+      const v = ventasDia[d] || { n: 0, cop: 0, loc: 0 };
+      dias.push({ ...r, fecha: d, ventas_n: Math.max(r.ventas_n || 0, v.n), ventas_local: v.loc, costo_compra: (r.ventas_n || v.n) > 0 ? Math.round(r.gasto_iva / (r.ventas_n || v.n)) : null });
+    }
+    const h = document.createElement('div'); h.className = 'cd-h';
+    const t1 = document.createElement('b'); t1.textContent = 'Día a día · ' + f.nombre;
+    const t2 = document.createElement('span'); t2.textContent = fLarga(p.desde) + ' al ' + fLarga(p.hasta);
+    h.append(t1, t2); box.appendChild(h);
+    const ley = document.createElement('div'); ley.className = 'ag-legend'; ley.innerHTML = '<span><i style="background:var(--ag-gold)"></i>Pauta con IVA</span><span><i style="background:var(--ag-teal)"></i>Utilidad</span><span><i style="background:#A3E635"></i>ROAS</span>'; box.appendChild(ley);
+    const ch = document.createElement('div'); ch.className = 'ag-chart'; box.appendChild(ch);
+    requestAnimationFrame(() => { try { combo(ch, dias); } catch (e) { console.error(e); } });
+    // Lectura
+    const conG = dias.filter((d) => d.gasto > 0);
+    const lec = document.createElement('div'); lec.className = 'ag-lectura'; const lb = document.createElement('b'); lb.textContent = 'LECTURA'; const sp = document.createElement('span'); lec.append(lb, sp);
+    if (conG.length) {
+      const mejor = [...conG].sort((a, b) => b.ganancia - a.ganancia)[0], peor = [...conG].sort((a, b) => a.ganancia - b.ganancia)[0];
+      const pos = conG.filter((d) => d.ganancia > 0).length;
+      const mitad = Math.ceil(conG.length / 2), a1 = conG.slice(0, mitad), a2 = conG.slice(mitad);
+      const roasDe = (arr) => { const g = arr.reduce((s, x) => s + x.gasto_iva, 0), v = arr.reduce((s, x) => s + x.ventas_cop, 0); return g > 0 ? v / g : null; };
+      const r1 = roasDe(a1), r2 = roasDe(a2);
+      let tend = '';
+      if (a2.length && r1 !== null && r2 !== null) tend = r2 > r1 * 1.1 ? ' Va mejorando: el ROAS pasó de ' + dec.format(r1) + 'x a ' + dec.format(r2) + 'x en la segunda mitad.' : r2 < r1 * 0.9 ? ' Va bajando: el ROAS pasó de ' + dec.format(r1) + 'x a ' + dec.format(r2) + 'x en la segunda mitad (posible desgaste).' : ' Se mantiene estable (ROAS ' + dec.format(r1) + 'x → ' + dec.format(r2) + 'x).';
+      sp.textContent = 'Pautó ' + num.format(conG.length) + ' de ' + num.format(dias.length) + ' días y ' + num.format(pos) + ' cerraron en positivo. Mejor día: ' + fLarga(mejor.fecha) + ' (' + cop.format(mejor.ganancia) + ', ROAS ' + fmt('roas', mejor.roas) + ').' + (peor !== mejor && peor.ganancia < 0 ? ' Peor día: ' + fLarga(peor.fecha) + ' (' + cop.format(peor.ganancia) + ').' : '') + tend;
+    } else sp.textContent = 'No tuvo gasto en estos días.';
+    box.appendChild(lec);
+    // Tabla por día
+    const sc = document.createElement('div'); sc.className = 'ag-scroll'; const t = document.createElement('table'); t.className = 'ag-table'; sc.appendChild(t); box.appendChild(sc);
+    const local = f.moneda && f.moneda !== 'COP';
+    tabla(t, [['fecha', 'Día'], ['gasto_iva', 'Pauta IVA', 'num'], ['conversaciones', 'Conv.', 'num'], ['ventas_n', 'Ventas', 'num'], ['pct_conv', '% conv.', 'num'], ['costo_compra', 'Costo/compra', 'num'], ...(local ? [['ventas_local', 'Facturación local', 'num']] : []), ['ventas_cop', 'Facturación COP', 'num'], ['ganancia', 'Utilidad', 'num'], ['roas', 'ROAS', 'num']], [...dias].reverse(), {
+      key: 'fecha',
+      celda: (c, cc, d) => { if (cc === 'fecha') { c.textContent = fCorta(d.fecha) + ' · ' + ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'][new Date(d.fecha + 'T12:00:00Z').getUTCDay()]; return true; } if (cc === 'ventas_local') { c.textContent = fLocal(d.ventas_local, f.moneda); return true; } return false; },
+      rowClass: (d) => (d.gasto > 0 ? '' : 'cd-vacio'),
+    });
+  };
+
   // Facturación en la moneda del país (para COP no se repite)
   const textoLocal = (f) => (f.moneda && f.moneda !== 'COP' ? (f.ventas_local === null || f.ventas_local === undefined ? '—' : fLocal(f.ventas_local, f.moneda)) : f.moneda === 'COP' ? '(en COP)' : '—');
 
@@ -1701,7 +1921,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     const dp = $('diag-pais');
     if (dp.options.length !== ORDEN.length + 1) { dp.replaceChildren(new Option('Todos los países', ''), ...ORDEN.map((x) => new Option(x, x))); }
     dp.value = paisSel || '';
-    $('diag-nota').textContent = 'Resultados ' + rangoTxt + '. Toca una campaña para ver sus anuncios.';
+    $('diag-nota').textContent = 'Resultados ' + rangoTxt + '. Toca una campaña para ver ' + (dash.params().desde !== dash.params().hasta ? 'su comportamiento día a día y sus anuncios.' : 'sus anuncios.');
     const soloAct = $('diag-estado').value === 'act';
     const camps = filas.filter((f) => f.nivel === 'campana' && (!paisSel || f.pais === paisSel) && (!soloAct || f.activa)).sort((a, b) => b.gasto - a.gasto);
     const chips = $('diag-chips'); chips.replaceChildren();
@@ -1720,6 +1940,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
       },
       despues: (tr, f, tb) => {
         if (abierta !== f.clave) return;
+        detalleCampana(tb, f, filas, cols.length);
         filas.filter((a) => a.nivel === 'anuncio' && a.campana_id === f.campana_id).sort((a, b) => b.gasto - a.gasto).forEach((a) => {
           const r = tb.insertRow(); r.className = 'sub'; r.dataset.key = a.clave;
           cols.forEach(([c, , cls]) => {
@@ -1758,25 +1979,113 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
   }
 
   function dibujarGraficas(ORDEN) {
-    const caja = $('g-chart');
-    document.querySelectorAll('#g-metricas [data-m]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.m === metrica)));
-    const ley = $('g-leyenda'); ley.replaceChildren();
-    if (fallaEn(caja, ['diario']) !== 'ok') return;
+    const grid = $('g-grid');
+    if (fallaEn(grid, ['diario']) !== 'ok') { dibujarVida(); return; }
     const p = dash.params();
     const D = dash.data('diario').data.filter((r) => r.fecha >= p.desde && r.fecha <= p.hasta);
     const dias = []; for (let f = p.desde; f <= p.hasta; f = sumar(f, 1)) dias.push(f);
     const porCampana = $('g-serie').value === 'campana';
+    const nivel = porCampana ? 'campana' : 'pais';
     let ids;
     if (porCampana) {
-      const g = {}; D.filter((r) => r.nivel === 'campana').forEach((r) => { g[r.id] = (g[r.id] || 0) + r.gasto; });
-      ids = Object.entries(g).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k]) => k);
-    } else ids = ORDEN.filter((x) => D.some((r) => r.nivel === 'pais' && r.id === x));
-    const nivel = porCampana ? 'campana' : 'pais';
-    const series = ids.map((id) => ({ n: (D.find((r) => r.nivel === nivel && r.id === id) || {}).nombre || id, p: dias.map((f) => { const r = D.find((x) => x.fecha === f && x.nivel === nivel && x.id === id); return { f, v: r ? r[metrica] : (['roas', 'pct_conv'].includes(metrica) ? null : 0) }; }) }));
-    series.forEach((s, i) => { const sp = document.createElement('span'); const ii = document.createElement('i'); ii.style.background = COLORES[i % 8]; sp.append(ii, s.n); ley.appendChild(sp); });
-    $('g-nota').textContent = porCampana ? 'Las 8 campañas con más gasto en el periodo.' : '';
-    if (!series.length) { caja.replaceChildren(); const d = document.createElement('p'); d.className = 'ag-empty'; d.textContent = 'Sin datos en el periodo.'; caja.appendChild(d); return; }
-    lineas(caja, dias, series, metrica);
+      const R = dash.data('resumen').status === 'ok' ? dash.data('resumen').data : [];
+      const paisCamp = Object.fromEntries(R.filter((x) => x.nivel === 'campana').map((x) => [x.campana_id, x.pais]));
+      const g = {}; D.filter((r) => r.nivel === 'campana' && (!paisSel || paisCamp[r.id] === paisSel)).forEach((r) => { g[r.id] = (g[r.id] || 0) + r.gasto; });
+      ids = Object.entries(g).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k]) => k);
+    } else ids = ORDEN.filter((x) => (!paisSel || x === paisSel) && D.some((r) => r.nivel === 'pais' && r.id === x && (r.gasto > 0 || r.ventas_cop > 0)));
+    $('g-nota').textContent = (porCampana ? 'Las 8 campañas con más gasto' + (paisSel ? ' de ' + paisSel : '') : paisSel ? paisSel : 'Cada país') + ': pauta con IVA, utilidad y ROAS de cada día, igual que en el Resumen.';
+    grid.replaceChildren();
+    if (!ids.length) { const d = document.createElement('p'); d.className = 'ag-empty'; d.textContent = 'Sin datos en el periodo.'; grid.appendChild(d); dibujarVida(); return; }
+    ids.forEach((id) => {
+      const serie = dias.map((f) => D.find((x) => x.fecha === f && x.nivel === nivel && x.id === id) || { fecha: f, gasto: 0, gasto_iva: 0, ganancia: 0, roas: null, conversaciones: 0, ventas_cop: 0 });
+      const nombre = (D.find((r) => r.nivel === nivel && r.id === id) || {}).nombre || id;
+      const g = serie.reduce((s, x) => s + x.gasto_iva, 0), v = serie.reduce((s, x) => s + x.ventas_cop, 0), u = Math.round(v - g);
+      const card = document.createElement('div'); card.className = 'g-mini';
+      const h = document.createElement('div'); h.className = 'g-mini-h';
+      const t = document.createElement('b'); t.textContent = nombre;
+      const k = document.createElement('span'); k.innerHTML = '';
+      const ku = document.createElement('em'); ku.className = u >= 0 ? 'ag-pos' : 'ag-neg'; ku.textContent = cop.format(u);
+      const kr = document.createElement('em'); kr.textContent = 'ROAS ' + (g > 0 ? dec.format(v / g) + 'x' : '—');
+      k.append(ku, kr); h.append(t, k); card.appendChild(h);
+      const ch = document.createElement('div'); ch.className = 'ag-chart g-mini-c'; card.appendChild(ch);
+      grid.appendChild(card);
+      requestAnimationFrame(() => { try { combo(ch, serie, 240); } catch (e) { console.error(e); } });
+    });
+    dibujarVida();
+  }
+
+  // ---------- Durabilidad de los anuncios ----------
+  let vidaSel = null, vidaTodos = false;
+  function dibujarVida() {
+    const tl = $('vida-tl'), det = $('vida-det');
+    if (fallaEn(tl, ['vida_ads']) !== 'ok') { det.replaceChildren(); return; }
+    const p = dash.params();
+    const orden = $('vida-orden').value, est = $('vida-estado').value;
+    let ads = dash.data('vida_ads').data.filter((a) => a.fin >= p.desde && a.inicio <= p.hasta && (!paisSel || a.pais === paisSel) && (!est || (est === 'act' ? a.activo : !a.activo)));
+    const ord = { ventas: (a, b) => b.ventas_cop - a.ventas_cop, dias: (a, b) => b.dias_vida - a.dias_vida, recientes: (a, b) => b.inicio.localeCompare(a.inicio), roas: (a, b) => (b.roas || 0) - (a.roas || 0) };
+    ads.sort(ord[orden] || ord.ventas);
+    const total = ads.length;
+    if (!vidaTodos) ads = ads.slice(0, 15);
+    $('vida-mas').hidden = total <= 15; $('vida-mas').textContent = vidaTodos ? 'Ver solo los 15 primeros' : 'Ver los ' + num.format(total) + ' anuncios';
+    const vivos = dash.data('vida_ads').data.filter((a) => !a.activo && a.dias_vida > 0);
+    const prom = vivos.length ? vivos.reduce((s, a) => s + a.dias_vida, 0) / vivos.length : null;
+    $('vida-nota').textContent = 'Anuncios que pautaron ' + (p.desde === p.hasta ? 'el ' + fLarga(p.desde) : 'entre el ' + fLarga(p.desde) + ' y el ' + fLarga(p.hasta)) + (paisSel ? ' en ' + paisSel : '') + '. Cada cuadro es un día de su vida, desde que empezó a pautar hasta que se apagó.' + (prom ? ' Los anuncios ya apagados duraron en promedio ' + dec.format(prom).replace(/,00$/, '') + ' días.' : '') + ' Toca uno para ver su curva.';
+    tl.replaceChildren();
+    if (!ads.length) { const e = document.createElement('p'); e.className = 'ag-empty'; e.textContent = 'Ningún anuncio pautó en este periodo.'; tl.appendChild(e); det.replaceChildren(); return; }
+    if (vidaSel && !ads.some((a) => a.ad_id === vidaSel)) vidaSel = null;
+    const maxDias = Math.max(...ads.map((a) => a.dias_vida));
+    ads.forEach((a) => {
+      const row = document.createElement('button'); row.type = 'button'; row.className = 'vida-row' + (vidaSel === a.ad_id ? ' on' : '');
+      const lb = document.createElement('div'); lb.className = 'vida-lb';
+      const n1 = document.createElement('b'); n1.textContent = a.anuncio || a.ad_id;
+      const n2 = document.createElement('span'); n2.textContent = a.campana + ' · ' + fCorta(a.inicio) + ' → ' + (a.activo ? 'hoy' : fCorta(a.fin));
+      lb.append(n1, n2);
+      const st = document.createElement('div'); st.className = 'vida-strip';
+      st.style.gridTemplateColumns = 'repeat(' + maxDias + ', minmax(0, 1fr))';
+      const pk = Math.max(1, ...a.serie.map((x) => x.ventas_cop));
+      a.serie.forEach((x, i) => {
+        const c = document.createElement('i');
+        if (x.ventas_cop > 0) { c.style.background = '#F5B800'; c.style.opacity = String(0.35 + 0.65 * (x.ventas_cop / pk)); }
+        else if (x.gasto > 0) c.style.background = '#2B3A66';
+        else c.style.background = 'rgba(255,255,255,.04)';
+        if (a.activo && i === a.serie.length - 1) c.className = 'vivo';
+        c.title = fLarga(x.fecha) + ' · ' + num.format(x.ventas_n) + ' ventas · ' + cop.format(x.ventas_cop) + ' · pauta ' + cop.format(Math.round(x.gasto * 1.19));
+        st.appendChild(c);
+      });
+      const nums = document.createElement('div'); nums.className = 'vida-n';
+      const d1 = document.createElement('b'); d1.textContent = num.format(a.dias_vida) + (a.dias_vida === 1 ? ' día' : ' días');
+      const d2 = document.createElement('span'); d2.className = a.ganancia >= 0 ? 'ag-pos' : 'ag-neg'; d2.textContent = num.format(a.ventas_n) + ' ventas · ROAS ' + fmt('roas', a.roas);
+      nums.append(d1, d2);
+      const pill2 = document.createElement('span'); pill2.className = 'vida-est ' + (a.activo ? 'act' : 'off'); pill2.textContent = a.estado;
+      row.append(lb, st, nums, pill2);
+      row.addEventListener('click', () => { vidaSel = vidaSel === a.ad_id ? null : a.ad_id; dibujarVida(); });
+      tl.appendChild(row);
+    });
+    // Detalle del anuncio elegido
+    det.replaceChildren();
+    const a = ads.find((x) => x.ad_id === vidaSel);
+    if (!a) return;
+    const box = document.createElement('div'); box.className = 'cd-box vida-box';
+    const h = document.createElement('div'); h.className = 'cd-h'; const t1 = document.createElement('b'); t1.textContent = a.anuncio + ' · ' + a.ad_id; const t2 = document.createElement('span'); t2.textContent = a.campana + ' · ' + a.pais; h.append(t1, t2); box.appendChild(h);
+    const k = document.createElement('div'); k.className = 'vida-kpis';
+    [['Vida', num.format(a.dias_vida) + ' días', fCorta(a.inicio) + ' → ' + (a.activo ? 'sigue activo' : 'se apagó el ' + fCorta(a.fin))], ['Primera venta', a.primera_venta ? 'día ' + num.format(a.dias_a_primera_venta) : '—', a.primera_venta ? fLarga(a.primera_venta) : 'nunca vendió'], ['Mejor día', a.pico_fecha ? 'día ' + num.format(a.pico_dia) : '—', a.pico_fecha ? fLarga(a.pico_fecha) + ' · ' + cop.format(a.pico_cop) : ''], ['Ventas', num.format(a.ventas_n), cop.format(a.ventas_cop)], ['Utilidad', cop.format(a.ganancia), 'ROAS ' + fmt('roas', a.roas)]].forEach(([l, v, sub]) => {
+      const c = document.createElement('div'); const x1 = document.createElement('span'); x1.textContent = l; const x2 = document.createElement('b'); x2.textContent = v; const x3 = document.createElement('em'); x3.textContent = sub; if (l === 'Utilidad') x2.className = a.ganancia >= 0 ? 'ag-pos' : 'ag-neg'; c.append(x1, x2, x3); k.appendChild(c);
+    });
+    box.appendChild(k);
+    const ley = document.createElement('div'); ley.className = 'ag-legend'; ley.innerHTML = '<span><i style="background:var(--ag-gold)"></i>Pauta con IVA</span><span><i style="background:var(--ag-teal)"></i>Utilidad</span><span><i style="background:#A3E635"></i>ROAS</span>'; box.appendChild(ley);
+    const ch = document.createElement('div'); ch.className = 'ag-chart'; box.appendChild(ch);
+    const serie = a.serie.map((x) => ({ ...x, gasto_iva: Math.round(x.gasto * 1.19), ganancia: Math.round(x.ventas_cop - x.gasto * 1.19), roas: x.gasto > 0 ? Math.round((x.ventas_cop / (x.gasto * 1.19)) * 100) / 100 : null }));
+    requestAnimationFrame(() => { try { combo(ch, serie, 260); } catch (e) { console.error(e); } });
+    // Lectura del ciclo de vida
+    const lec = document.createElement('div'); lec.className = 'ag-lectura'; const lb2 = document.createElement('b'); lb2.textContent = 'LECTURA'; const sp = document.createElement('span'); lec.append(lb2, sp);
+    const tramo = (arr) => { const g = arr.reduce((s, x) => s + x.gasto_iva, 0), v = arr.reduce((s, x) => s + x.ventas_cop, 0); return g > 0 ? v / g : null; };
+    const ult = serie.filter((x) => x.gasto > 0).slice(-3), prim = serie.filter((x) => x.gasto > 0).slice(0, 3);
+    const rU = tramo(ult), rP = tramo(prim);
+    let txt = a.primera_venta ? 'Empezó a vender el día ' + num.format(a.dias_a_primera_venta) + ' y tuvo ventas ' + num.format(a.dias_con_ventas) + ' de ' + num.format(a.dias_vida) + ' días.' : 'No registró ventas en ' + num.format(a.dias_vida) + ' días.';
+    if (a.pico_fecha) txt += ' Su mejor momento fue el día ' + num.format(a.pico_dia) + ' (' + fLarga(a.pico_fecha) + ').';
+    if (serie.filter((x) => x.gasto > 0).length >= 6 && rU !== null && rP !== null) txt += rU < rP * 0.7 ? ' En sus últimos 3 días el ROAS cayó a ' + dec.format(rU) + 'x (empezó en ' + dec.format(rP) + 'x): ' + (a.activo ? 'se está desgastando.' : 'se apagó desgastado.') : rU >= 2 ? ' Sus últimos 3 días siguen fuertes (ROAS ' + dec.format(rU) + 'x).' : ' Sus últimos 3 días: ROAS ' + dec.format(rU) + 'x.';
+    sp.textContent = txt; box.appendChild(lec);
+    det.appendChild(box);
   }
 
   function dibujarPaginas() {
@@ -1823,6 +2132,30 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     });
   }
 
+  // ---------- Comprobantes: colores de bandera y qué se muestra por país ----------
+  const MSJ_GRACIAS = '¡Gracias por ser parte de IdeaLab! Para nosotros eres importante.';
+  // Países cuyo comprobante muestra la utilidad del país; en los demás solo va el % y lo que se le paga
+  const PAISES_CON_UTILIDAD = ['chile'];
+  const sinTilde = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const verUtilidadEnComprobante = (pais) => PAISES_CON_UTILIDAD.includes(sinTilde(pais));
+  const BANDERAS = {
+    chile: { c: ['#0039A6', '#FFFFFF', '#D52B1E'], acento: '#E8403A', pdf: [[0, 57, 166], [255, 255, 255], [213, 43, 30]], ac: [232, 64, 58] },
+    mexico: { c: ['#006847', '#FFFFFF', '#CE1126'], acento: '#1FA37A', pdf: [[0, 104, 71], [255, 255, 255], [206, 17, 38]], ac: [0, 140, 96] },
+    argentina: { c: ['#74ACDF', '#FFFFFF', '#74ACDF'], acento: '#F6B40E', pdf: [[116, 172, 223], [255, 255, 255], [116, 172, 223]], ac: [74, 140, 205], sol: [246, 180, 14] },
+    colombia: { c: ['#FCD116', '#003893', '#CE1126'], acento: '#FCD116', pdf: [[252, 209, 22], [0, 56, 147], [206, 17, 38]], ac: [214, 168, 0] },
+    venezuela: { c: ['#FFCC00', '#00247D', '#CF142B'], acento: '#FFCC00', pdf: [[255, 204, 0], [0, 36, 125], [207, 20, 43]], ac: [214, 168, 0], estrellas: true },
+  };
+  const estrella = (cx, cy, r) => { let d = ''; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? r * 0.4 : r; d += (i ? 'L' : 'M') + (cx + rr * Math.cos(a)).toFixed(2) + ' ' + (cy + rr * Math.sin(a)).toFixed(2); } return d + 'Z'; };
+  // Banderas dibujadas (SVG fijo, 30×20)
+  const SVG_BANDERA = {
+    chile: '<rect width="30" height="10" fill="#fff"/><rect y="10" width="30" height="10" fill="#D52B1E"/><rect width="10" height="10" fill="#0039A6"/><path d="' + estrella(5, 5, 3) + '" fill="#fff"/>',
+    mexico: '<rect width="10" height="20" fill="#006847"/><rect x="10" width="10" height="20" fill="#fff"/><rect x="20" width="10" height="20" fill="#CE1126"/><circle cx="15" cy="10" r="2.6" fill="#8C6A2F"/>',
+    argentina: '<rect width="30" height="20" fill="#74ACDF"/><rect y="6.67" width="30" height="6.67" fill="#fff"/><circle cx="15" cy="10" r="2.2" fill="#F6B40E"/>',
+    colombia: '<rect width="30" height="10" fill="#FCD116"/><rect y="10" width="30" height="5" fill="#003893"/><rect y="15" width="30" height="5" fill="#CE1126"/>',
+    venezuela: '<rect width="30" height="6.67" fill="#FFCC00"/><rect y="6.67" width="30" height="6.67" fill="#00247D"/><rect y="13.33" width="30" height="6.67" fill="#CF142B"/>' + [...Array(8).keys()].map((i) => { const a = Math.PI * (1.1 + (i * 0.8) / 7); return '<path d="' + estrella(15 + 5.2 * Math.cos(a), 12.4 + 5.2 * Math.sin(a), 0.9) + '" fill="#fff"/>'; }).join(''),
+  };
+  const banderaDe = (pais) => BANDERAS[sinTilde(pais)] || { c: ['#F97316', '#F5B800', '#F97316'], acento: '#F5B800', pdf: [[249, 115, 22], [245, 184, 0], [249, 115, 22]], ac: [245, 184, 0] };
+
   // ---------- Comprobante en PDF para el proveedor de cuentas ----------
   let jspdfProm = null;
   const cargarJsPDF = () => {
@@ -1850,83 +2183,105 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     const [{ jsPDF }, logo] = await Promise.all([cargarJsPDF(), cargarLogo()]);
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const W = 210, M = 18;
-    const NAVY = [11, 21, 48], NAVY2 = [20, 34, 72], GOLD = [245, 184, 0], ORANGE = [249, 115, 22], INK = [24, 31, 48], MUTED = [104, 114, 138], LINE = [226, 230, 238], SOFT = [246, 247, 251];
+    const NAVY = [11, 21, 48], NAVY2 = [20, 34, 72], INK = [24, 31, 48], MUTED = [104, 114, 138], LINE = [226, 230, 238], SOFT = [246, 247, 251];
+    const fl = banderaDe(r.pais), AC = fl.ac;
+    const claro = (c, t) => c.map((v) => Math.round(v + (255 - v) * t));
     const local = r.moneda && r.moneda !== 'COP';
-    const num_ = 'CP-' + String(r.periodo).replace(/[^0-9A-Za-z]/g, '') + '-' + String(r.pais).normalize('NFD').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase();
+    const conUtil = verUtilidadEnComprobante(r.pais);
+    const num_ = 'CP-' + String(r.periodo).replace(/[^0-9A-Za-z]/g, '') + '-' + sinTilde(r.pais).replace(/[^a-z]/g, '').slice(0, 3).toUpperCase();
     const emitido = new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
-    const anio = (f) => (f ? ' de ' + f.slice(0, 4) : '');
+    const mesTxt = r.desde ? MESES_L[Number(r.desde.slice(5, 7)) - 1] + ' ' + r.desde.slice(0, 4) : '';
+    const periodoTxt = r.tipo === 'Mes' ? mesTxt.charAt(0).toUpperCase() + mesTxt.slice(1) : (/Q1$/.test(r.periodo) ? '1.ª' : '2.ª') + ' quincena de ' + mesTxt;
+    const estrellaPDF = (cx, cy, rad, color) => { const pts = []; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? rad * 0.4 : rad; pts.push([cx + rr * Math.cos(a), cy + rr * Math.sin(a)]); } doc.setFillColor(...color); const seg = pts.slice(1).map((p, i) => [p[0] - pts[i][0], p[1] - pts[i][1]]); doc.lines(seg, pts[0][0], pts[0][1], [1, 1], 'F', true); };
+    // Bandera vectorial del país (x, y, ancho)
+    const banderaPDF = (x, y, w) => {
+      const h = (w * 2) / 3, k = sinTilde(r.pais);
+      const rect = (c, rx, ry, rw, rh) => { doc.setFillColor(...c); doc.rect(x + rx, y + ry, rw, rh, 'F'); };
+      if (k === 'chile') { rect([255, 255, 255], 0, 0, w, h / 2); rect([213, 43, 30], 0, h / 2, w, h / 2); rect([0, 57, 166], 0, 0, w / 3, h / 2); estrellaPDF(x + w / 6, y + h / 4, h / 7, [255, 255, 255]); }
+      else if (k === 'mexico') { rect([0, 104, 71], 0, 0, w / 3, h); rect([255, 255, 255], w / 3, 0, w / 3, h); rect([206, 17, 38], (2 * w) / 3, 0, w / 3, h); doc.setFillColor(140, 106, 47); doc.circle(x + w / 2, y + h / 2, h / 7, 'F'); }
+      else if (k === 'argentina') { rect([116, 172, 223], 0, 0, w, h); rect([255, 255, 255], 0, h / 3, w, h / 3); doc.setFillColor(246, 180, 14); doc.circle(x + w / 2, y + h / 2, h / 8, 'F'); }
+      else if (k === 'colombia') { rect([252, 209, 22], 0, 0, w, h / 2); rect([0, 56, 147], 0, h / 2, w, h / 4); rect([206, 17, 38], 0, (3 * h) / 4, w, h / 4); }
+      else if (k === 'venezuela') { rect([255, 204, 0], 0, 0, w, h / 3); rect([0, 36, 125], 0, h / 3, w, h / 3); rect([207, 20, 43], 0, (2 * h) / 3, w, h / 3); for (let i = 0; i < 8; i++) { const a = Math.PI * (1.1 + (i * 0.8) / 7); estrellaPDF(x + w / 2 + w * 0.17 * Math.cos(a), y + h * 0.62 + w * 0.17 * Math.sin(a), w * 0.03, [255, 255, 255]); } }
+      else { fl.pdf.forEach((c, i) => rect(c, 0, (h / 3) * i, w, h / 3)); }
+      doc.setDrawColor(...LINE); doc.setLineWidth(0.3); doc.rect(x, y, w, h, 'S');
+    };
 
-    // Encabezado azul marino con franja degradada naranja → amarillo
+    // Encabezado de la marca
     doc.setFillColor(...NAVY); doc.rect(0, 0, W, 44, 'F');
     doc.setFillColor(...NAVY2); doc.circle(W - 14, -6, 34, 'F');
-    for (let i = 0; i < 60; i++) { const t = i / 59; doc.setFillColor(Math.round(ORANGE[0] + (GOLD[0] - ORANGE[0]) * t), Math.round(ORANGE[1] + (GOLD[1] - ORANGE[1]) * t), Math.round(ORANGE[2] + (GOLD[2] - ORANGE[2]) * t)); doc.rect((W / 60) * i, 44, W / 60 + 0.2, 2.2, 'F'); }
     if (logo) { try { doc.addImage(logo, 'PNG', M, 9, 26, 26); } catch (e) {} }
     const xT = logo ? M + 32 : M;
     doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(24); doc.text('IdeaLab', xT, 22);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(200, 208, 228); doc.text('Comprobante de pago · Proveedor de cuentas', xT, 29);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...GOLD); doc.text('COMPROBANTE', W - M, 17, { align: 'right' });
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...claro(AC, 0.15)); doc.text('COMPROBANTE', W - M, 17, { align: 'right' });
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(230, 234, 245);
     doc.text('N.º ' + num_, W - M, 24, { align: 'right' }); doc.text('Emitido el ' + emitido, W - M, 30, { align: 'right' });
+    // Franja con los colores de la bandera
+    fl.pdf.forEach((c, i) => { doc.setFillColor(...c); doc.rect((W / 3) * i, 44, W / 3 + 0.2, 3, 'F'); });
 
-    // Datos del comprobante
-    let y = 60;
+    // País
+    let y = 58;
+    banderaPDF(M, y, 21);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(22); doc.setTextColor(...INK); doc.text(txtPDF(r.pais), M + 27, y + 7.5);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(...MUTED);
+    doc.text(txtPDF(periodoTxt + ' · del ' + fLarga(r.desde) + ' al ' + fLarga(r.hasta) + (r.completo ? '' : ' (en curso, valores provisionales)')), M + 27, y + 13.5);
+
+    // Datos
+    y += 26;
     const dato = (x, lb, v) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text(lb.toUpperCase(), x, y); doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5); doc.setTextColor(...INK); doc.text(txtPDF(v), x, y + 6); };
-    const col = (W - 2 * M) / 4;
-    dato(M, 'País', r.pais);
-    const mesTxt = r.desde ? MESES_L[Number(r.desde.slice(5, 7)) - 1] + ' ' + r.desde.slice(0, 4) : '';
-    dato(M + col, 'Periodo', r.tipo === 'Mes' ? mesTxt.charAt(0).toUpperCase() + mesTxt.slice(1) : (/Q1$/.test(r.periodo) ? '1.ª' : '2.ª') + ' quinc. ' + mesTxt.slice(0, 3) + ' ' + mesTxt.slice(-4));
-    dato(M + col * 2, 'Moneda de cobro', r.moneda || 'COP');
-    dato(M + col * 3, 'Tasa usada', local && r.tasa ? '1 ' + r.moneda + ' = ' + fTasa(r.tasa) + ' COP' : '—');
-    y += 13; doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(...MUTED);
-    doc.text(txtPDF('Del ' + fLarga(r.desde) + ' al ' + fLarga(r.hasta) + anio(r.hasta) + (r.completo ? ' · periodo cerrado' : ' · periodo en curso (valores provisionales)')), M, y);
+    const col = (W - 2 * M) / 3;
+    dato(M, 'Moneda de cobro', r.moneda || 'COP');
+    dato(M + col, 'Porcentaje del proveedor', num.format(r.pct_prov) + ' %');
+    dato(M + col * 2, 'Tasa usada', local && r.tasa ? '1 ' + r.moneda + ' = ' + fTasa(r.tasa) + ' COP' : '—');
 
-    // Tabla de conceptos
-    y += 10;
+    // Conceptos
+    y += 16;
     const cx = [M, W - M - 62, W - M];
     doc.setFillColor(...NAVY); doc.roundedRect(M, y, W - 2 * M, 10, 2, 2, 'F');
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(255, 255, 255);
-    doc.text('CONCEPTO', cx[0] + 5, y + 6.5); doc.text('COP', cx[1], y + 6.5, { align: 'right' }); doc.text(local ? r.moneda : '', cx[2] - 5, y + 6.5, { align: 'right' });
+    doc.text('CONCEPTO', cx[0] + 5, y + 6.5); doc.text(local ? r.moneda : 'COP', cx[1], y + 6.5, { align: 'right' }); doc.text(local ? 'COP' : '', cx[2] - 5, y + 6.5, { align: 'right' });
     y += 10;
-    const filas = [
-      ['Ventas del periodo', num.format(r.ventas_n || 0) + ' ventas', cop.format(r.ventas), local ? fLocal(r.ventas_local, r.moneda) : ''],
-      ['Pauta en Meta con IVA', 'gasto × 1,19', '- ' + cop.format(r.pauta_iva), local ? '- ' + fLocal(r.pauta_local, r.moneda) : ''],
-      ['Utilidad del país', 'ventas - pauta con IVA', cop.format(r.utilidad), local ? fLocal(r.utilidad_local, r.moneda) : ''],
-      ['Porcentaje del proveedor', 'sobre la utilidad del país', num.format(r.pct_prov) + ' %', local ? num.format(r.pct_prov) + ' %' : ''],
-    ];
+    const filas = [];
+    if (conUtil) filas.push(['Utilidad del país', 'ventas menos la pauta de Meta con IVA', local ? fLocal(r.utilidad_local, r.moneda) : cop.format(r.utilidad), local ? cop.format(r.utilidad) : '']);
+    filas.push(['Porcentaje del proveedor', conUtil ? 'sobre la utilidad del país' : 'acordado sobre la utilidad de tu país', num.format(r.pct_prov) + ' %', local ? num.format(r.pct_prov) + ' %' : '']);
+    filas.push(['Comisión del periodo', 'lo que te corresponde', local ? fLocal(r.comision_local, r.moneda) : cop.format(r.comision), local ? cop.format(r.comision) : '']);
     filas.forEach((f, i) => {
       if (i % 2 === 1) { doc.setFillColor(...SOFT); doc.rect(M, y, W - 2 * M, 14, 'F'); }
       doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(...INK); doc.text(txtPDF(f[0]), cx[0] + 5, y + 6.2);
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text(txtPDF(f[1]), cx[0] + 5, y + 10.8);
-      doc.setFontSize(10.5); doc.setTextColor(...INK); doc.text(txtPDF(f[2]), cx[1], y + 8.3, { align: 'right' }); doc.text(txtPDF(f[3]), cx[2] - 5, y + 8.3, { align: 'right' });
-      y += 14;
-      doc.setDrawColor(...LINE); doc.setLineWidth(0.2); doc.line(M, y, W - M, y);
+      doc.setFontSize(10.5); doc.setTextColor(...INK); doc.text(txtPDF(f[2]), cx[1], y + 8.3, { align: 'right' }); doc.setTextColor(...MUTED); doc.text(txtPDF(f[3]), cx[2] - 5, y + 8.3, { align: 'right' });
+      y += 14; doc.setDrawColor(...LINE); doc.setLineWidth(0.2); doc.line(M, y, W - M, y);
     });
 
-    // Total a pagar
+    // Total a pagar, con el color del país
     y += 10;
-    const bx = W / 2 - 6, bw = W - M - bx, bh = local ? 40 : 30;
-    doc.setFillColor(...NAVY); doc.roundedRect(bx, y, bw, bh, 3, 3, 'F');
-    for (let i = 0; i < 40; i++) { const t = i / 39; doc.setFillColor(Math.round(ORANGE[0] + (GOLD[0] - ORANGE[0]) * t), Math.round(ORANGE[1] + (GOLD[1] - ORANGE[1]) * t), Math.round(ORANGE[2] + (GOLD[2] - ORANGE[2]) * t)); doc.rect(bx + 3 + ((bw - 6) / 40) * i, y, (bw - 6) / 40 + 0.2, 1.4, 'F'); }
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(200, 208, 228); doc.text('TOTAL A PAGAR AL PROVEEDOR', bx + 7, y + 9);
-    doc.setFontSize(20); doc.setTextColor(...GOLD);
-    doc.text(txtPDF(local ? fLocal(r.comision_local, r.moneda) : cop.format(r.comision)), bx + 7, y + 20);
-    if (local) { doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(230, 234, 245); doc.text(txtPDF('Equivale a ' + cop.format(r.comision)), bx + 7, y + 28); }
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(170, 180, 205);
-    doc.text(txtPDF(num.format(r.pct_prov) + ' % de ' + (local ? fLocal(r.utilidad_local, r.moneda) : cop.format(r.utilidad))), bx + 7, y + bh - 5);
-    // A la izquierda del total: cómo se calculó
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...INK); doc.text('Cómo se calcula', M, y + 8);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...MUTED);
-    const expl = 'La comisión es el ' + num.format(r.pct_prov) + ' % de la utilidad del país: ventas menos la pauta de Meta con IVA (19 %).' + (local ? ' La conversión usa la tasa de la pestaña Tasas al cierre del periodo, con un colchón de seguridad.' : '');
-    doc.text(doc.splitTextToSize(txtPDF(expl), bx - M - 8), M, y + 14);
+    const bh = local ? 34 : 26;
+    doc.setFillColor(...NAVY); doc.roundedRect(M, y, W - 2 * M, bh, 3, 3, 'F');
+    fl.pdf.forEach((c, i) => { doc.setFillColor(...c); doc.rect(M + 3 + ((W - 2 * M - 6) / 3) * i, y, (W - 2 * M - 6) / 3 + 0.1, 1.6, 'F'); });
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(200, 208, 228); doc.text('TOTAL A PAGAR', M + 8, y + 10);
+    doc.setFontSize(24); doc.setTextColor(...claro(AC, 0.2)); doc.text(txtPDF(local ? fLocal(r.comision_local, r.moneda) : cop.format(r.comision)), M + 8, y + 21.5);
+    if (local) { doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(230, 234, 245); doc.text(txtPDF('Equivale a ' + cop.format(r.comision)), M + 8, y + 29); }
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(170, 180, 205);
+    doc.text(txtPDF(num.format(r.pct_prov) + ' % · ' + periodoTxt), W - M - 8, y + 10, { align: 'right' });
 
-    // Firma y pie
-    y += bh + 26;
+    // Mensaje de agradecimiento
+    y += bh + 10;
+    doc.setFillColor(...claro(AC, 0.88)); doc.roundedRect(M, y, W - 2 * M, 24, 3, 3, 'F');
+    doc.setFillColor(...AC); doc.rect(M, y, 2.2, 24, 'F');
+    doc.setFillColor(...AC); doc.circle(M + 12, y + 12, 5.2, 'F');
+    doc.setFillColor(255, 255, 255); doc.circle(M + 10.6, y + 10.9, 1.6, 'F'); doc.circle(M + 13.4, y + 10.9, 1.6, 'F'); doc.triangle(M + 9.05, y + 11.4, M + 14.95, y + 11.4, M + 12, y + 14.8, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(...INK); doc.text(txtPDF('¡Gracias por ser parte de IdeaLab!'), M + 22, y + 10.5);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(...MUTED); doc.text(txtPDF('Para nosotros eres importante.'), M + 22, y + 17.5);
+
+    // Firmas y pie
+    y += 46;
     doc.setDrawColor(...LINE); doc.setLineWidth(0.3); doc.line(M, y, M + 70, y); doc.line(W - M - 70, y, W - M, y);
     doc.setFontSize(8.5); doc.setTextColor(...MUTED); doc.text('Entrega · IdeaLab', M, y + 5); doc.text('Recibe · Proveedor de ' + txtPDF(r.pais), W - M, y + 5, { align: 'right' });
-    doc.setFillColor(...SOFT); doc.rect(0, 280, W, 17, 'F');
+    fl.pdf.forEach((c, i) => { doc.setFillColor(...c); doc.rect((W / 3) * i, 294, W / 3 + 0.2, 3, 'F'); });
+    doc.setFillColor(...SOFT); doc.rect(0, 279, W, 15, 'F');
     doc.setFontSize(8); doc.setTextColor(...MUTED);
-    doc.text(txtPDF('Generado con IdeaLab App · ' + new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', dateStyle: 'medium', timeStyle: 'short' }).format(new Date())), M, 289);
-    doc.text(num_, W - M, 289, { align: 'right' });
+    doc.text(txtPDF('Generado con IdeaLab App · ' + new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', dateStyle: 'medium', timeStyle: 'short' }).format(new Date())), M, 288);
+    doc.text(num_, W - M, 288, { align: 'right' });
     const nombre = 'Comprobante_' + String(r.pais).normalize('NFD').replace(/[^A-Za-z0-9]/g, '') + '_' + String(r.periodo) + '.pdf';
     return { blob: doc.output('blob'), nombre };
   };
@@ -1940,6 +2295,64 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     if (prueba) mk('Compartir', async ({ blob, nombre }) => { const f = new File([blob], nombre, { type: 'application/pdf' }); await navigator.share({ files: [f], title: 'Comprobante ' + r.pais, text: 'Comprobante de pago · ' + r.pais + ' · ' + fLarga(r.desde) + ' al ' + fLarga(r.hasta) }); });
     fila.appendChild(msg); d.appendChild(fila);
   };
+
+  // ---------- Facturas por pagar ----------
+  let fFiltro = 'pend', fPagando = null;
+  const QUIENES = ['Empresa', 'Anthony Guiñan', 'Alejandra Acosta'];
+  function dibujarFacturas() {
+    document.querySelectorAll('#f-filtro [data-f]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.f === fFiltro)));
+    if (!$('fa-fecha').value) $('fa-fecha').value = HOY;
+    const F = dash.data('facturas'), t = $('t-facturas'), res = $('f-res');
+    res.replaceChildren();
+    if (F.status === 'error') { t.replaceChildren(); $('facturas-vacio').hidden = true; const e = document.createElement('p'); e.className = 'ag-note f-aviso'; e.textContent = 'Las facturas que agregues se guardan en la pestaña Facturas, pero para verlas aquí falta un paso en el servidor (archivo servidor-idealab.gs). Mientras tanto puedes verlas en la hoja.'; res.appendChild(e); return; }
+    if (F.status !== 'ok') { t.replaceChildren(); const e = document.createElement('span'); e.className = 'dash-skeleton'; e.textContent = 'Cargando…'; res.appendChild(e); return; }
+    const pend = F.data.filter((x) => x.estado !== 'Pagado'), pag = F.data.filter((x) => x.estado === 'Pagado');
+    const kpi = (lb, v, sub, cls) => { const d = document.createElement('div'); const a = document.createElement('span'); a.textContent = lb; const b = document.createElement('b'); b.textContent = v; if (cls) b.className = cls; const c = document.createElement('em'); c.textContent = sub; d.append(a, b, c); res.appendChild(d); };
+    kpi('Pendiente por pagar', cop.format(pend.reduce((s, x) => s + (x.valor || 0), 0)), num.format(pend.length) + (pend.length === 1 ? ' factura' : ' facturas'), pend.length ? 'ag-gold' : '');
+    const mes = HOY.slice(0, 7), pagMes = pag.filter((x) => String(x.fecha_pago).slice(0, 7) === mes);
+    kpi('Pagado este mes', cop.format(pagMes.reduce((s, x) => s + (x.valor || 0), 0)), num.format(pagMes.length) + (pagMes.length === 1 ? ' factura' : ' facturas'), 'ag-pos');
+    const vencida = pend.filter((x) => x.creada && x.creada <= sumar(HOY, -15));
+    if (vencida.length) kpi('Con más de 15 días', num.format(vencida.length), 'pendientes hace tiempo', 'ag-neg');
+    const lista = (fFiltro === 'pend' ? pend : fFiltro === 'pag' ? pag : F.data).slice().sort((a, b) => (a.estado === b.estado ? 0 : a.estado === 'Pendiente' ? -1 : 1) || String(b.creada).localeCompare(String(a.creada)));
+    $('facturas-vacio').hidden = lista.length > 0;
+    tabla(t, [['creada', 'Fecha'], ['concepto', 'Concepto'], ['pagar_a', 'Se le paga a'], ['valor', 'Valor', 'num'], ['estado', 'Estado'], ['pago', 'Pago'], ['acc', '']], lista, {
+      key: 'fila',
+      celda: (td, c, f) => {
+        if (c === 'creada') { td.textContent = f.creada ? fCorta(f.creada) + ' ' + String(f.creada).slice(0, 4) : '—'; return true; }
+        if (c === 'concepto') { td.textContent = f.concepto; if (f.nota) { const n = document.createElement('div'); n.className = 'f-nota'; n.textContent = f.nota; td.appendChild(n); } return true; }
+        if (c === 'pagar_a') { td.textContent = f.pagar_a || '—'; return true; }
+        if (c === 'estado') { const sp = document.createElement('span'); sp.className = 'ag-pill ' + (f.estado === 'Pagado' ? 'r-Escalar' : 'r-Bajar'); sp.textContent = f.estado === 'Pagado' ? 'Pagado' : 'Pendiente por pagar'; td.appendChild(sp); return true; }
+        if (c === 'pago') { td.textContent = f.estado === 'Pagado' ? (f.fecha_pago ? fCorta(f.fecha_pago) : '') + (f.pagado_por ? ' · ' + f.pagado_por : '') : '—'; return true; }
+        if (c === 'acc') {
+          const w = document.createElement('div'); w.className = 'f-acc';
+          if (f.estado !== 'Pagado') { const b = document.createElement('button'); b.type = 'button'; b.className = 'ag-btn'; b.textContent = fPagando === f.fila ? 'Cancelar' : 'Marcar pagada'; b.addEventListener('click', () => { fPagando = fPagando === f.fila ? null : f.fila; dibujar(); }); w.appendChild(b); }
+          else { const b = document.createElement('button'); b.type = 'button'; b.className = 'ag-x'; b.textContent = 'Volver a pendiente'; b.addEventListener('click', async () => { b.disabled = true; try { await escribir('update_values', { range: 'Facturas!E' + f.fila + ':G' + f.fila, values: [['Pendiente', '', '']] }); avisar('fa-msg', f.concepto + ' quedó pendiente otra vez.', true); dash.refresh('facturas'); } catch (e) { avisar('fa-msg', textoError(e), false); b.disabled = false; } }); w.appendChild(b); }
+          const del = document.createElement('button'); del.type = 'button'; del.className = 'ag-x'; del.textContent = 'Eliminar';
+          del.addEventListener('click', async () => {
+            if (del.dataset.seguro !== '1') { del.dataset.seguro = '1'; del.textContent = '¿Seguro?'; del.style.color = 'var(--ag-bad)'; setTimeout(() => { del.dataset.seguro = ''; del.textContent = 'Eliminar'; del.style.color = ''; }, 4000); return; }
+            del.disabled = true; try { await escribir('batch_clear_values', { ranges: ['Facturas!A' + f.fila + ':I' + f.fila] }); avisar('fa-msg', 'Factura eliminada: ' + f.concepto + '.', true); dash.refresh('facturas'); } catch (e) { avisar('fa-msg', textoError(e), false); del.disabled = false; }
+          });
+          w.appendChild(del); td.appendChild(w); return true;
+        }
+        return false;
+      },
+      despues: (tr, f, tb) => {
+        if (fPagando !== f.fila) return;
+        const r = tb.insertRow(); r.className = 'sub'; const td = r.insertCell(); td.colSpan = 7;
+        const fm = document.createElement('div'); fm.className = 'f-pago';
+        const l1 = document.createElement('label'); l1.textContent = 'Fecha de pago'; const i1 = document.createElement('input'); i1.type = 'date'; i1.className = 'ag-in'; i1.value = HOY; l1.appendChild(i1);
+        const l2 = document.createElement('label'); l2.textContent = 'Quién lo pagó'; const i2 = document.createElement('select'); i2.className = 'ag-sel'; QUIENES.forEach((q) => i2.appendChild(new Option(q, q))); l2.appendChild(i2);
+        const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'ag-btn pri'; ok.textContent = 'Guardar pago de ' + cop.format(f.valor || 0);
+        ok.addEventListener('click', async () => {
+          if (!i1.value) { avisar('fa-msg', 'Elige la fecha de pago.', false); return; }
+          ok.disabled = true; ok.textContent = 'Guardando…';
+          try { await escribir('update_values', { range: 'Facturas!E' + f.fila + ':G' + f.fila, values: [['Pagado', i1.value, i2.value]] }); avisar('fa-msg', 'Pagada: ' + f.concepto + ' · ' + cop.format(f.valor || 0) + ' a ' + (f.pagar_a || '—') + ', por ' + i2.value + ' el ' + fLarga(i1.value) + '.', true); fPagando = null; dash.refresh('facturas'); }
+          catch (e) { avisar('fa-msg', textoError(e), false); ok.disabled = false; ok.textContent = 'Guardar pago'; }
+        });
+        fm.append(l1, l2, ok); td.appendChild(fm);
+      },
+    });
+  }
 
   function dibujarContabilidad() {
     const L = dash.data('liquidacion');
@@ -1993,11 +2406,34 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     });
     const rc = $('recibos'); rc.replaceChildren();
     filasP.filter((r) => r.comision > 0).forEach((r) => {
+      const fl = banderaDe(r.pais);
       const d = document.createElement('div'); d.className = 'ag-recibo';
-      const h = document.createElement('h3'); h.textContent = 'Comprobante · ' + r.pais; d.appendChild(h);
-      [['Periodo', fLarga(r.desde) + ' – ' + fLarga(r.hasta)], ['Ventas', cop.format(r.ventas) + (r.moneda !== 'COP' ? ' · ' + fLocal(r.ventas_local, r.moneda) : '')], ['Pauta con IVA', cop.format(r.pauta_iva) + (r.moneda !== 'COP' ? ' · ' + fLocal(r.pauta_local, r.moneda) : '')], ['Utilidad del país', cop.format(r.utilidad) + (r.moneda !== 'COP' ? ' · ' + fLocal(r.utilidad_local, r.moneda) : '')], ['Porcentaje', r.pct_prov + '%']].forEach(([k, v]) => { const l = document.createElement('div'); l.className = 'ln'; const a = document.createElement('span'); a.textContent = k; const b = document.createElement('span'); b.textContent = v; l.append(a, b); d.appendChild(l); });
-      const tt = document.createElement('div'); tt.className = 'ln tt'; const a = document.createElement('span'); a.textContent = 'A pagar al proveedor'; const b = document.createElement('span'); b.dataset.source = 'liquidacion_paises'; b.dataset.field = 'comision'; b.dataset.where = 'clave=' + enc(r.clave); b.textContent = cop.format(r.comision); tt.append(a, b); d.appendChild(tt);
-      if (r.moneda !== 'COP') { const lc = document.createElement('div'); lc.className = 'ln tt'; const a2 = document.createElement('span'); a2.textContent = 'En ' + r.moneda + ' (tasa ' + (r.tasa ? dec.format(r.tasa) + ' COP' : '—') + ')'; const b2 = document.createElement('span'); b2.dataset.source = 'liquidacion_paises'; b2.dataset.field = 'comision_local'; b2.dataset.where = 'clave=' + enc(r.clave); b2.textContent = fLocal(r.comision_local, r.moneda); lc.append(a2, b2); d.appendChild(lc); }
+      d.style.setProperty('--fl1', fl.c[0]); d.style.setProperty('--fl2', fl.c[1]); d.style.setProperty('--fl3', fl.c[2]); d.style.setProperty('--fl-ac', fl.acento);
+      const cab = document.createElement('div'); cab.className = 'rc-cab';
+      const fr = document.createElement('div'); fr.className = 'rc-flag';
+      const svgB = SVG_BANDERA[sinTilde(r.pais)];
+      if (svgB) fr.innerHTML = '<svg viewBox="0 0 30 20" width="34" height="23" aria-hidden="true">' + svgB + '</svg>';
+      else fl.c.forEach((c) => { const i2 = document.createElement('i'); i2.style.background = c; fr.appendChild(i2); });
+      const tt0 = document.createElement('div'); const h = document.createElement('h3'); h.textContent = r.pais; const per = document.createElement('span'); per.textContent = fLarga(r.desde) + ' – ' + fLarga(r.hasta) + (r.completo ? '' : ' · en curso'); tt0.append(h, per);
+      cab.append(fr, tt0); d.appendChild(cab);
+      const local = r.moneda && r.moneda !== 'COP';
+      const lineaDoble = (lb, vCop, vLoc, campo) => {
+        const l = document.createElement('div'); l.className = 'rc-ln';
+        const a = document.createElement('span'); a.className = 'rc-lb'; a.textContent = lb;
+        const b = document.createElement('span'); b.className = 'rc-v';
+        if (local) { const x1 = document.createElement('b'); x1.textContent = vLoc; const x2 = document.createElement('em'); x2.textContent = vCop; b.append(x1, x2); } else { const x1 = document.createElement('b'); x1.textContent = vCop; b.append(x1); }
+        if (campo) { b.dataset.source = 'liquidacion_paises'; b.dataset.field = campo; b.dataset.where = 'clave=' + enc(r.clave); }
+        l.append(a, b); d.appendChild(l);
+      };
+      if (verUtilidadEnComprobante(r.pais)) lineaDoble('Utilidad del país', cop.format(r.utilidad), fLocal(r.utilidad_local, r.moneda), 'utilidad');
+      const lp = document.createElement('div'); lp.className = 'rc-ln'; const a = document.createElement('span'); a.className = 'rc-lb'; a.textContent = 'Porcentaje del proveedor'; const b = document.createElement('span'); b.className = 'rc-v'; const bb = document.createElement('b'); bb.textContent = num.format(r.pct_prov) + '%'; b.appendChild(bb); lp.append(a, b); d.appendChild(lp);
+      const tot = document.createElement('div'); tot.className = 'rc-tot';
+      const tl = document.createElement('span'); tl.textContent = 'A pagar al proveedor';
+      const tv = document.createElement('b'); tv.dataset.source = 'liquidacion_paises'; tv.dataset.field = local ? 'comision_local' : 'comision'; tv.dataset.where = 'clave=' + enc(r.clave); tv.textContent = local ? fLocal(r.comision_local, r.moneda) : cop.format(r.comision);
+      tot.append(tl, tv);
+      if (local) { const te = document.createElement('em'); te.textContent = cop.format(r.comision) + ' · tasa ' + (r.tasa ? fTasa(r.tasa) + ' COP' : '—'); tot.appendChild(te); }
+      d.appendChild(tot);
+      const gr = document.createElement('p'); gr.className = 'rc-gracias'; gr.textContent = MSJ_GRACIAS; d.appendChild(gr);
       botonesComprobante(d, r);
       rc.appendChild(d);
     });
@@ -2006,23 +2442,60 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     // Gastos del periodo
     if (gPaisesLista.join('|') !== ORD.join('|')) { gPaisesLista = ORD; gSel = gSel.filter((x) => ORD.includes(x)); pintarRepartoGasto(); }
     const G = dash.data('gastos');
-    const gs = G.status === 'ok' ? G.data.filter((g) => g.fecha >= tg.desde && g.fecha <= tg.hasta && (!paisCierre || g.pais === paisCierre)) : [];
+    const gs0 = G.status === 'ok' ? G.data.filter((g) => g.fecha >= tg.desde && g.fecha <= tg.hasta && (!paisCierre || g.pais === paisCierre)) : [];
+    // Un gasto repartido entre países se ve como una sola factura; tocando el valor se ve cuánto se cargó a cada país
+    const gs = [];
+    if (paisCierre) gs0.forEach((g) => gs.push({ ...g, filas: [g.fila], partes: null }));
+    else {
+      const grupos = {};
+      gs0.forEach((g) => {
+        if (!/^Repartido de/i.test(g.nota || '')) { gs.push({ ...g, filas: [g.fila], partes: null }); return; }
+        const k = [g.fecha, g.concepto, g.pagado_por, g.nota].join('|');
+        if (!grupos[k]) { grupos[k] = { ...g, clave_g: k, filas: [], partes: [], valor: 0 }; gs.push(grupos[k]); }
+        grupos[k].filas.push(g.fila); grupos[k].partes.push({ pais: g.pais, valor: g.valor }); grupos[k].valor += g.valor;
+      });
+      gs.forEach((g) => {
+        if (!g.partes) return;
+        if (g.partes.length === 1) { g.pais = g.partes[0].pais; g.partes = null; return; }
+        g.partes.forEach((x) => { const m = String(g.nota).match(new RegExp(x.pais.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s+([\\d.,]+)\\s*%')); x.pct = m ? Number(m[1].replace(',', '.')) : g.valor ? Math.round((x.valor / g.valor) * 1000) / 10 : null; });
+        g.pais = num.format(g.partes.length) + ' países';
+      });
+    }
+    gs.sort((a, b) => b.fecha.localeCompare(a.fecha) || b.filas[0] - a.filas[0]);
     $('gastos-vacio').hidden = gs.length > 0 || G.status !== 'ok';
     tabla($('t-gastos'), [['fecha', 'Fecha'], ['concepto', 'Concepto'], ['pagado_por', 'Pagado por'], ['pais', 'Se carga a'], ['valor', 'Valor', 'num'], ['borrar', '']], gs, {
       key: 'fila',
       celda: (td, c, f) => {
+        if (c === 'pais' && f.partes) { const sp = document.createElement('span'); sp.className = 'g-multi'; sp.textContent = f.pais; sp.title = f.partes.map((x) => x.pais).join(', '); td.appendChild(sp); return true; }
+        if (c === 'valor' && f.partes) {
+          const b = document.createElement('button'); b.type = 'button'; b.className = 'ag-x g-val'; b.textContent = (gExp === f.clave_g ? '▾ ' : '▸ ') + cop.format(f.valor);
+          b.title = 'Ver cuánto se cargó a cada país';
+          b.addEventListener('click', () => { gExp = gExp === f.clave_g ? null : f.clave_g; dibujar(); });
+          td.appendChild(b); return true;
+        }
         if (c !== 'borrar') return false;
         const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'ag-x'; bt.textContent = 'Eliminar';
         bt.addEventListener('click', async () => {
-          if (bt.dataset.seguro !== '1') { bt.dataset.seguro = '1'; bt.textContent = '¿Seguro? Toca otra vez'; bt.style.color = 'var(--ag-bad)'; setTimeout(() => { bt.dataset.seguro = ''; bt.textContent = 'Eliminar'; bt.style.color = ''; }, 4000); return; }
+          if (bt.dataset.seguro !== '1') { bt.dataset.seguro = '1'; bt.textContent = f.filas.length > 1 ? '¿Borrar los ' + f.filas.length + ' países? Toca otra vez' : '¿Seguro? Toca otra vez'; bt.style.color = 'var(--ag-bad)'; setTimeout(() => { bt.dataset.seguro = ''; bt.textContent = 'Eliminar'; bt.style.color = ''; }, 4000); return; }
           bt.disabled = true; bt.textContent = 'Eliminando…';
-          try { await escribir('batch_clear_values', { ranges: ['Gastos!A' + f.fila + ':G' + f.fila] }); avisar('g-msg', 'Gasto eliminado: ' + f.concepto + ' · ' + cop.format(f.valor) + '.', true); dash.refresh('gastos'); }
+          try { await escribir('batch_clear_values', { ranges: f.filas.map((n) => 'Gastos!A' + n + ':G' + n) }); avisar('g-msg', 'Gasto eliminado: ' + f.concepto + ' · ' + cop.format(f.valor) + '.', true); dash.refresh('gastos'); }
           catch (e) { avisar('g-msg', textoError(e), false); bt.disabled = false; bt.textContent = 'Eliminar'; }
         });
         td.appendChild(bt); return true;
       },
+      despues: (tr, f, tb) => {
+        if (!f.partes || gExp !== f.clave_g) return;
+        f.partes.forEach((x) => {
+          const r = tb.insertRow(); r.className = 'sub g-sub';
+          r.insertCell(); const c2 = r.insertCell(); c2.colSpan = 2; c2.textContent = '↳ ' + x.pais;
+          const c3 = r.insertCell(); c3.textContent = x.pct === null ? '—' : num.format(x.pct) + '%';
+          const c4 = r.insertCell(); c4.className = 'num'; c4.textContent = cop.format(x.valor);
+          r.insertCell();
+        });
+      },
     });
     if (!$('g-fecha').value) $('g-fecha').value = HOY;
+    dibujarFacturas();
 
     // Bitácora: barras agrupadas por quincena
     const hc = $('hist-chart');
@@ -2091,6 +2564,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 
   // ---------- Reparto de un gasto entre países ----------
   let gPaisesLista = [], gSel = [], gPct = {};
+  let gExp = null;
   // Reparte un valor entero según porcentajes; la última parte absorbe el redondeo para que sumen exacto
   const repartir = (valor, pcts) => { let acum = 0; return pcts.map((p, i) => { if (i === pcts.length - 1) return valor - acum; const v = Math.round((valor * p) / 100); acum += v; return v; }); };
   const igualar = () => { const n = gSel.length; if (!n) return; const base = Math.floor((100 / n) * 100) / 100; gSel.forEach((x, i) => { gPct[x] = i === n - 1 ? Math.round((100 - base * (n - 1)) * 100) / 100 : base; }); };
@@ -2179,6 +2653,21 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
   });
   $('g-valor').addEventListener('input', () => pintarRepartoGasto(true));
 
+  // Facturas
+  $('f-filtro').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (b) { fFiltro = b.dataset.f; fPagando = null; dibujar(); } });
+  $('fa-guardar').addEventListener('click', async (ev) => {
+    const fecha = $('fa-fecha').value, concepto = $('fa-concepto').value.trim(), valor = Math.round(Number($('fa-valor').value)), a = $('fa-a').value.trim(), nota = $('fa-nota').value.trim();
+    if (!fecha || !concepto || !(valor > 0) || !a) { avisar('fa-msg', 'Completa fecha, concepto, valor mayor a 0 y a quién se le paga.', false); return; }
+    ocupado(ev.target, true); avisar('fa-msg', 'Guardando…', true);
+    try {
+      await escribir('append_values', { range: 'Facturas!A1:I1', values: [[fecha, concepto, valor, a, 'Pendiente', '', '', nota, 'desde la app ' + new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date())]] });
+      avisar('fa-msg', 'Factura agregada: ' + concepto + ' · ' + cop.format(valor) + ' para ' + a + ' · pendiente por pagar.', true);
+      ['fa-concepto', 'fa-valor', 'fa-a', 'fa-nota'].forEach((id) => { $(id).value = ''; });
+      fFiltro = 'pend'; dash.refresh('facturas');
+    } catch (e) { avisar('fa-msg', textoError(e), false); }
+    ocupado(ev.target, false);
+  });
+
   // Porcentajes
   ['c-prov', 'c-trab', 'c-emp', 'c-s1', 'c-s2'].forEach((id) => $(id).addEventListener('input', () => { $(id).dataset.sucio = '1'; }));
   $('c-guardar').addEventListener('click', async (ev) => {
@@ -2262,6 +2751,50 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     ocupado(ev.target, false);
   });
 
+
+  // ---------- Logo 3D: se gira arrastrando y se enciende la luz al tocarlo ----------
+  (function logo3D() {
+    const stage = $('l3-stage'), obj = $('l3-obj'), host = $('logo3d');
+    if (!stage) return;
+    const CAPAS = 18, PROF = 1.15;
+    for (let i = CAPAS; i >= 0; i--) {
+      const im = document.createElement('img'); im.src = 'logo-3d.png'; im.alt = ''; im.draggable = false;
+      im.style.transform = 'translateZ(' + (-i * PROF).toFixed(2) + 'px)';
+      if (i === 0) im.className = 'fr';
+      else im.style.filter = 'brightness(' + (0.55 - (i / CAPAS) * 0.3).toFixed(2) + ') saturate(1.2)';
+      obj.appendChild(im);
+    }
+    const quieto = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let rx = -8, ry = 18, vx = 0, vy = 0, luz = 0, arr = null, movio = 0, t0 = performance.now(), ultimo = 0;
+    const pintar = () => { obj.style.transform = 'rotateX(' + rx.toFixed(2) + 'deg) rotateY(' + ry.toFixed(2) + 'deg)'; host.style.setProperty('--luz', luz.toFixed(3)); };
+    const paso = (t) => {
+      const dt = Math.min(50, t - (paso.t || t)); paso.t = t;
+      if (!arr) {
+        ry += vy * dt / 16; rx += vx * dt / 16; vy *= 0.95; vx *= 0.95;
+        if (!quieto && Math.abs(vy) < 0.05 && Math.abs(vx) < 0.05) { const k = (t - t0) / 1000; ry += (Math.sin(k * 0.9) * 22 - ry) * 0.02; rx += (-8 + Math.sin(k * 0.6) * 6 - rx) * 0.02; }
+        rx = Math.max(-55, Math.min(55, rx));
+      }
+      luz = Math.max(0, luz - dt / 2600);
+      pintar();
+      if (host.offsetParent !== null) requestAnimationFrame(paso); else paso.corriendo = false;
+    };
+    const arrancar = () => { if (!paso.corriendo) { paso.corriendo = true; paso.t = 0; requestAnimationFrame(paso); } };
+    stage.addEventListener('pointerdown', (e) => { arr = { x: e.clientX, y: e.clientY, rx, ry }; movio = 0; ultimo = performance.now(); stage.setPointerCapture(e.pointerId); arrancar(); });
+    stage.addEventListener('pointermove', (e) => {
+      if (!arr) return;
+      const dx = e.clientX - arr.x, dy = e.clientY - arr.y; movio = Math.max(movio, Math.abs(dx) + Math.abs(dy));
+      const nry = arr.ry + dx * 0.6, nrx = Math.max(-55, Math.min(55, arr.rx - dy * 0.5));
+      const ahora = performance.now(), d = Math.max(8, ahora - ultimo); vy = ((nry - ry) / d) * 16; vx = ((nrx - rx) / d) * 16; ultimo = ahora;
+      ry = nry; rx = nrx;
+    });
+    const soltar = () => { if (!arr) return; if (movio < 6) { luz = Math.min(1, luz + 0.45); vy += 6; } arr = null; t0 = performance.now(); };
+    stage.addEventListener('pointerup', soltar); stage.addEventListener('pointercancel', soltar);
+    const brand = document.querySelector('.ag-brand img'); if (brand) brand.addEventListener('click', () => { const b = document.querySelector('nav [data-v="inicio"]'); if (b) b.click(); });
+    pintar();
+    window.idealabLogo = arrancar;
+    dash.onData(() => { if (host.offsetParent !== null) arrancar(); });
+    new MutationObserver(() => { if (host.offsetParent !== null) arrancar(); }).observe($('inicio'), { attributes: true, attributeFilter: ['hidden'] });
+  })();
   dash.onData(dibujar);
   const ini = (location.hash || '').slice(1);
   mostrar(['inicio', 'resumen', 'campanas', 'graficas', 'paginas', 'contabilidad', 'config'].includes(ini) ? ini : 'inicio');

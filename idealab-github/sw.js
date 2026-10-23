@@ -1,6 +1,6 @@
 // IdeaLab app: guarda la interfaz para abrir rápido; los datos siempre se piden en vivo.
-const CACHE = 'idealab-v5';
-const ARCHIVOS = ['./', './index.html', './map.js', './d3.min.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './jspdf.umd.min.js'];
+const CACHE = 'idealab-v6';
+const ARCHIVOS = ['./', './index.html', './map.js', './d3.min.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './jspdf.umd.min.js', './logo-3d.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ARCHIVOS))); self.skipWaiting(); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k))))); self.clients.claim(); });
 self.addEventListener('fetch', (e) => {
