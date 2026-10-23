@@ -60,6 +60,17 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     if (m) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
     return null;
   };
+  // Hora de la venta (0–23) tomada de la columna FECHA ("09/08/2026 20:25"); null si no trae hora
+  const leerHora = (texto) => {
+    const s = String(texto || '').trim();
+    if (/T\d{2}:\d{2}.*(Z|[+-]\d{2}:?\d{2})$/.test(s)) { const d = new Date(s); return Number.isNaN(d.getTime()) ? null : Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Bogota', hour: '2-digit', hour12: false }).format(d)) % 24; }
+    const m = s.match(/(\d{1,2}):(\d{2})/);
+    if (!m) return null;
+    let h = Number(m[1]);
+    if (/p\.?\s?m/i.test(s) && h < 12) h += 12;
+    if (/a\.?\s?m/i.test(s) && h === 12) h = 0;
+    return h >= 0 && h < 24 ? h : null;
+  };
   const leerValor = (texto) => {
     let s = String(texto || '').replace(/[^\d.,-]/g, '');
     if (!s) return null;
@@ -95,7 +106,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
       catch (e) { fijar(id, { status: 'error', data: [], message: String(e.message || e) }); }
     });
     const prods = estado.paises.status === 'ok' ? estado.paises.data : [];
-    fijar('ventas', { status: 'ok', data: (j.ventas || []).map((v, i) => ({ hoja: v.hoja, fila: i + 2, producto: v.producto, pais: v.pais, moneda: v.moneda, fecha: leerFecha(v.fecha), valor_local: leerValor(v.valor), ad_id: String(v.ad_id || '').length >= 10 ? String(v.ad_id) : '' })) });
+    fijar('ventas', { status: 'ok', data: (j.ventas || []).map((v, i) => ({ hoja: v.hoja, fila: i + 2, producto: v.producto, pais: v.pais, moneda: v.moneda, fecha: leerFecha(v.fecha), hora: leerHora(v.fecha), valor_local: leerValor(v.valor), ad_id: String(v.ad_id || '').length >= 10 ? String(v.ad_id) : '' })) });
     fijar('meta_rango', { status: 'ok', data: filasMeta(j.meta.rango).rows });
     fijar('meta_hoy', { status: 'ok', data: filasMeta(j.meta.hoy).rows });
     fijar('meta_campanas', { status: 'ok', data: j.meta.campanas.map((c) => ({ campana_id: c.id, campana: c.name, cuenta: c.cuenta, cuenta_id: c.cuenta_id, estado: c.effective_status, presupuesto: c.daily_budget ? Number(c.daily_budget) : null })) });
@@ -239,6 +250,10 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 .ag-kpi .lb { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ag-muted); }
 .ag-kpi .v { font-family: var(--font-anthropic-serif); font-size: clamp(22px, 2.4vw, 30px); font-variant-numeric: tabular-nums; line-height: 1.1; }
 .ag-kpi .s { font-size: 12px; color: var(--ag-muted); }
+.ag-x.ag-edit { margin-left: 10px; font-size: 11.5px; color: var(--ag-gold); }
+.ag-pres { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
+.ag-pres .ag-in { width: 110px; padding: 6px 8px; }
+.ag-pres .ag-btn { padding: 6px 10px; font-size: 12px; white-space: nowrap; }
 .ag-local { display: grid; gap: 2px; margin-top: 4px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.08); }
 .ag-local b { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: 18px; color: var(--ag-gold); font-variant-numeric: tabular-nums; }
 .ag-local em { font-style: normal; font-size: 11.5px; color: var(--ag-muted); font-variant-numeric: tabular-nums; }
@@ -295,6 +310,9 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 .ag-recibo .ln { display: flex; justify-content: space-between; gap: 8px; }
 .ag-recibo .ln span:first-child { color: var(--ag-muted); }
 .ag-recibo .tt { border-top: 1px solid var(--ag-line); padding-top: 6px; font-weight: 600; font-size: 15px; }
+.ag-recibo-acc { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+.ag-recibo-acc .ag-btn { padding: 7px 12px; font-size: 12.5px; }
+.ag-recibo-msg { font-size: 11.5px; color: var(--ag-bad, #FB7185); }
 .ag-map { width: 100%; height: auto; display: block; }
 .ag-map .tierra { fill: #1B2840; stroke: rgba(255,255,255,.06); stroke-width: .4; }
 .ag-map .hit { cursor: pointer; stroke: rgba(255,255,255,.5); stroke-width: .5; }
@@ -312,6 +330,15 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 .ag-form { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); align-items: end; margin-top: 12px; padding: 12px; border: 1px dashed rgba(245,184,0,.35); border-radius: 12px; }
 .ag-form label { display: grid; gap: 4px; font-size: 11px; color: var(--ag-muted); }
 .ag-form .ag-in, .ag-form .ag-sel { width: 100%; }
+.g-reparto { grid-column: 1 / -1; display: grid; gap: 8px; }
+.g-lb { font-size: 11px; color: var(--ag-muted); }
+.g-lb em { font-style: normal; opacity: .75; }
+.g-pcts { display: grid; gap: 6px; max-width: 560px; padding: 10px; border-radius: 10px; background: rgba(255,255,255,.03); }
+.g-fila { display: grid !important; grid-template-columns: minmax(90px, 1fr) 84px 14px minmax(90px, 1fr); align-items: center; gap: 8px !important; font-size: 13px !important; color: var(--ag-text, #E8EDF7) !important; }
+.g-fila .ag-in { padding: 6px 8px; text-align: right; }
+.g-pc { color: var(--ag-muted); }
+.g-v { text-align: right; font-variant-numeric: tabular-nums; color: var(--ag-gold); }
+.g-pie { font-size: 12px; text-align: right; }
 .ag-msg { font-size: 12.5px; margin: 8px 0 0; min-height: 1em; }
 .ag-msg.ok { color: var(--ag-ok); } .ag-msg.err { color: var(--ag-bad); }
 .ag-link { color: var(--ag-gold); font-size: 12.5px; }
@@ -350,7 +377,6 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
   <main class="ag-main">
     <div class="ag-top">
       <div>
-        <h1 id="titulo">Rentabilidad Meta Ads</h1>
         <p class="ag-take" id="takeaway"><span class="dash-skeleton">—</span></p>
       </div>
       <div class="ag-range" id="rango">
@@ -423,7 +449,15 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
         <div class="ag-top"><div><h2>Diagnóstico de campañas</h2><p class="ag-note" id="diag-nota">Del periodo elegido. Toca una campaña para ver sus anuncios.</p></div><div class="ag-chips" id="diag-chips"></div></div>
         <div class="ag-chips" style="margin-bottom:10px"><select class="ag-sel" id="diag-estado" aria-label="Estado en Meta"><option value="act">Solo activas en Meta</option><option value="todas">Todas con gasto</option></select><select class="ag-sel" id="diag-pais" aria-label="País"></select></div>
         <div class="ag-scroll" style="max-height:none"><table class="ag-table" id="t-campanas" data-source="resumen" data-row-key="clave"></table></div>
+        <p class="ag-msg" id="pres-msg"></p>
         <p class="ag-note" style="margin-top:10px">Regla: <b class="ag-pos">Escalar</b> ROAS ≥ 2,0 · <b class="ag-gold">Mantener</b> 1,8–2,0 · <b style="color:var(--ag-warn)">Bajar presupuesto</b> 1,0–1,8 · <b class="ag-neg">Apagar</b> menor a 1,0 (no cubre la pauta con IVA) con más de $20.000 de gasto. Nada se cambia solo.</p>
+      </div>
+      <div class="ag-card" style="margin-top:14px" id="horas-card">
+        <div class="ag-top"><div><h2>Ventas por hora del día</h2><p class="ag-note" id="horas-nota">Del periodo elegido.</p></div>
+          <div class="ag-chips"><select class="ag-sel" id="horas-camp" aria-label="Campaña"><option value="">Todas las campañas</option></select></div></div>
+        <div class="ag-legend"><span><i style="background:var(--ag-gold)"></i>Facturación (COP)</span><span><i style="background:#2DD4BF"></i>Número de ventas</span></div>
+        <div class="ag-chart" id="horas" data-source="ventas_cop"></div>
+        <div class="ag-lectura" id="horas-lectura"><b>LECTURA</b><span class="dash-skeleton">—</span></div>
       </div>
       <div class="ag-card" style="margin-top:14px">
         <h2>Listos para escalar (3 días)</h2>
@@ -514,7 +548,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
       </div>
       <div class="ag-card" style="margin-top:14px">
         <h2>Comprobantes para proveedores de cuentas</h2>
-        <p class="ag-note">Uno por país con utilidad en el periodo.</p>
+        <p class="ag-note">Uno por país con utilidad en el periodo. Descárgalo en PDF o compártelo directo (por WhatsApp, correo…) desde el celular.</p>
         <div class="ag-recibos" id="recibos" data-source="liquidacion_paises"></div>
       </div>
       <div class="ag-card" style="margin-top:14px">
@@ -527,7 +561,11 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
           <label>Concepto<input class="ag-in" id="g-concepto" placeholder="ManyChat, ChatGPT…"></label>
           <label>Quién lo pagó<select class="ag-sel" id="g-quien"><option>Empresa</option><option>Anthony Guiñan</option><option>Alejandra Acosta</option></select></label>
           <label>Valor (COP)<input class="ag-in" type="number" id="g-valor" min="0" step="1"></label>
-          <label>Se carga a<select class="ag-sel" id="g-pais" data-source="paises"><option value="General">General (todos)</option></select></label>
+          <div class="g-reparto">
+            <span class="g-lb">Se carga a <em>(elige uno o varios países)</em></span>
+            <div class="ag-chips" id="g-paises" data-source="paises"></div>
+            <div class="g-pcts" id="g-pcts" hidden></div>
+          </div>
           <button type="button" class="ag-btn pri" id="g-guardar">Agregar gasto</button>
         </div>
         <p class="ag-msg" id="g-msg"></p>
@@ -985,6 +1023,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
           margen: ventas > 0 ? Math.round(((ventas - x.gasto * IVA) / ventas) * 1000) / 10 : null,
           pct_conv: x.conversaciones > 0 ? Math.round((x.ventas_n / x.conversaciones) * 1000) / 10 : null,
           costo_conv: x.conversaciones > 0 ? Math.round(x.gasto / x.conversaciones) : null,
+          costo_compra: n > 0 ? Math.round((x.gasto * IVA) / n) : null,
           recomendacion: x.nivel === 'campana' || x.nivel === 'anuncio' ? REGLA(roas, x.gasto) : null,
         };
       });
@@ -1203,7 +1242,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
   const MESES_L = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   const fCorta = (f) => (f ? Number(f.slice(8, 10)) + ' ' + MESES[Number(f.slice(5, 7)) - 1] : '');
   const fLarga = (f) => (f ? Number(f.slice(8, 10)) + ' de ' + MESES_L[Number(f.slice(5, 7)) - 1] : '');
-  const DINERO = ['gasto', 'gasto_iva', 'ventas_cop', 'ventas_total_cop', 'ganancia', 'costo_conv', 'presupuesto', 'ganancia_3d', 'ventas', 'pauta_iva', 'utilidad', 'comision', 'gastos', 'utilidad_total', 'utilidad_paises', 'proveedores', 'nomina', 'empresa', 'socio1', 'socio2', 'valor', 'sin_atrib_cop'];
+  const DINERO = ['gasto', 'gasto_iva', 'ventas_cop', 'ventas_total_cop', 'ganancia', 'costo_conv', 'presupuesto', 'ganancia_3d', 'ventas', 'pauta_iva', 'utilidad', 'comision', 'gastos', 'utilidad_total', 'utilidad_paises', 'proveedores', 'nomina', 'empresa', 'socio1', 'socio2', 'valor', 'sin_atrib_cop', 'costo_compra'];
   const fmt = (campo, v) => {
     if (v === null || v === undefined || v === '' || (typeof v === 'number' && !Number.isFinite(v))) return '—';
     if (DINERO.includes(campo)) return cop.format(v);
@@ -1271,6 +1310,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
   let paisCierre = null;
   $('g-metricas').addEventListener('click', (e) => { const b = e.target.closest('[data-m]'); if (b) { metrica = b.dataset.m; dibujar(); } });
   $('g-serie').addEventListener('change', dibujarSeguro);
+  $('horas-camp').addEventListener('change', (e) => { horasCamp = e.target.value; dibujarSeguro(); });
   $('diag-estado').addEventListener('change', dibujarSeguro);
   $('diag-pais').addEventListener('change', (e) => { paisSel = e.target.value || null; dibujar(); });
   $('liq-periodo').addEventListener('change', (e) => { periodoSel = e.target.value; dibujar(); });
@@ -1432,13 +1472,15 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 
     // Takeaway
     const tk = $('takeaway'); tk.replaceChildren();
-    if (okR && tot) {
-      tk.append((tot.ganancia >= 0 ? 'Vas en positivo ' : 'Vas en pérdida ') + rangoTxt + ': utilidad de ');
-      const s = document.createElement('b'); s.dataset.source = 'resumen'; s.dataset.field = 'ganancia'; s.dataset.where = 'clave=total|todos'; s.textContent = cop.format(tot.ganancia); s.className = tot.ganancia >= 0 ? 'ag-pos' : 'ag-neg'; tk.append(s);
+    // Con un país elegido, la frase de arriba habla solo de ese país; sin país, del total
+    const tkf = paisSel ? sel : tot;
+    if (okR && tkf && (tkf.gasto > 0 || tkf.ventas_total_cop > 0)) {
+      tk.append((paisSel ? paisSel + ': ' : '') + (tkf.ganancia >= 0 ? 'vas en positivo ' : 'vas en pérdida ').replace(/^v/, paisSel ? 'v' : 'V') + rangoTxt + ': utilidad de ');
+      const s = document.createElement('b'); s.dataset.source = 'resumen'; s.dataset.field = 'ganancia'; s.dataset.where = 'clave=' + enc(clave); s.textContent = cop.format(tkf.ganancia); s.className = tkf.ganancia >= 0 ? 'ag-pos' : 'ag-neg'; tk.append(s);
       tk.append(' con ROAS de ');
-      const r2 = document.createElement('b'); r2.dataset.source = 'resumen'; r2.dataset.field = 'roas'; r2.dataset.where = 'clave=total|todos'; r2.textContent = fmt('roas', tot.roas); tk.append(r2);
+      const r2 = document.createElement('b'); r2.dataset.source = 'resumen'; r2.dataset.field = 'roas'; r2.dataset.where = 'clave=' + enc(clave); r2.textContent = fmt('roas', tkf.roas); tk.append(r2);
       tk.append('.');
-    } else if (okR) tk.textContent = 'Sin gasto en Meta ' + rangoTxt + '.';
+    } else if (okR) tk.textContent = 'Sin gasto en Meta ' + (paisSel ? 'en ' + paisSel + ' ' : '') + rangoTxt + '.';
     else { const s = document.createElement('span'); s.className = 'dash-skeleton'; s.textContent = '—'; tk.append(s); }
 
     // Inicio
@@ -1473,7 +1515,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     kl.hidden = !conLocal;
     if (conLocal) {
       kl.dataset.where = 'clave=' + enc(clave);
-      $('k-fact-loc-v').textContent = fLocal(sel.ventas_local, sel.moneda) + ' ' + sel.moneda;
+      $('k-fact-loc-v').textContent = fLocal(sel.ventas_local, sel.moneda);
       $('k-fact-tasa').textContent = sel.tasa ? 'Tasa usada: 1 ' + sel.moneda + ' = ' + fTasa(sel.tasa) + ' COP' + (sel.tasa_real ? ' (hoja ' + fTasa(sel.tasa_real) + ' − ' + num.format(sel.colchon_tasa) + '%)' : '') : 'Sin tasa para ' + sel.moneda + ' en la pestaña Tasas';
     }
     anillo($('ring-margen'), sel && sel.margen !== null ? sel.margen / 100 : 0, '#2DD4BF', sel && sel.margen !== null ? num.format(sel.margen) + '%' : '—', 'margen');
@@ -1520,7 +1562,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     tabla(t, [['nombre', 'País'], ['ventas_total_n', 'Ventas', 'num'], ['ventas_total_cop', 'Facturación', 'num'], ['ventas_local', 'Facturación local', 'num'], ['tasa', 'Tasa usada (COP)', 'num'], ['gasto_iva', 'Pauta IVA', 'num'], ['ganancia', 'Utilidad', 'num'], ['roas', 'ROAS', 'num'], ['conversaciones', 'Conv.', 'num'], ['pct_conv', '% conv.', 'num']], tot ? [...pf, tot] : pf, {
       rowClass: (f) => (f.nivel === 'total' ? 'tot' : ''),
       celda: (td, c, f) => {
-        if (c === 'ventas_local') { td.textContent = f.moneda && f.moneda !== 'COP' ? fLocal(f.ventas_local, f.moneda) + ' ' + f.moneda : '—'; return true; }
+        if (c === 'ventas_local') { td.textContent = f.moneda && f.moneda !== 'COP' ? fLocal(f.ventas_local, f.moneda) : '—'; return true; }
         if (c === 'tasa') { td.textContent = f.moneda && f.moneda !== 'COP' ? fTasa(f.tasa) : '—'; if (f.tasa_real && f.moneda !== 'COP') td.title = 'Hoja: ' + fTasa(f.tasa_real) + ' COP · con colchón de ' + num.format(f.colchon_tasa) + '%'; return true; }
         return false;
       },
@@ -1528,6 +1570,132 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     const tr0 = pf.find((f) => f.moneda && f.moneda !== 'COP');
     $('pais-nota').textContent = 'Del periodo elegido. La facturación en pesos usa la tasa de la pestaña Tasas rebajada ' + num.format(tr0 ? tr0.colchon_tasa : 3) + '% (colchón para no contar utilidad que no existe).';
   }
+
+  // ---------- Presupuesto diario editable ----------
+  // Dónde vive el presupuesto: en la campaña (CBO) o, si la campaña no tiene, en su único conjunto activo.
+  const destinoPresupuesto = (f) => {
+    if (f.presupuesto_tipo === 'Campaña') return { nivel: 'campana', id: f.campana_id, nombre: f.nombre };
+    const J = dash.data('meta_conjuntos');
+    const act = J.status === 'ok' ? J.data.filter((j) => j.campana_id === f.campana_id && j.estado === 'ACTIVE' && j.presupuesto) : [];
+    if (act.length === 1) return { nivel: 'conjunto', id: act[0].conjunto_id, nombre: act[0].conjunto };
+    return null;
+  };
+  let presEdicion = null;
+  const celdaPresupuesto = (td, f) => {
+    const dest = destinoPresupuesto(f);
+    if (presEdicion !== f.clave) {
+      const v = document.createElement('span'); v.textContent = fmt('presupuesto', f.presupuesto); td.appendChild(v);
+      if (dest) {
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'ag-x ag-edit'; b.textContent = 'Editar'; b.title = 'Cambiar el presupuesto diario' + (dest.nivel === 'conjunto' ? ' del conjunto ' + dest.nombre : '');
+        b.addEventListener('click', (ev) => { ev.stopPropagation(); presEdicion = f.clave; dibujar(); });
+        td.appendChild(b);
+      } else if (f.presupuesto) td.title = 'El presupuesto está repartido en varios conjuntos: cámbialo en Meta o pídemelo en un chat.';
+      return;
+    }
+    const caja = document.createElement('div'); caja.className = 'ag-pres';
+    const inp = document.createElement('input'); inp.type = 'number'; inp.min = '1000'; inp.step = '1000'; inp.className = 'ag-in'; inp.value = f.presupuesto || ''; inp.setAttribute('aria-label', 'Nuevo presupuesto diario (COP)');
+    const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'ag-btn pri'; ok.textContent = 'Guardar';
+    const no = document.createElement('button'); no.type = 'button'; no.className = 'ag-x'; no.textContent = 'Cancelar';
+    no.addEventListener('click', () => { presEdicion = null; dibujar(); });
+    ok.addEventListener('click', async () => {
+      const valor = Math.round(Number(inp.value));
+      if (!(valor >= 1000)) { avisar('pres-msg', 'Escribe un presupuesto diario de al menos $1.000.', false); return; }
+      if (ok.dataset.seguro !== '1') { ok.dataset.seguro = '1'; ok.textContent = '¿Cambiar a ' + cop.format(valor) + '? Toca otra vez'; setTimeout(() => { ok.dataset.seguro = ''; ok.textContent = 'Guardar'; }, 5000); return; }
+      ok.disabled = true; ok.textContent = 'Guardando…';
+      await guardarPresupuesto(f, dest, valor);
+      presEdicion = null; dibujar();
+    });
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') ok.click(); if (e.key === 'Escape') no.click(); });
+    caja.append(inp, ok, no); td.appendChild(caja);
+    setTimeout(() => inp.focus(), 0);
+  };
+  const guardarPresupuesto = async (f, dest, valor) => {
+    const anterior = f.presupuesto;
+    try {
+      // 1) Directo en Meta, si el servidor tiene la acción «presupuesto»
+      await window.idealabEnviar({ accion: 'presupuesto', nivel: dest.nivel, id: dest.id, presupuesto: valor, cuenta: f.cuenta || '', nombre: dest.nombre });
+      avisar('pres-msg', 'Presupuesto de ' + f.nombre + ' cambiado en Meta: ' + cop.format(anterior || 0) + ' → ' + cop.format(valor) + '.', true);
+      dash.refresh('meta_campanas');
+      return;
+    } catch (e) {
+      // Meta rechazó el cambio (ej. presupuesto muy bajo): se muestra tal cual, no se anota
+      if (/^Meta:/.test(String(e.message))) { avisar('pres-msg', 'Meta no aceptó el cambio: ' + String(e.message).replace(/^Meta:\s*/, ''), false); return; }
+    }
+    // 2) El servidor aún no tiene la acción: queda anotado en Cambios_programados para aplicarlo
+    try {
+      const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+      await escribir('append_values', { range: 'Cambios_programados!A1:J1', values: [[hoy, f.cuenta || '', dest.nivel === 'campana' ? 'campaña' : 'conjunto', dest.id, dest.nombre, 'presupuesto', valor, 'ahora', 'Pendiente', 'desde la app (antes ' + (anterior || '—') + ')']] });
+      avisar('pres-msg', 'Anotado en Cambios_programados: ' + f.nombre + ' a ' + cop.format(valor) + '. Se aplica cuando el servidor tenga la función de presupuesto, o pídemelo en un chat.', true);
+      dash.refresh('cambios');
+    } catch (e2) { avisar('pres-msg', textoError(e2), false); }
+  };
+
+  // ---------- Ventas por hora del día ----------
+  const HORAS = [...Array(24).keys()];
+  const fHora = (h) => String(h).padStart(2, '0') + ':00';
+  const barrasHora = (caja, datos) => {
+    caja.replaceChildren();
+    const W = Math.max(caja.clientWidth, 300), H = 280, m = { t: 22, r: 40, b: 30, l: 56 };
+    const svg = d3.select(caja).append('svg').attr('width', '100%').attr('viewBox', [0, 0, W, H]);
+    const x = d3.scaleBand(HORAS, [m.l, W - m.r]).padding(0.22);
+    const y = d3.scaleLinear([0, Math.max(1, d3.max(datos, (d) => d.cop) || 1)], [H - m.b, m.t]).nice();
+    const y2 = d3.scaleLinear([0, Math.max(2, d3.max(datos, (d) => d.n) || 2)], [H - m.b, m.t]).nice();
+    svg.append('g').selectAll('line').data(y.ticks(5)).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y).attr('y2', y).attr('stroke', 'rgba(255,255,255,.06)');
+    svg.append('g').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(5).tickFormat((v) => '$' + corto.format(v)).tickSize(0).tickPadding(8)).attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').remove());
+    svg.append('g').attr('transform', `translate(${W - m.r},0)`).call(d3.axisRight(y2).ticks(4).tickFormat((v) => (Number.isInteger(v) ? num.format(v) : '')).tickSize(0).tickPadding(6)).attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').remove());
+    const cada = W < 520 ? 3 : W < 800 ? 2 : 1;
+    svg.append('g').attr('transform', `translate(0,${H - m.b})`).call(d3.axisBottom(x).tickValues(HORAS.filter((h) => h % cada === 0)).tickFormat((h) => String(h).padStart(2, '0') + 'h').tickSize(0).tickPadding(10)).attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').attr('stroke', 'rgba(255,255,255,.12)'));
+    const top = d3.max(datos, (d) => d.cop) || 0;
+    svg.append('g').selectAll('rect').data(datos).join('rect').attr('x', (d) => x(d.h)).attr('width', x.bandwidth()).attr('y', (d) => y(d.cop)).attr('height', (d) => Math.max(d.cop ? 1 : 0, y(0) - y(d.cop))).attr('rx', 3)
+      .attr('fill', '#F5B800').attr('fill-opacity', (d) => (top && d.cop === top ? 1 : 0.55));
+    const linea = d3.line().x((d) => x(d.h) + x.bandwidth() / 2).y((d) => y2(d.n)).curve(d3.curveMonotoneX);
+    svg.append('path').attr('d', linea(datos)).attr('fill', 'none').attr('stroke', '#2DD4BF').attr('stroke-width', 2).attr('stroke-linecap', 'round').attr('style', 'filter: drop-shadow(0 0 4px #2DD4BF99)');
+    svg.append('g').selectAll('circle').data(datos.filter((d) => d.n)).join('circle').attr('cx', (d) => x(d.h) + x.bandwidth() / 2).attr('cy', (d) => y2(d.n)).attr('r', 3).attr('fill', '#0A1120').attr('stroke', '#2DD4BF');
+    svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', W - m.l - m.r).attr('height', H - m.t - m.b).attr('fill', 'transparent')
+      .on('mousemove', (ev) => {
+        const [mx] = d3.pointer(ev); const i = Math.max(0, Math.min(23, Math.floor((mx - m.l) / x.step())));
+        const d = datos[i];
+        mostrarTip(caja, mx * (caja.clientWidth / W), 20, [[fHora(d.h) + ' – ' + fHora((d.h + 1) % 24), 'd'], ['Facturación ' + cop.format(d.cop), '', '#F5B800'], ['Ventas ' + num.format(d.n), '', '#2DD4BF']]);
+      }).on('mouseleave', ocultarTip);
+  };
+  let horasCamp = '';
+  const dibujarHoras = (filas, rangoTxt) => {
+    const sel = $('horas-camp');
+    const camps = filas.filter((f) => f.nivel === 'campana' && (!paisSel || f.pais === paisSel) && f.ventas_n > 0).sort((a, b) => b.ventas_cop - a.ventas_cop);
+    if (horasCamp && !camps.some((c) => c.campana_id === horasCamp)) horasCamp = '';
+    const firma = camps.map((c) => c.campana_id).join(',');
+    if (sel.dataset.firma !== firma) { sel.replaceChildren(new Option(paisSel ? 'Todas las campañas de ' + paisSel : 'Todas las campañas', ''), ...camps.map((c) => new Option(c.nombre, c.campana_id))); sel.dataset.firma = firma; }
+    sel.value = horasCamp;
+    const caja = $('horas');
+    if (fallaEn(caja, ['ventas_cop', 'resumen']) !== 'ok') return;
+    const p = dash.params();
+    const anuncios = {}; filas.filter((f) => f.nivel === 'anuncio').forEach((a) => { anuncios[a.ad_id] = a; });
+    const vs = dash.data('ventas_cop').data.filter((v) => v.fecha >= p.desde && v.fecha <= p.hasta && v.valor_cop && (() => {
+      const a = anuncios[v.ad_id];
+      if (horasCamp) return a && a.campana_id === horasCamp;
+      return !paisSel || (a ? a.pais === paisSel : v.pais === paisSel);
+    })());
+    const conHora = vs.filter((v) => v.hora !== null && v.hora !== undefined);
+    const datos = HORAS.map((h) => ({ h, n: 0, cop: 0 }));
+    conHora.forEach((v) => { datos[v.hora].n += 1; datos[v.hora].cop += v.valor_cop; });
+    const quien = horasCamp ? (camps.find((c) => c.campana_id === horasCamp) || {}).nombre : paisSel ? paisSel : 'todos los países';
+    $('horas-nota').textContent = 'Ventas ' + rangoTxt + ' de ' + quien + ', por la hora registrada en la hoja de ventas.' + (vs.length > conHora.length ? ' ' + num.format(vs.length - conHora.length) + ' ventas sin hora no se cuentan.' : '');
+    const lec = $('horas-lectura'); lec.replaceChildren(); const b = document.createElement('b'); b.textContent = 'LECTURA'; lec.append(b);
+    const sp = document.createElement('span');
+    if (!conHora.length) { caja.replaceChildren(); const e = document.createElement('p'); e.className = 'ag-empty'; e.textContent = 'Sin ventas con hora en este periodo.'; caja.appendChild(e); sp.textContent = '—'; lec.append(sp); return; }
+    barrasHora(caja, datos);
+    const mejorN = [...datos].sort((a, c) => c.n - a.n || c.cop - a.cop)[0];
+    const mejorC = [...datos].sort((a, c) => c.cop - a.cop)[0];
+    // Franja de 3 horas seguidas con más ventas
+    let fr = 0, frN = -1; HORAS.forEach((h) => { const s = datos[h].n + datos[(h + 1) % 24].n + datos[(h + 2) % 24].n; if (s > frN) { frN = s; fr = h; } });
+    sp.textContent = 'La hora con más ventas es ' + fHora(mejorN.h) + '–' + fHora((mejorN.h + 1) % 24) + ' (' + num.format(mejorN.n) + ' ventas, ' + cop.format(mejorN.cop) + ').' +
+      (mejorC.h !== mejorN.h ? ' La que más factura es ' + fHora(mejorC.h) + ' (' + cop.format(mejorC.cop) + ').' : '') +
+      ' La mejor franja de 3 horas va de ' + fHora(fr) + ' a ' + fHora((fr + 3) % 24) + ' con ' + num.format(frN) + ' de ' + num.format(conHora.length) + ' ventas (' + num.format(Math.round((frN / conHora.length) * 100)) + '%).';
+    lec.append(sp);
+  };
+
+  // Facturación en la moneda del país (para COP no se repite)
+  const textoLocal = (f) => (f.moneda && f.moneda !== 'COP' ? (f.ventas_local === null || f.ventas_local === undefined ? '—' : fLocal(f.ventas_local, f.moneda)) : f.moneda === 'COP' ? '(en COP)' : '—');
 
   function dibujarCampanas(filas, okR, ORDEN, rangoTxt) {
     const dp = $('diag-pais');
@@ -1540,12 +1708,14 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     ['Escalar', 'Mantener', 'Bajar presupuesto', 'Apagar'].forEach((r) => { const s = pill(num.format(camps.filter((c) => c.recomendacion === r).length) + ' ' + r); chips.appendChild(s); });
     const t = $('t-campanas');
     if (!okR) { t.replaceChildren(); return; }
-    const cols = [['nombre', 'Campaña'], ['pais', 'País'], ['estado_meta', 'Estado'], ['presupuesto', 'Presupuesto diario', 'num'], ['conversaciones', 'Conv.', 'num'], ['ventas_total_n', 'Ventas', 'num'], ['pct_conv', '% conv.', 'num'], ['gasto_iva', 'Pauta IVA', 'num'], ['ventas_total_cop', 'Facturación', 'num'], ['ganancia', 'Utilidad', 'num'], ['roas', 'ROAS', 'num'], ['costo_conv', 'Costo/conv.', 'num'], ['recomendacion', 'Acción']];
+    const cols = [['nombre', 'Campaña'], ['pais', 'País'], ['estado_meta', 'Estado'], ['presupuesto', 'Presupuesto diario', 'num'], ['conversaciones', 'Conv.', 'num'], ['ventas_total_n', 'Ventas', 'num'], ['pct_conv', '% conv.', 'num'], ['costo_compra', 'Costo/compra', 'num'], ['gasto_iva', 'Pauta IVA', 'num'], ['ventas_total_local', 'Facturación local', 'num'], ['ventas_total_cop', 'Facturación COP', 'num'], ['ganancia', 'Utilidad', 'num'], ['roas', 'ROAS', 'num'], ['costo_conv', 'Costo/conv.', 'num'], ['recomendacion', 'Acción']];
     tabla(t, cols, camps, {
       celda: (td, c, f) => {
         if (c === 'recomendacion') { td.appendChild(pill(f.recomendacion)); return true; }
-        if (c === 'nombre') { const b = document.createElement('button'); b.className = 'ag-x'; b.type = 'button'; b.textContent = (abierta === f.clave ? '▾ ' : '▸ ') + f.nombre; b.addEventListener('click', () => { abierta = abierta === f.clave ? null : f.clave; dibujar(); }); td.appendChild(b); return true; }
+        if (c === 'nombre') { const b = document.createElement('button'); b.className = 'ag-x'; b.type = 'button'; b.textContent = (abierta === f.clave ? '▾ ' : '▸ ') + f.nombre; b.addEventListener('click', () => { abierta = abierta === f.clave ? null : f.clave; horasCamp = abierta ? f.campana_id : ''; dibujar(); }); td.appendChild(b); return true; }
         if (c === 'estado_meta') { td.textContent = f.estado_meta || '—'; td.className = f.activa ? 'e-act' : 'e-pau'; return true; }
+        if (c === 'ventas_total_local') { td.textContent = textoLocal(f); return true; }
+        if (c === 'presupuesto') { celdaPresupuesto(td, f); return true; }
         return false;
       },
       despues: (tr, f, tb) => {
@@ -1557,11 +1727,13 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
             if (c === 'nombre') td.textContent = a.nombre + ' · ' + a.conjunto + ' · ' + a.ad_id;
             else if (c === 'recomendacion') td.appendChild(pill(a.recomendacion));
             else if (c === 'presupuesto') td.textContent = a.frecuencia ? 'frec. ' + dec.format(a.frecuencia) : '—';
+            else if (c === 'ventas_total_local') td.textContent = textoLocal(a);
             else { td.textContent = fmt(c, a[c]); if (c === 'ganancia') td.classList.add(a.ganancia > 0 ? 'ag-pos' : a.ganancia < 0 ? 'ag-neg' : 'x'); }
           });
         });
       },
     });
+    dibujarHoras(filas, rangoTxt);
     // Escalado
     const E = dash.data('escalado');
     const te = $('t-esc');
@@ -1651,6 +1823,124 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     });
   }
 
+  // ---------- Comprobante en PDF para el proveedor de cuentas ----------
+  let jspdfProm = null;
+  const cargarJsPDF = () => {
+    if (window.jspdf) return Promise.resolve(window.jspdf);
+    if (!jspdfProm) jspdfProm = new Promise((ok, mal) => {
+      const fuentes = ['jspdf.umd.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'];
+      const probar = (i) => {
+        if (i >= fuentes.length) { jspdfProm = null; mal(new Error('No se pudo cargar el generador de PDF (revisa la conexión).')); return; }
+        const sc = document.createElement('script'); sc.src = fuentes[i];
+        sc.onload = () => (window.jspdf ? ok(window.jspdf) : probar(i + 1)); sc.onerror = () => { sc.remove(); probar(i + 1); };
+        document.head.appendChild(sc);
+      };
+      probar(0);
+    });
+    return jspdfProm;
+  };
+  let logoProm = null;
+  const cargarLogo = () => {
+    if (!logoProm) logoProm = fetch('icon-192.png').then((r) => (r.ok ? r.blob() : null)).then((b) => (b ? new Promise((ok) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = () => ok(null); fr.readAsDataURL(b); }) : null)).catch(() => null);
+    return logoProm;
+  };
+  // jsPDF con letra estándar no trae el signo menos ni algunos espacios: se reemplazan
+  const txtPDF = (t) => String(t ?? '').replace(/−/g, '-').replace(/[  ]/g, ' ').replace(/[–—]/g, '-');
+  const comprobantePDF = async (r) => {
+    const [{ jsPDF }, logo] = await Promise.all([cargarJsPDF(), cargarLogo()]);
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const W = 210, M = 18;
+    const NAVY = [11, 21, 48], NAVY2 = [20, 34, 72], GOLD = [245, 184, 0], ORANGE = [249, 115, 22], INK = [24, 31, 48], MUTED = [104, 114, 138], LINE = [226, 230, 238], SOFT = [246, 247, 251];
+    const local = r.moneda && r.moneda !== 'COP';
+    const num_ = 'CP-' + String(r.periodo).replace(/[^0-9A-Za-z]/g, '') + '-' + String(r.pais).normalize('NFD').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase();
+    const emitido = new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+    const anio = (f) => (f ? ' de ' + f.slice(0, 4) : '');
+
+    // Encabezado azul marino con franja degradada naranja → amarillo
+    doc.setFillColor(...NAVY); doc.rect(0, 0, W, 44, 'F');
+    doc.setFillColor(...NAVY2); doc.circle(W - 14, -6, 34, 'F');
+    for (let i = 0; i < 60; i++) { const t = i / 59; doc.setFillColor(Math.round(ORANGE[0] + (GOLD[0] - ORANGE[0]) * t), Math.round(ORANGE[1] + (GOLD[1] - ORANGE[1]) * t), Math.round(ORANGE[2] + (GOLD[2] - ORANGE[2]) * t)); doc.rect((W / 60) * i, 44, W / 60 + 0.2, 2.2, 'F'); }
+    if (logo) { try { doc.addImage(logo, 'PNG', M, 9, 26, 26); } catch (e) {} }
+    const xT = logo ? M + 32 : M;
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(24); doc.text('IdeaLab', xT, 22);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(200, 208, 228); doc.text('Comprobante de pago · Proveedor de cuentas', xT, 29);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...GOLD); doc.text('COMPROBANTE', W - M, 17, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(230, 234, 245);
+    doc.text('N.º ' + num_, W - M, 24, { align: 'right' }); doc.text('Emitido el ' + emitido, W - M, 30, { align: 'right' });
+
+    // Datos del comprobante
+    let y = 60;
+    const dato = (x, lb, v) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text(lb.toUpperCase(), x, y); doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5); doc.setTextColor(...INK); doc.text(txtPDF(v), x, y + 6); };
+    const col = (W - 2 * M) / 4;
+    dato(M, 'País', r.pais);
+    const mesTxt = r.desde ? MESES_L[Number(r.desde.slice(5, 7)) - 1] + ' ' + r.desde.slice(0, 4) : '';
+    dato(M + col, 'Periodo', r.tipo === 'Mes' ? mesTxt.charAt(0).toUpperCase() + mesTxt.slice(1) : (/Q1$/.test(r.periodo) ? '1.ª' : '2.ª') + ' quinc. ' + mesTxt.slice(0, 3) + ' ' + mesTxt.slice(-4));
+    dato(M + col * 2, 'Moneda de cobro', r.moneda || 'COP');
+    dato(M + col * 3, 'Tasa usada', local && r.tasa ? '1 ' + r.moneda + ' = ' + fTasa(r.tasa) + ' COP' : '—');
+    y += 13; doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(...MUTED);
+    doc.text(txtPDF('Del ' + fLarga(r.desde) + ' al ' + fLarga(r.hasta) + anio(r.hasta) + (r.completo ? ' · periodo cerrado' : ' · periodo en curso (valores provisionales)')), M, y);
+
+    // Tabla de conceptos
+    y += 10;
+    const cx = [M, W - M - 62, W - M];
+    doc.setFillColor(...NAVY); doc.roundedRect(M, y, W - 2 * M, 10, 2, 2, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(255, 255, 255);
+    doc.text('CONCEPTO', cx[0] + 5, y + 6.5); doc.text('COP', cx[1], y + 6.5, { align: 'right' }); doc.text(local ? r.moneda : '', cx[2] - 5, y + 6.5, { align: 'right' });
+    y += 10;
+    const filas = [
+      ['Ventas del periodo', num.format(r.ventas_n || 0) + ' ventas', cop.format(r.ventas), local ? fLocal(r.ventas_local, r.moneda) : ''],
+      ['Pauta en Meta con IVA', 'gasto × 1,19', '- ' + cop.format(r.pauta_iva), local ? '- ' + fLocal(r.pauta_local, r.moneda) : ''],
+      ['Utilidad del país', 'ventas - pauta con IVA', cop.format(r.utilidad), local ? fLocal(r.utilidad_local, r.moneda) : ''],
+      ['Porcentaje del proveedor', 'sobre la utilidad del país', num.format(r.pct_prov) + ' %', local ? num.format(r.pct_prov) + ' %' : ''],
+    ];
+    filas.forEach((f, i) => {
+      if (i % 2 === 1) { doc.setFillColor(...SOFT); doc.rect(M, y, W - 2 * M, 14, 'F'); }
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(...INK); doc.text(txtPDF(f[0]), cx[0] + 5, y + 6.2);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text(txtPDF(f[1]), cx[0] + 5, y + 10.8);
+      doc.setFontSize(10.5); doc.setTextColor(...INK); doc.text(txtPDF(f[2]), cx[1], y + 8.3, { align: 'right' }); doc.text(txtPDF(f[3]), cx[2] - 5, y + 8.3, { align: 'right' });
+      y += 14;
+      doc.setDrawColor(...LINE); doc.setLineWidth(0.2); doc.line(M, y, W - M, y);
+    });
+
+    // Total a pagar
+    y += 10;
+    const bx = W / 2 - 6, bw = W - M - bx, bh = local ? 40 : 30;
+    doc.setFillColor(...NAVY); doc.roundedRect(bx, y, bw, bh, 3, 3, 'F');
+    for (let i = 0; i < 40; i++) { const t = i / 39; doc.setFillColor(Math.round(ORANGE[0] + (GOLD[0] - ORANGE[0]) * t), Math.round(ORANGE[1] + (GOLD[1] - ORANGE[1]) * t), Math.round(ORANGE[2] + (GOLD[2] - ORANGE[2]) * t)); doc.rect(bx + 3 + ((bw - 6) / 40) * i, y, (bw - 6) / 40 + 0.2, 1.4, 'F'); }
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(200, 208, 228); doc.text('TOTAL A PAGAR AL PROVEEDOR', bx + 7, y + 9);
+    doc.setFontSize(20); doc.setTextColor(...GOLD);
+    doc.text(txtPDF(local ? fLocal(r.comision_local, r.moneda) : cop.format(r.comision)), bx + 7, y + 20);
+    if (local) { doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(230, 234, 245); doc.text(txtPDF('Equivale a ' + cop.format(r.comision)), bx + 7, y + 28); }
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(170, 180, 205);
+    doc.text(txtPDF(num.format(r.pct_prov) + ' % de ' + (local ? fLocal(r.utilidad_local, r.moneda) : cop.format(r.utilidad))), bx + 7, y + bh - 5);
+    // A la izquierda del total: cómo se calculó
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...INK); doc.text('Cómo se calcula', M, y + 8);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...MUTED);
+    const expl = 'La comisión es el ' + num.format(r.pct_prov) + ' % de la utilidad del país: ventas menos la pauta de Meta con IVA (19 %).' + (local ? ' La conversión usa la tasa de la pestaña Tasas al cierre del periodo, con un colchón de seguridad.' : '');
+    doc.text(doc.splitTextToSize(txtPDF(expl), bx - M - 8), M, y + 14);
+
+    // Firma y pie
+    y += bh + 26;
+    doc.setDrawColor(...LINE); doc.setLineWidth(0.3); doc.line(M, y, M + 70, y); doc.line(W - M - 70, y, W - M, y);
+    doc.setFontSize(8.5); doc.setTextColor(...MUTED); doc.text('Entrega · IdeaLab', M, y + 5); doc.text('Recibe · Proveedor de ' + txtPDF(r.pais), W - M, y + 5, { align: 'right' });
+    doc.setFillColor(...SOFT); doc.rect(0, 280, W, 17, 'F');
+    doc.setFontSize(8); doc.setTextColor(...MUTED);
+    doc.text(txtPDF('Generado con IdeaLab App · ' + new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', dateStyle: 'medium', timeStyle: 'short' }).format(new Date())), M, 289);
+    doc.text(num_, W - M, 289, { align: 'right' });
+    const nombre = 'Comprobante_' + String(r.pais).normalize('NFD').replace(/[^A-Za-z0-9]/g, '') + '_' + String(r.periodo) + '.pdf';
+    return { blob: doc.output('blob'), nombre };
+  };
+  const botonesComprobante = (d, r) => {
+    const fila = document.createElement('div'); fila.className = 'ag-recibo-acc';
+    const msg = document.createElement('span'); msg.className = 'ag-recibo-msg';
+    const mk = (txt, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'ag-btn'; b.textContent = txt; b.addEventListener('click', async () => { b.disabled = true; const t = b.textContent; b.textContent = 'Generando…'; msg.textContent = ''; try { await fn(await comprobantePDF(r)); } catch (e) { if (e && e.name !== 'AbortError') msg.textContent = String((e && e.message) || e); } b.disabled = false; b.textContent = t; }); fila.appendChild(b); };
+    const bajar = ({ blob, nombre }) => { const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = nombre; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); };
+    mk('Descargar PDF', bajar);
+    const prueba = typeof File === 'function' && navigator.canShare ? (() => { try { return navigator.canShare({ files: [new File([''], 'x.pdf', { type: 'application/pdf' })] }); } catch (e) { return false; } })() : false;
+    if (prueba) mk('Compartir', async ({ blob, nombre }) => { const f = new File([blob], nombre, { type: 'application/pdf' }); await navigator.share({ files: [f], title: 'Comprobante ' + r.pais, text: 'Comprobante de pago · ' + r.pais + ' · ' + fLarga(r.desde) + ' al ' + fLarga(r.hasta) }); });
+    fila.appendChild(msg); d.appendChild(fila);
+  };
+
   function dibujarContabilidad() {
     const L = dash.data('liquidacion');
     const sel = $('liq-periodo');
@@ -1708,13 +1998,13 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
       [['Periodo', fLarga(r.desde) + ' – ' + fLarga(r.hasta)], ['Ventas', cop.format(r.ventas) + (r.moneda !== 'COP' ? ' · ' + fLocal(r.ventas_local, r.moneda) : '')], ['Pauta con IVA', cop.format(r.pauta_iva) + (r.moneda !== 'COP' ? ' · ' + fLocal(r.pauta_local, r.moneda) : '')], ['Utilidad del país', cop.format(r.utilidad) + (r.moneda !== 'COP' ? ' · ' + fLocal(r.utilidad_local, r.moneda) : '')], ['Porcentaje', r.pct_prov + '%']].forEach(([k, v]) => { const l = document.createElement('div'); l.className = 'ln'; const a = document.createElement('span'); a.textContent = k; const b = document.createElement('span'); b.textContent = v; l.append(a, b); d.appendChild(l); });
       const tt = document.createElement('div'); tt.className = 'ln tt'; const a = document.createElement('span'); a.textContent = 'A pagar al proveedor'; const b = document.createElement('span'); b.dataset.source = 'liquidacion_paises'; b.dataset.field = 'comision'; b.dataset.where = 'clave=' + enc(r.clave); b.textContent = cop.format(r.comision); tt.append(a, b); d.appendChild(tt);
       if (r.moneda !== 'COP') { const lc = document.createElement('div'); lc.className = 'ln tt'; const a2 = document.createElement('span'); a2.textContent = 'En ' + r.moneda + ' (tasa ' + (r.tasa ? dec.format(r.tasa) + ' COP' : '—') + ')'; const b2 = document.createElement('span'); b2.dataset.source = 'liquidacion_paises'; b2.dataset.field = 'comision_local'; b2.dataset.where = 'clave=' + enc(r.clave); b2.textContent = fLocal(r.comision_local, r.moneda); lc.append(a2, b2); d.appendChild(lc); }
+      botonesComprobante(d, r);
       rc.appendChild(d);
     });
     if (!rc.children.length) { const e = document.createElement('p'); e.className = 'ag-empty'; e.textContent = 'Ningún país tuvo utilidad en este periodo.'; rc.appendChild(e); }
 
     // Gastos del periodo
-    const gp = $('g-pais');
-    if (gp.options.length !== ORD.length + 1) { const v = gp.value; gp.replaceChildren(new Option('General (todos)', 'General'), ...ORD.map((x) => new Option(x, x))); gp.value = v || 'General'; }
+    if (gPaisesLista.join('|') !== ORD.join('|')) { gPaisesLista = ORD; gSel = gSel.filter((x) => ORD.includes(x)); pintarRepartoGasto(); }
     const G = dash.data('gastos');
     const gs = G.status === 'ok' ? G.data.filter((g) => g.fecha >= tg.desde && g.fecha <= tg.hasta && (!paisCierre || g.pais === paisCierre)) : [];
     $('gastos-vacio').hidden = gs.length > 0 || G.status !== 'ok';
@@ -1799,6 +2089,44 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     $('c-trab-l').firstChild.textContent = trabs.length ? 'Trabajadores (suma de la lista de abajo)' : 'Trabajadoras (% utilidad total)';
   }
 
+  // ---------- Reparto de un gasto entre países ----------
+  let gPaisesLista = [], gSel = [], gPct = {};
+  // Reparte un valor entero según porcentajes; la última parte absorbe el redondeo para que sumen exacto
+  const repartir = (valor, pcts) => { let acum = 0; return pcts.map((p, i) => { if (i === pcts.length - 1) return valor - acum; const v = Math.round((valor * p) / 100); acum += v; return v; }); };
+  const igualar = () => { const n = gSel.length; if (!n) return; const base = Math.floor((100 / n) * 100) / 100; gSel.forEach((x, i) => { gPct[x] = i === n - 1 ? Math.round((100 - base * (n - 1)) * 100) / 100 : base; }); };
+  const pintarRepartoGasto = (soloValores) => {
+    const ch = $('g-paises'), cj = $('g-pcts');
+    if (!soloValores) {
+      ch.replaceChildren();
+      const mk = (txt, activo, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'ag-btn'; b.textContent = txt; b.setAttribute('aria-pressed', String(activo)); b.addEventListener('click', fn); ch.appendChild(b); };
+      mk('General', !gSel.length, () => { gSel = []; gPct = {}; pintarRepartoGasto(); });
+      gPaisesLista.forEach((x) => mk(x, gSel.includes(x), () => { gSel = gSel.includes(x) ? gSel.filter((y) => y !== x) : [...gSel, x]; igualar(); pintarRepartoGasto(); }));
+      if (gPaisesLista.length > 1) mk('Todos los países', gSel.length === gPaisesLista.length, () => { gSel = [...gPaisesLista]; igualar(); pintarRepartoGasto(); });
+    }
+    cj.hidden = gSel.length < 1;
+    if (!gSel.length) { cj.replaceChildren(); return; }
+    const valor = Math.round(Number($('g-valor').value)) || 0;
+    const partes = repartir(valor, gSel.map((x) => Number(gPct[x]) || 0));
+    if (!soloValores || cj.querySelectorAll('.g-fila').length !== gSel.length) {
+      cj.replaceChildren();
+      gSel.forEach((x) => {
+        const f = document.createElement('label'); f.className = 'g-fila';
+        const n = document.createElement('span'); n.className = 'g-n'; n.textContent = x;
+        const inp = document.createElement('input'); inp.type = 'number'; inp.className = 'ag-in'; inp.min = '0'; inp.max = '100'; inp.step = '0.5'; inp.value = gPct[x]; inp.dataset.pais = x; inp.setAttribute('aria-label', '% de ' + x);
+        inp.addEventListener('input', () => { gPct[x] = inp.value === '' ? '' : Number(inp.value); pintarRepartoGasto(true); });
+        const pc = document.createElement('span'); pc.className = 'g-pc'; pc.textContent = '%';
+        const v = document.createElement('span'); v.className = 'g-v'; v.dataset.pais = x;
+        f.append(n, inp, pc, v); cj.appendChild(f);
+      });
+      const pie = document.createElement('div'); pie.className = 'g-pie'; cj.appendChild(pie);
+      if (gSel.length > 1) { const eq = document.createElement('button'); eq.type = 'button'; eq.className = 'ag-x'; eq.textContent = 'Repartir en partes iguales'; eq.addEventListener('click', () => { igualar(); pintarRepartoGasto(); }); cj.appendChild(eq); }
+    }
+    gSel.forEach((x, i) => { const v = cj.querySelector('.g-v[data-pais="' + x + '"]'); if (v) v.textContent = valor ? cop.format(partes[i]) : '—'; });
+    const tot = gSel.reduce((s, x) => s + (Number(gPct[x]) || 0), 0);
+    const pie = cj.querySelector('.g-pie'); pie.textContent = 'Total ' + dec.format(tot) + '%' + (valor ? ' · ' + cop.format(valor) : '') + (Math.abs(tot - 100) > 0.01 ? ' — debe sumar 100%' : ' ✓');
+    pie.className = 'g-pie ' + (Math.abs(tot - 100) > 0.01 ? 'ag-neg' : 'ag-pos');
+  };
+
   // ---------- Escritura en la hoja (con los conectores del visor) ----------
   const HOJA = '1f0jljK5Pxt908HcQuAO9xorqN9XaVH2PdlkIBLIKLvw';
   let mcpProm = null;
@@ -1822,19 +2150,34 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
   const avisar = (id, txt, ok) => { const el = $(id); el.textContent = txt; el.className = 'ag-msg ' + (ok ? 'ok' : 'err'); };
   const ocupado = (btn, si) => { btn.disabled = si; btn.style.opacity = si ? '.5' : ''; };
 
-  // Gastos
+  // Gastos: se cargan a General, a un país o repartidos entre varios con el % de cada uno.
+  // Un gasto repartido se guarda como una fila por país (con su parte en COP), así el cierre de cada país lo descuenta.
+  const pctsDe = () => Object.fromEntries(gSel.map((x) => [x, Number(gPct[x])]));
   $('g-guardar').addEventListener('click', async (ev) => {
-    const fecha = $('g-fecha').value, concepto = $('g-concepto').value.trim(), valor = Number($('g-valor').value), pais = $('g-pais').value || 'General';
+    const fecha = $('g-fecha').value, concepto = $('g-concepto').value.trim(), valor = Math.round(Number($('g-valor').value));
     if (!fecha || !concepto || !(valor > 0)) { avisar('g-msg', 'Completa fecha, concepto, quién lo pagó y un valor mayor a 0.', false); return; }
+    const quien = $('g-quien').value;
+    let filasG;
+    if (!gSel.length) filasG = [[fecha, concepto, '', valor, quien, 'desde el dashboard', 'General']];
+    else {
+      const pc = pctsDe();
+      const total = gSel.reduce((s, x) => s + (Number.isFinite(pc[x]) ? pc[x] : NaN), 0);
+      if (!Number.isFinite(total) || gSel.some((x) => !(pc[x] > 0))) { avisar('g-msg', 'Pon un porcentaje mayor a 0 para cada país elegido.', false); return; }
+      if (Math.abs(total - 100) > 0.01) { avisar('g-msg', 'Los porcentajes suman ' + dec.format(total) + '%: deben sumar 100%.', false); return; }
+      const partes = repartir(valor, gSel.map((x) => pc[x]));
+      const nota = gSel.length > 1 ? 'Repartido de ' + cop.format(valor) + ': ' + gSel.map((x) => x + ' ' + num.format(pc[x]) + '%').join(' · ') : 'desde el dashboard';
+      filasG = gSel.map((x, i) => [fecha, concepto, '', partes[i], quien, nota, x]);
+    }
     ocupado(ev.target, true); avisar('g-msg', 'Guardando…', true);
     try {
-      await escribir('append_values', { range: 'Gastos!A1:G1', values: [[fecha, concepto, '', valor, $('g-quien').value, 'desde el dashboard', pais]] });
-      avisar('g-msg', 'Gasto agregado: ' + concepto + ' · ' + cop.format(valor) + ' · cargado a ' + pais + '.', true);
-      $('g-concepto').value = ''; $('g-valor').value = '';
+      await escribir('append_values', { range: 'Gastos!A1:G1', values: filasG });
+      avisar('g-msg', 'Gasto agregado: ' + concepto + ' · ' + cop.format(valor) + ' · ' + (filasG.length > 1 ? filasG.map((f) => f[6] + ' ' + cop.format(f[3])).join(' · ') : 'cargado a ' + filasG[0][6]) + '.', true);
+      $('g-concepto').value = ''; $('g-valor').value = ''; gSel = []; gPct = {}; pintarRepartoGasto();
       dash.refresh('gastos');
     } catch (e) { avisar('g-msg', textoError(e), false); }
     ocupado(ev.target, false);
   });
+  $('g-valor').addEventListener('input', () => pintarRepartoGasto(true));
 
   // Porcentajes
   ['c-prov', 'c-trab', 'c-emp', 'c-s1', 'c-s2'].forEach((id) => $(id).addEventListener('input', () => { $(id).dataset.sucio = '1'; }));
