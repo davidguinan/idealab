@@ -21,7 +21,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 #ag-login { position: fixed; inset: 0; background: rgba(5,9,18,.92); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; font-family: Inter, sans-serif; color: #E8EDF7; }
 #ag-login[hidden] { display: none; }
 #ag-login .box { width: min(420px, 100%); background: #101A2D; border: 1px solid rgba(255,255,255,.1); border-radius: 18px; padding: 24px; display: grid; gap: 12px; }
-#ag-login img { width: 48px; }
+#ag-login img { width: 64px; filter: drop-shadow(0 0 12px rgba(245,184,0,.35)); }
 #ag-login h1 { margin: 0; font: 400 24px "Source Serif 4", serif; }
 #ag-login label { display: grid; gap: 4px; font-size: 12px; color: #8D9AB3; }
 #ag-login input { background: #0D1627; color: #E8EDF7; border: 1px solid rgba(255,255,255,.12); border-radius: 9px; padding: 10px; font: inherit; font-size: 14px; }
@@ -31,7 +31,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 </head>
 <body>
 <div id="ag-login" hidden><div class="box">
-  <img src="icon-192.png" alt="IdeaLab">
+  <img src="logo-3d.png" alt="IdeaLab">
   <h1>Rentabilidad Meta Ads</h1>
   <label>Clave de la app<input id="lg-clave" type="password" autofocus autocomplete="current-password"></label>
   <button type="button" id="lg-entrar">Entrar</button>
@@ -232,7 +232,8 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 .ag * { box-sizing: border-box; }
 .ag-side { background: rgba(255,255,255,.02); border-right: 1px solid var(--ag-line); padding: 20px 14px; display: flex; flex-direction: column; gap: 18px; position: sticky; top: 0; align-self: start; min-height: 100vh; }
 .ag-brand { display: flex; align-items: center; gap: 10px; }
-.ag-brand img { width: 52px; height: 60px; object-fit: contain; filter: drop-shadow(0 0 10px rgba(245,184,0,.35)); cursor: pointer; }
+.ag-brand img { width: 54px; height: 54px; object-fit: contain; background: none; filter: drop-shadow(0 0 8px rgba(245,184,0,.45)); cursor: pointer; transition: transform .25s; }
+.ag-brand img:hover { transform: scale(1.08) rotate(-4deg); }
 .ag-brand b { display: block; font-size: 15px; letter-spacing: .06em; }
 .ag-brand span { display: block; font-size: 10px; color: var(--ag-muted); letter-spacing: .14em; text-transform: uppercase; }
 .ag-navt { font-size: 10px; color: var(--ag-muted); letter-spacing: .14em; text-transform: uppercase; margin: 4px 6px 0; }
@@ -351,13 +352,22 @@ tr.cd-vacio td { opacity: .45; }
 .ag-area span { color: var(--ag-muted); font-size: 13px; line-height: 1.45; }
 .ag-area em { font-style: normal; font-family: var(--font-anthropic-serif); font-size: 20px; color: var(--ag-fg); }
 .ini-hero { display: flex; align-items: center; gap: clamp(16px, 4vw, 44px); flex-wrap: wrap; }
-.logo3d { --luz: 0; display: grid; justify-items: center; gap: 6px; user-select: none; -webkit-user-select: none; }
-.l3-stage { position: relative; width: clamp(170px, 26vw, 250px); aspect-ratio: 1; perspective: 900px; touch-action: none; cursor: grab; }
+.logo3d { --luz: 0; --sh: 0; display: grid; justify-items: center; gap: 8px; user-select: none; -webkit-user-select: none; }
+.l3-stage { position: relative; width: clamp(180px, 27vw, 260px); aspect-ratio: 1; perspective: 1000px; touch-action: none; cursor: grab; }
 .l3-stage:active { cursor: grabbing; }
-.l3-luz { position: absolute; inset: -18%; border-radius: 50%; pointer-events: none; background: radial-gradient(circle at 44% 40%, rgba(255,214,90, calc(.18 + .55 * var(--luz))) 0%, rgba(249,115,22, calc(.08 + .3 * var(--luz))) 32%, transparent 64%); filter: blur(calc(8px + 14px * var(--luz))); transform: scale(calc(.9 + .25 * var(--luz))); }
+.l3-luz { position: absolute; inset: -22%; border-radius: 50%; pointer-events: none; background: radial-gradient(circle at 46% 42%, rgba(255,220,110, calc(.16 + .6 * var(--luz))) 0%, rgba(249,115,22, calc(.07 + .32 * var(--luz))) 34%, transparent 66%); filter: blur(calc(10px + 16px * var(--luz))); transform: scale(calc(.92 + .28 * var(--luz))); }
+.l3-rayos { position: absolute; inset: -30%; pointer-events: none; border-radius: 50%; opacity: calc(.0 + .7 * var(--luz)); background: repeating-conic-gradient(from calc(var(--sh) * 360deg), rgba(255,210,90,0) 0deg 6deg, rgba(255,210,90,.28) 15deg, rgba(255,210,90,0) 24deg 30deg); filter: blur(3px); -webkit-mask: radial-gradient(circle, #000 18%, transparent 62%); mask: radial-gradient(circle, #000 18%, transparent 62%); }
+.l3-sombra { position: absolute; left: 22%; right: 22%; bottom: -9%; height: 9%; border-radius: 50%; pointer-events: none; background: radial-gradient(closest-side, rgba(245,150,0,calc(.28 + .3 * var(--luz))), transparent); filter: blur(6px); }
 .l3-obj { position: absolute; inset: 0; transform-style: preserve-3d; will-change: transform; }
-.l3-obj img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; -webkit-user-drag: none; backface-visibility: visible; }
-.l3-obj img.fr { filter: brightness(calc(1 + .45 * var(--luz))) saturate(calc(1 + .3 * var(--luz))) drop-shadow(0 0 calc(2px + 22px * var(--luz)) rgba(255,196,40, calc(.35 + .6 * var(--luz)))); }
+.l3-obj > * { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.l3-obj img { object-fit: contain; -webkit-user-drag: none; }
+.l3-obj .cara { filter: brightness(calc(1.02 + .45 * var(--luz))) saturate(calc(1.05 + .35 * var(--luz))) drop-shadow(0 0 calc(3px + 20px * var(--luz)) rgba(255,196,40, calc(.4 + .55 * var(--luz)))); }
+.l3-obj .canto { -webkit-mask: url(logo-3d.png) center / contain no-repeat; mask: url(logo-3d.png) center / contain no-repeat; background: linear-gradient(160deg, #FFD54A 0%, #F5A000 45%, #D9480F 100%); }
+.l3-obj .brillo { -webkit-mask: url(logo-3d.png) center / contain no-repeat; mask: url(logo-3d.png) center / contain no-repeat; background: linear-gradient(115deg, transparent 0 calc(var(--sh) * 140% - 40%), rgba(255,255,255,.75) calc(var(--sh) * 140% - 28%), transparent calc(var(--sh) * 140% - 16%)); mix-blend-mode: screen; }
+.l3-chispa { position: absolute; left: 50%; top: 45%; width: 9px; height: 9px; border-radius: 2px; background: linear-gradient(135deg, #FFD54A, #F97316); box-shadow: 0 0 10px rgba(255,190,40,.9); pointer-events: none; animation: l3chispa .9s cubic-bezier(.2,.7,.3,1) forwards; }
+@keyframes l3chispa { from { transform: translate(-50%, -50%) scale(1) rotate(0); opacity: 1; } to { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.2) rotate(220deg); opacity: 0; } }
+.l3-onda { position: absolute; inset: 18%; border-radius: 50%; border: 2px solid rgba(255,200,60,.8); pointer-events: none; animation: l3onda .8s ease-out forwards; }
+@keyframes l3onda { from { transform: scale(.6); opacity: .9; } to { transform: scale(1.6); opacity: 0; } }
 .l3-hint { margin: 0; font-size: 11.5px; color: var(--ag-muted); text-align: center; }
 .ag-hello { font-family: var(--font-anthropic-serif); font-size: clamp(26px, 4vw, 40px); margin: 6px 0 2px; font-weight: 400; }
 .ag-split { display: grid; gap: 8px; }
@@ -453,7 +463,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 <div class="ag" id="raiz">
   <aside class="ag-side">
     <div class="ag-brand">
-      <img alt="IdeaLab" src="icon-192.png">
+      <img alt="IdeaLab" src="logo-3d.png">
       <div><b>IdeaLab</b><span>Dashboard</span></div>
     </div>
     <div class="ag-navt">Vistas</div>
@@ -496,7 +506,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       <div class="ini-hero">
         <div class="logo3d" id="logo3d" role="img" aria-label="Logo de IdeaLab en 3D. Arrástralo para girarlo y tócalo para encender la luz.">
           <div class="l3-stage" id="l3-stage">
+            <div class="l3-rayos"></div>
             <div class="l3-luz"></div>
+            <div class="l3-sombra" id="l3-sombra"></div>
             <div class="l3-obj" id="l3-obj"></div>
           </div>
           <p class="l3-hint">Arrástralo para girarlo · tócalo para encender la luz</p>
@@ -2174,7 +2186,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   };
   let logoProm = null;
   const cargarLogo = () => {
-    if (!logoProm) logoProm = fetch('icon-192.png').then((r) => (r.ok ? r.blob() : null)).then((b) => (b ? new Promise((ok) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = () => ok(null); fr.readAsDataURL(b); }) : null)).catch(() => null);
+    if (!logoProm) logoProm = fetch('logo-3d.png').then((r) => (r.ok ? r.blob() : null)).then((b) => (b ? new Promise((ok) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = () => ok(null); fr.readAsDataURL(b); }) : null)).catch(() => null);
     return logoProm;
   };
   // jsPDF con letra estándar no trae el signo menos ni algunos espacios: se reemplazan
@@ -2754,44 +2766,66 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 
   // ---------- Logo 3D: se gira arrastrando y se enciende la luz al tocarlo ----------
   (function logo3D() {
-    const stage = $('l3-stage'), obj = $('l3-obj'), host = $('logo3d');
+    const stage = $('l3-stage'), obj = $('l3-obj'), host = $('logo3d'), sombra = $('l3-sombra');
     if (!stage) return;
-    const CAPAS = 18, PROF = 1.15;
-    for (let i = CAPAS; i >= 0; i--) {
-      const im = document.createElement('img'); im.src = 'logo-3d.png'; im.alt = ''; im.draggable = false;
-      im.style.transform = 'translateZ(' + (-i * PROF).toFixed(2) + 'px)';
-      if (i === 0) im.className = 'fr';
-      else im.style.filter = 'brightness(' + (0.55 - (i / CAPAS) * 0.3).toFixed(2) + ') saturate(1.2)';
-      obj.appendChild(im);
+    // Pieza sólida: cara de adelante y cara de atrás iguales (la de atrás girada para que no se vea al revés)
+    // y en medio capas doradas que forman el canto.
+    const CAPAS = 26, PROF = 0.85, MITAD = (CAPAS * PROF) / 2;
+    const img = (cls, tr, filtro) => { const im = document.createElement('img'); im.src = 'logo-3d.png'; im.alt = ''; im.draggable = false; if (cls) im.className = cls; im.style.transform = tr; if (filtro) im.style.filter = filtro; obj.appendChild(im); return im; };
+    // Canto: siluetas doradas sólidas (más claras cerca de las caras, más oscuras en el centro)
+    for (let i = 1; i < CAPAS; i++) {
+      const z = MITAD - i * PROF, t = Math.abs(i - CAPAS / 2) / (CAPAS / 2);
+      const c = document.createElement('div'); c.className = 'canto'; c.style.transform = 'translateZ(' + z.toFixed(2) + 'px)'; c.style.filter = 'brightness(' + (0.55 + 0.4 * t).toFixed(2) + ')'; obj.appendChild(c);
     }
+    img('cara', 'translateZ(' + MITAD.toFixed(2) + 'px)');
+    img('cara', 'translateZ(' + (-MITAD).toFixed(2) + 'px)');
+    const brillo = (tr) => { const d = document.createElement('div'); d.className = 'brillo'; d.style.transform = tr; obj.appendChild(d); };
+    brillo('translateZ(' + (MITAD + 0.3).toFixed(2) + 'px)'); brillo('translateZ(' + (-MITAD - 0.3).toFixed(2) + 'px)');
+
     const quieto = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let rx = -8, ry = 18, vx = 0, vy = 0, luz = 0, arr = null, movio = 0, t0 = performance.now(), ultimo = 0;
-    const pintar = () => { obj.style.transform = 'rotateX(' + rx.toFixed(2) + 'deg) rotateY(' + ry.toFixed(2) + 'deg)'; host.style.setProperty('--luz', luz.toFixed(3)); };
+    let rx = -6, ry = 22, vx = 0, vy = 0, luz = 0, arr = null, movio = 0, t0 = performance.now(), ultimo = 0;
+    const pintar = (t) => {
+      const flota = quieto ? 0 : Math.sin((t || 0) / 900) * 5;
+      const atras = Math.cos((ry * Math.PI) / 180) < 0;
+      obj.style.transform = 'translateY(' + flota.toFixed(2) + 'px) rotateX(' + rx.toFixed(2) + 'deg) rotateY(' + ry.toFixed(2) + 'deg)' + (atras ? ' scaleX(-1)' : '');
+      sombra.style.transform = 'scaleX(' + (1 - flota / 40).toFixed(3) + ')'; sombra.style.opacity = String(0.8 - flota / 25);
+      host.style.setProperty('--luz', luz.toFixed(3));
+      host.style.setProperty('--sh', ((((ry % 360) + 360) % 180) / 180).toFixed(3));
+    };
     const paso = (t) => {
       const dt = Math.min(50, t - (paso.t || t)); paso.t = t;
       if (!arr) {
-        ry += vy * dt / 16; rx += vx * dt / 16; vy *= 0.95; vx *= 0.95;
-        if (!quieto && Math.abs(vy) < 0.05 && Math.abs(vx) < 0.05) { const k = (t - t0) / 1000; ry += (Math.sin(k * 0.9) * 22 - ry) * 0.02; rx += (-8 + Math.sin(k * 0.6) * 6 - rx) * 0.02; }
-        rx = Math.max(-55, Math.min(55, rx));
+        ry += vy * dt / 16; rx += vx * dt / 16; vy *= 0.955; vx *= 0.94;
+        if (!quieto && Math.abs(vy) < 0.06 && Math.abs(vx) < 0.06) { const k = (t - t0) / 1000; ry += 0.12 * dt / 16; rx += (-6 + Math.sin(k * 0.7) * 7 - rx) * 0.02; }
+        rx = Math.max(-60, Math.min(60, rx));
       }
-      luz = Math.max(0, luz - dt / 2600);
-      pintar();
+      luz = Math.max(0, luz - dt / 3200);
+      pintar(t);
       if (host.offsetParent !== null) requestAnimationFrame(paso); else paso.corriendo = false;
     };
     const arrancar = () => { if (!paso.corriendo) { paso.corriendo = true; paso.t = 0; requestAnimationFrame(paso); } };
-    stage.addEventListener('pointerdown', (e) => { arr = { x: e.clientX, y: e.clientY, rx, ry }; movio = 0; ultimo = performance.now(); stage.setPointerCapture(e.pointerId); arrancar(); });
+    const chispas = () => {
+      const o = document.createElement('div'); o.className = 'l3-onda'; stage.appendChild(o); setTimeout(() => o.remove(), 900);
+      for (let i = 0; i < 12; i++) {
+        const c = document.createElement('i'); c.className = 'l3-chispa';
+        const a = (i / 12) * Math.PI * 2 + Math.random() * 0.4, d = 70 + Math.random() * 70;
+        c.style.setProperty('--dx', (Math.cos(a) * d).toFixed(0) + 'px'); c.style.setProperty('--dy', (Math.sin(a) * d).toFixed(0) + 'px');
+        c.style.animationDelay = (Math.random() * 0.12).toFixed(2) + 's'; const tam = 5 + Math.random() * 7; c.style.width = c.style.height = tam.toFixed(0) + 'px';
+        stage.appendChild(c); setTimeout(() => c.remove(), 1200);
+      }
+    };
+    stage.addEventListener('pointerdown', (e) => { arr = { x: e.clientX, y: e.clientY, rx, ry }; movio = 0; ultimo = performance.now(); vx = vy = 0; stage.setPointerCapture(e.pointerId); arrancar(); });
     stage.addEventListener('pointermove', (e) => {
       if (!arr) return;
       const dx = e.clientX - arr.x, dy = e.clientY - arr.y; movio = Math.max(movio, Math.abs(dx) + Math.abs(dy));
-      const nry = arr.ry + dx * 0.6, nrx = Math.max(-55, Math.min(55, arr.rx - dy * 0.5));
+      const nry = arr.ry + dx * 0.65, nrx = Math.max(-60, Math.min(60, arr.rx - dy * 0.5));
       const ahora = performance.now(), d = Math.max(8, ahora - ultimo); vy = ((nry - ry) / d) * 16; vx = ((nrx - rx) / d) * 16; ultimo = ahora;
       ry = nry; rx = nrx;
     });
-    const soltar = () => { if (!arr) return; if (movio < 6) { luz = Math.min(1, luz + 0.45); vy += 6; } arr = null; t0 = performance.now(); };
+    const soltar = () => { if (!arr) return; if (movio < 6) { luz = Math.min(1, luz + 0.5); vy += 4; if (!quieto) chispas(); } arr = null; t0 = performance.now(); };
     stage.addEventListener('pointerup', soltar); stage.addEventListener('pointercancel', soltar);
     const brand = document.querySelector('.ag-brand img'); if (brand) brand.addEventListener('click', () => { const b = document.querySelector('nav [data-v="inicio"]'); if (b) b.click(); });
-    pintar();
-    window.idealabLogo = arrancar;
+    pintar(0);
     dash.onData(() => { if (host.offsetParent !== null) arrancar(); });
     new MutationObserver(() => { if (host.offsetParent !== null) arrancar(); }).observe($('inicio'), { attributes: true, attributeFilter: ['hidden'] });
   })();
