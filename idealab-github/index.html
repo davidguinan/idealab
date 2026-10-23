@@ -364,6 +364,7 @@ tr.cd-vacio td { opacity: .45; }
 .l3-obj .cara { filter: brightness(calc(1.02 + .45 * var(--luz))) saturate(calc(1.05 + .35 * var(--luz))) drop-shadow(0 0 calc(3px + 20px * var(--luz)) rgba(255,196,40, calc(.4 + .55 * var(--luz)))); }
 .l3-obj .canto { -webkit-mask: url(logo-3d.png) center / contain no-repeat; mask: url(logo-3d.png) center / contain no-repeat; background: linear-gradient(160deg, #FFD54A 0%, #F5A000 45%, #D9480F 100%); }
 .l3-obj .brillo { -webkit-mask: url(logo-3d.png) center / contain no-repeat; mask: url(logo-3d.png) center / contain no-repeat; background: linear-gradient(115deg, transparent 0 calc(var(--sh) * 140% - 40%), rgba(255,255,255,.75) calc(var(--sh) * 140% - 28%), transparent calc(var(--sh) * 140% - 16%)); mix-blend-mode: screen; }
+.l3-gl { position: absolute; inset: -6%; width: 112% !important; height: 112% !important; pointer-events: none; filter: drop-shadow(0 0 calc(4px + 26px * var(--luz)) rgba(255,180,30, calc(.25 + .6 * var(--luz)))); }
 .l3-chispa { position: absolute; left: 50%; top: 45%; width: 9px; height: 9px; border-radius: 2px; background: linear-gradient(135deg, #FFD54A, #F97316); box-shadow: 0 0 10px rgba(255,190,40,.9); pointer-events: none; animation: l3chispa .9s cubic-bezier(.2,.7,.3,1) forwards; }
 @keyframes l3chispa { from { transform: translate(-50%, -50%) scale(1) rotate(0); opacity: 1; } to { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.2) rotate(220deg); opacity: 0; } }
 .l3-onda { position: absolute; inset: 18%; border-radius: 50%; border: 2px solid rgba(255,200,60,.8); pointer-events: none; animation: l3onda .8s ease-out forwards; }
@@ -441,6 +442,10 @@ tr.cd-vacio td { opacity: .45; }
 .f-acc .ag-btn { padding: 6px 10px; font-size: 12px; }
 .f-pago { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; padding: 10px; border-radius: 10px; background: rgba(245,184,0,.05); }
 .f-pago label { display: grid; gap: 4px; font-size: 11px; color: var(--ag-muted); }
+.g-pago { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 99px; border: 1px solid; background: transparent; cursor: pointer; white-space: nowrap; }
+.g-pago.ok { color: #2DD4BF; border-color: rgba(45,212,191,.4); background: rgba(45,212,191,.06); }
+.g-pago.pend { color: #FBBF24; border-color: rgba(251,191,36,.45); background: rgba(251,191,36,.07); }
+.g-pago:hover { filter: brightness(1.2); }
 .g-multi { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 12px; color: var(--ag-gold); border: 1px solid rgba(245,184,0,.35); }
 .g-val { font-variant-numeric: tabular-nums; color: var(--ag-text, #E8EDF7); }
 tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
@@ -678,6 +683,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           <label>Concepto<input class="ag-in" id="g-concepto" placeholder="ManyChat, ChatGPT…"></label>
           <label>Quién lo pagó<select class="ag-sel" id="g-quien"><option>Empresa</option><option>Anthony Guiñan</option><option>Alejandra Acosta</option></select></label>
           <label>Valor (COP)<input class="ag-in" type="number" id="g-valor" min="0" step="1"></label>
+          <label>Estado del pago<select class="ag-sel" id="g-estado"><option value="Pagado">Pagado</option><option value="Pendiente">Pendiente de pago</option></select></label>
+          <label id="g-fpago-l">Fecha de pago<input class="ag-in" type="date" id="g-fpago" min="2020-01-01" max="2099-12-31"></label>
           <div class="g-reparto">
             <span class="g-lb">Se carga a <em>(elige uno o varios países)</em></span>
             <div class="ag-chips" id="g-paises" data-source="paises"></div>
@@ -1011,8 +1018,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   dash.loader('gastos', {
     description: 'La pestaña Gastos como filas: fecha, concepto, categoría, valor en COP, quién lo pagó y a qué país se carga (General si a ninguno) de cada gasto que no es pauta.',
     fn: ({ answer }) => ({
-      columns: ['fila', 'fecha', 'concepto', 'categoria', 'valor', 'pagado_por', 'nota', 'pais'],
-      rows: valores(answer).slice(1).map((r, i) => ({ fila: i + 2, fecha: leerFecha(r[0]), concepto: String(r[1] || ''), categoria: String(r[2] || ''), valor: leerValor(r[3]), pagado_por: String(r[4] || ''), nota: String(r[5] || ''), pais: String(r[6] || '').trim() || 'General' }))
+      columns: ['fila', 'fecha', 'concepto', 'categoria', 'valor', 'pagado_por', 'nota', 'pais', 'estado_pago', 'fecha_pago'],
+      rows: valores(answer).slice(1).map((r, i) => ({ fila: i + 2, fecha: leerFecha(r[0]), concepto: String(r[1] || ''), categoria: String(r[2] || ''), valor: leerValor(r[3]), pagado_por: String(r[4] || ''), nota: String(r[5] || ''), pais: String(r[6] || '').trim() || 'General', estado_pago: /pagad/i.test(String(r[7] || '')) ? 'Pagado' : 'Pendiente', fecha_pago: leerFecha(r[8]) || '' }))
         .filter((r) => r.fecha && r.valor),
     }),
   });
@@ -2464,7 +2471,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         if (!/^Repartido de/i.test(g.nota || '')) { gs.push({ ...g, filas: [g.fila], partes: null }); return; }
         const k = [g.fecha, g.concepto, g.pagado_por, g.nota].join('|');
         if (!grupos[k]) { grupos[k] = { ...g, clave_g: k, filas: [], partes: [], valor: 0 }; gs.push(grupos[k]); }
-        grupos[k].filas.push(g.fila); grupos[k].partes.push({ pais: g.pais, valor: g.valor }); grupos[k].valor += g.valor;
+        grupos[k].filas.push(g.fila); grupos[k].partes.push({ pais: g.pais, valor: g.valor, estado_pago: g.estado_pago }); grupos[k].valor += g.valor;
+        if (g.estado_pago !== 'Pagado') grupos[k].estado_pago = 'Pendiente';
+        if (g.fecha_pago && (!grupos[k].fecha_pago || g.fecha_pago > grupos[k].fecha_pago)) grupos[k].fecha_pago = g.fecha_pago;
       });
       gs.forEach((g) => {
         if (!g.partes) return;
@@ -2475,9 +2484,16 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     }
     gs.sort((a, b) => b.fecha.localeCompare(a.fecha) || b.filas[0] - a.filas[0]);
     $('gastos-vacio').hidden = gs.length > 0 || G.status !== 'ok';
-    tabla($('t-gastos'), [['fecha', 'Fecha'], ['concepto', 'Concepto'], ['pagado_por', 'Pagado por'], ['pais', 'Se carga a'], ['valor', 'Valor', 'num'], ['borrar', '']], gs, {
+    tabla($('t-gastos'), [['fecha', 'Fecha'], ['concepto', 'Concepto'], ['pagado_por', 'Pagado por'], ['pais', 'Se carga a'], ['pago', 'Pago'], ['valor', 'Valor', 'num'], ['borrar', '']], gs, {
       key: 'fila',
       celda: (td, c, f) => {
+        if (c === 'pago') {
+          const b = document.createElement('button'); b.type = 'button'; b.className = 'g-pago ' + (f.estado_pago === 'Pagado' ? 'ok' : 'pend');
+          b.textContent = f.estado_pago === 'Pagado' ? '✓ Pagado' + (f.fecha_pago ? ' · ' + fCorta(f.fecha_pago) + ' ' + f.fecha_pago.slice(0, 4) : '') : '● Pendiente de pago';
+          b.title = 'Cambiar el estado del pago';
+          b.addEventListener('click', () => { gPagoEd = gPagoEd === (f.clave_g || f.fila) ? null : (f.clave_g || f.fila); dibujar(); });
+          td.appendChild(b); return true;
+        }
         if (c === 'pais' && f.partes) { const sp = document.createElement('span'); sp.className = 'g-multi'; sp.textContent = f.pais; sp.title = f.partes.map((x) => x.pais).join(', '); td.appendChild(sp); return true; }
         if (c === 'valor' && f.partes) {
           const b = document.createElement('button'); b.type = 'button'; b.className = 'ag-x g-val'; b.textContent = (gExp === f.clave_g ? '▾ ' : '▸ ') + cop.format(f.valor);
@@ -2490,17 +2506,38 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         bt.addEventListener('click', async () => {
           if (bt.dataset.seguro !== '1') { bt.dataset.seguro = '1'; bt.textContent = f.filas.length > 1 ? '¿Borrar los ' + f.filas.length + ' países? Toca otra vez' : '¿Seguro? Toca otra vez'; bt.style.color = 'var(--ag-bad)'; setTimeout(() => { bt.dataset.seguro = ''; bt.textContent = 'Eliminar'; bt.style.color = ''; }, 4000); return; }
           bt.disabled = true; bt.textContent = 'Eliminando…';
-          try { await escribir('batch_clear_values', { ranges: f.filas.map((n) => 'Gastos!A' + n + ':G' + n) }); avisar('g-msg', 'Gasto eliminado: ' + f.concepto + ' · ' + cop.format(f.valor) + '.', true); dash.refresh('gastos'); }
+          try { await escribir('batch_clear_values', { ranges: f.filas.map((n) => 'Gastos!A' + n + ':I' + n) }); avisar('g-msg', 'Gasto eliminado: ' + f.concepto + ' · ' + cop.format(f.valor) + '.', true); dash.refresh('gastos'); }
           catch (e) { avisar('g-msg', textoError(e), false); bt.disabled = false; bt.textContent = 'Eliminar'; }
         });
         td.appendChild(bt); return true;
       },
       despues: (tr, f, tb) => {
+        if (gPagoEd === (f.clave_g || f.fila)) {
+          const r = tb.insertRow(); r.className = 'sub'; const td = r.insertCell(); td.colSpan = 7;
+          const fm = document.createElement('div'); fm.className = 'f-pago';
+          const l1 = document.createElement('label'); l1.textContent = 'Estado del pago'; const est = document.createElement('select'); est.className = 'ag-sel'; est.appendChild(new Option('Pagado', 'Pagado')); est.appendChild(new Option('Pendiente de pago', 'Pendiente')); est.value = f.estado_pago === 'Pagado' ? 'Pagado' : 'Pendiente'; l1.appendChild(est);
+          const l2 = document.createElement('label'); l2.textContent = 'Fecha de pago'; const fe = document.createElement('input'); fe.type = 'date'; fe.className = 'ag-in'; fe.value = f.fecha_pago || HOY; l2.appendChild(fe);
+          const sync = () => { l2.style.opacity = est.value === 'Pagado' ? '1' : '.4'; fe.disabled = est.value !== 'Pagado'; }; est.addEventListener('change', sync); sync();
+          const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'ag-btn pri'; ok.textContent = 'Guardar';
+          const no = document.createElement('button'); no.type = 'button'; no.className = 'ag-x'; no.textContent = 'Cancelar'; no.addEventListener('click', () => { gPagoEd = null; dibujar(); });
+          ok.addEventListener('click', async () => {
+            const pagado = est.value === 'Pagado';
+            if (pagado && !fe.value) { avisar('g-msg', 'Elige la fecha de pago.', false); return; }
+            ok.disabled = true; ok.textContent = 'Guardando…';
+            try {
+              for (const n of f.filas) await escribir('update_values', { range: 'Gastos!H' + n + ':I' + n, values: [[pagado ? 'Pagado' : 'Pendiente', pagado ? fe.value : '']] });
+              avisar('g-msg', f.concepto + ': ' + (pagado ? 'pagado el ' + fLarga(fe.value) + '.' : 'quedó pendiente de pago.'), true);
+              gPagoEd = null; dash.refresh('gastos');
+            } catch (e) { avisar('g-msg', textoError(e), false); ok.disabled = false; ok.textContent = 'Guardar'; }
+          });
+          fm.append(l1, l2, ok, no); td.appendChild(fm);
+        }
         if (!f.partes || gExp !== f.clave_g) return;
         f.partes.forEach((x) => {
           const r = tb.insertRow(); r.className = 'sub g-sub';
           r.insertCell(); const c2 = r.insertCell(); c2.colSpan = 2; c2.textContent = '↳ ' + x.pais;
           const c3 = r.insertCell(); c3.textContent = x.pct === null ? '—' : num.format(x.pct) + '%';
+          r.insertCell();
           const c4 = r.insertCell(); c4.className = 'num'; c4.textContent = cop.format(x.valor);
           r.insertCell();
         });
@@ -2576,7 +2613,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 
   // ---------- Reparto de un gasto entre países ----------
   let gPaisesLista = [], gSel = [], gPct = {};
-  let gExp = null;
+  let gExp = null, gPagoEd = null;
   // Reparte un valor entero según porcentajes; la última parte absorbe el redondeo para que sumen exacto
   const repartir = (valor, pcts) => { let acum = 0; return pcts.map((p, i) => { if (i === pcts.length - 1) return valor - acum; const v = Math.round((valor * p) / 100); acum += v; return v; }); };
   const igualar = () => { const n = gSel.length; if (!n) return; const base = Math.floor((100 / n) * 100) / 100; gSel.forEach((x, i) => { gPct[x] = i === n - 1 ? Math.round((100 - base * (n - 1)) * 100) / 100 : base; }); };
@@ -2643,8 +2680,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const fecha = $('g-fecha').value, concepto = $('g-concepto').value.trim(), valor = Math.round(Number($('g-valor').value));
     if (!fecha || !concepto || !(valor > 0)) { avisar('g-msg', 'Completa fecha, concepto, quién lo pagó y un valor mayor a 0.', false); return; }
     const quien = $('g-quien').value;
+    const pagado = $('g-estado').value === 'Pagado', fpago = pagado ? $('g-fpago').value || fecha : '';
     let filasG;
-    if (!gSel.length) filasG = [[fecha, concepto, '', valor, quien, 'desde el dashboard', 'General']];
+    if (!gSel.length) filasG = [[fecha, concepto, '', valor, quien, 'desde el dashboard', 'General', pagado ? 'Pagado' : 'Pendiente', fpago]];
     else {
       const pc = pctsDe();
       const total = gSel.reduce((s, x) => s + (Number.isFinite(pc[x]) ? pc[x] : NaN), 0);
@@ -2652,11 +2690,11 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       if (Math.abs(total - 100) > 0.01) { avisar('g-msg', 'Los porcentajes suman ' + dec.format(total) + '%: deben sumar 100%.', false); return; }
       const partes = repartir(valor, gSel.map((x) => pc[x]));
       const nota = gSel.length > 1 ? 'Repartido de ' + cop.format(valor) + ': ' + gSel.map((x) => x + ' ' + num.format(pc[x]) + '%').join(' · ') : 'desde el dashboard';
-      filasG = gSel.map((x, i) => [fecha, concepto, '', partes[i], quien, nota, x]);
+      filasG = gSel.map((x, i) => [fecha, concepto, '', partes[i], quien, nota, x, pagado ? 'Pagado' : 'Pendiente', fpago]);
     }
     ocupado(ev.target, true); avisar('g-msg', 'Guardando…', true);
     try {
-      await escribir('append_values', { range: 'Gastos!A1:G1', values: filasG });
+      await escribir('append_values', { range: 'Gastos!A1:I1', values: filasG });
       avisar('g-msg', 'Gasto agregado: ' + concepto + ' · ' + cop.format(valor) + ' · ' + (filasG.length > 1 ? filasG.map((f) => f[6] + ' ' + cop.format(f[3])).join(' · ') : 'cargado a ' + filasG[0][6]) + '.', true);
       $('g-concepto').value = ''; $('g-valor').value = ''; gSel = []; gPct = {}; pintarRepartoGasto();
       dash.refresh('gastos');
@@ -2664,6 +2702,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     ocupado(ev.target, false);
   });
   $('g-valor').addEventListener('input', () => pintarRepartoGasto(true));
+  const syncPagoG = () => { const p = $('g-estado').value === 'Pagado'; $('g-fpago').disabled = !p; $('g-fpago-l').style.opacity = p ? '1' : '.4'; if (p && !$('g-fpago').value) $('g-fpago').value = HOY; };
+  $('g-estado').addEventListener('change', syncPagoG); syncPagoG();
 
   // Facturas
   $('f-filtro').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (b) { fFiltro = b.dataset.f; fPagando = null; dibujar(); } });
@@ -2768,26 +2808,18 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   (function logo3D() {
     const stage = $('l3-stage'), obj = $('l3-obj'), host = $('logo3d'), sombra = $('l3-sombra');
     if (!stage) return;
-    // Pieza sólida: cara de adelante y cara de atrás iguales (la de atrás girada para que no se vea al revés)
-    // y en medio capas doradas que forman el canto.
+    // Mientras carga el 3D de verdad (o si el equipo no tiene WebGL) se ve esta versión por capas
     const CAPAS = 26, PROF = 0.85, MITAD = (CAPAS * PROF) / 2;
-    const img = (cls, tr, filtro) => { const im = document.createElement('img'); im.src = 'logo-3d.png'; im.alt = ''; im.draggable = false; if (cls) im.className = cls; im.style.transform = tr; if (filtro) im.style.filter = filtro; obj.appendChild(im); return im; };
-    // Canto: siluetas doradas sólidas (más claras cerca de las caras, más oscuras en el centro)
-    for (let i = 1; i < CAPAS; i++) {
-      const z = MITAD - i * PROF, t = Math.abs(i - CAPAS / 2) / (CAPAS / 2);
-      const c = document.createElement('div'); c.className = 'canto'; c.style.transform = 'translateZ(' + z.toFixed(2) + 'px)'; c.style.filter = 'brightness(' + (0.55 + 0.4 * t).toFixed(2) + ')'; obj.appendChild(c);
-    }
-    img('cara', 'translateZ(' + MITAD.toFixed(2) + 'px)');
-    img('cara', 'translateZ(' + (-MITAD).toFixed(2) + 'px)');
-    const brillo = (tr) => { const d = document.createElement('div'); d.className = 'brillo'; d.style.transform = tr; obj.appendChild(d); };
-    brillo('translateZ(' + (MITAD + 0.3).toFixed(2) + 'px)'); brillo('translateZ(' + (-MITAD - 0.3).toFixed(2) + 'px)');
+    for (let i = 1; i < CAPAS; i++) { const z = MITAD - i * PROF, t = Math.abs(i - CAPAS / 2) / (CAPAS / 2); const c = document.createElement('div'); c.className = 'canto'; c.style.transform = 'translateZ(' + z.toFixed(2) + 'px)'; c.style.filter = 'brightness(' + (0.55 + 0.4 * t).toFixed(2) + ')'; obj.appendChild(c); }
+    [MITAD, -MITAD].forEach((z) => { const im = document.createElement('img'); im.src = 'logo-3d.png'; im.alt = ''; im.draggable = false; im.className = 'cara'; im.style.transform = 'translateZ(' + z + 'px)'; obj.appendChild(im); });
 
     const quieto = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let rx = -6, ry = 22, vx = 0, vy = 0, luz = 0, arr = null, movio = 0, t0 = performance.now(), ultimo = 0;
+    let rx = -8, ry = 24, vx = 0, vy = 0, luz = 0, arr = null, movio = 0, t0 = performance.now(), ultimo = 0, gl = null;
     const pintar = (t) => {
       const flota = quieto ? 0 : Math.sin((t || 0) / 900) * 5;
       const atras = Math.cos((ry * Math.PI) / 180) < 0;
-      obj.style.transform = 'translateY(' + flota.toFixed(2) + 'px) rotateX(' + rx.toFixed(2) + 'deg) rotateY(' + ry.toFixed(2) + 'deg)' + (atras ? ' scaleX(-1)' : '');
+      if (gl) gl.pintar(rx, ry, flota, luz, atras, t || 0);
+      else obj.style.transform = 'translateY(' + flota.toFixed(2) + 'px) rotateX(' + rx.toFixed(2) + 'deg) rotateY(' + ry.toFixed(2) + 'deg)' + (atras ? ' scaleX(-1)' : '');
       sombra.style.transform = 'scaleX(' + (1 - flota / 40).toFixed(3) + ')'; sombra.style.opacity = String(0.8 - flota / 25);
       host.style.setProperty('--luz', luz.toFixed(3));
       host.style.setProperty('--sh', ((((ry % 360) + 360) % 180) / 180).toFixed(3));
@@ -2796,7 +2828,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       const dt = Math.min(50, t - (paso.t || t)); paso.t = t;
       if (!arr) {
         ry += vy * dt / 16; rx += vx * dt / 16; vy *= 0.955; vx *= 0.94;
-        if (!quieto && Math.abs(vy) < 0.06 && Math.abs(vx) < 0.06) { const k = (t - t0) / 1000; ry += 0.12 * dt / 16; rx += (-6 + Math.sin(k * 0.7) * 7 - rx) * 0.02; }
+        if (!quieto && Math.abs(vy) < 0.06 && Math.abs(vx) < 0.06) { const k = (t - t0) / 1000; ry += 0.14 * dt / 16; rx += (-8 + Math.sin(k * 0.7) * 9 - rx) * 0.02; }
         rx = Math.max(-60, Math.min(60, rx));
       }
       luz = Math.max(0, luz - dt / 3200);
@@ -2806,9 +2838,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const arrancar = () => { if (!paso.corriendo) { paso.corriendo = true; paso.t = 0; requestAnimationFrame(paso); } };
     const chispas = () => {
       const o = document.createElement('div'); o.className = 'l3-onda'; stage.appendChild(o); setTimeout(() => o.remove(), 900);
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0; i < 14; i++) {
         const c = document.createElement('i'); c.className = 'l3-chispa';
-        const a = (i / 12) * Math.PI * 2 + Math.random() * 0.4, d = 70 + Math.random() * 70;
+        const a = (i / 14) * Math.PI * 2 + Math.random() * 0.4, d = 70 + Math.random() * 80;
         c.style.setProperty('--dx', (Math.cos(a) * d).toFixed(0) + 'px'); c.style.setProperty('--dy', (Math.sin(a) * d).toFixed(0) + 'px');
         c.style.animationDelay = (Math.random() * 0.12).toFixed(2) + 's'; const tam = 5 + Math.random() * 7; c.style.width = c.style.height = tam.toFixed(0) + 'px';
         stage.appendChild(c); setTimeout(() => c.remove(), 1200);
@@ -2828,6 +2860,62 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     pintar(0);
     dash.onData(() => { if (host.offsetParent !== null) arrancar(); });
     new MutationObserver(() => { if (host.offsetParent !== null) arrancar(); }).observe($('inicio'), { attributes: true, attributeFilter: ['hidden'] });
+
+    // ---- Versión 3D real con Three.js: pieza extruida con bisel dorado, luces y reflejos ----
+    const FORMA = [{"o":[[-0.0889,-0.4214],[-0.0881,-0.4278],[-0.0794,-0.4437],[-0.0659,-0.4571],[-0.0524,-0.4651],[-0.0397,-0.4683],[-0.0214,-0.4683],[-0.0087,-0.4651],[0.0032,-0.4579],[0.0198,-0.4413],[0.0278,-0.423],[0.0262,-0.4167],[0.0175,-0.4127],[-0.0786,-0.4127],[-0.0857,-0.4151]],"h":[]},{"o":[[-0.1222,-0.3722],[-0.1222,-0.377],[-0.119,-0.3841],[-0.1111,-0.3921],[-0.1016,-0.3952],[0.0421,-0.3944],[0.0532,-0.3897],[0.0611,-0.3762],[0.0611,-0.3706],[0.0556,-0.3611],[0.0516,-0.3571],[0.0397,-0.3532],[-0.0984,-0.3532],[-0.1119,-0.3571],[-0.1183,-0.3635]],"h":[]},{"o":[[-0.1571,-0.3008],[-0.1563,-0.3127],[-0.1524,-0.3206],[-0.1397,-0.331],[-0.1302,-0.3333],[0.0746,-0.3325],[0.0849,-0.3262],[0.0897,-0.3214],[0.0952,-0.3135],[0.096,-0.3103],[0.096,-0.2976],[0.0944,-0.2929],[0.0841,-0.281],[0.0714,-0.2746],[-0.1317,-0.2746],[-0.1389,-0.277],[-0.146,-0.2817],[-0.1532,-0.2889],[-0.1556,-0.2929]],"h":[]},{"o":[[-0.1643,-0.0079],[-0.1643,-0.0373],[-0.1619,-0.05],[-0.1571,-0.0587],[-0.1548,-0.0675],[-0.1444,-0.0849],[-0.123,-0.1119],[-0.1119,-0.1294],[-0.0929,-0.1476],[-0.0794,-0.1571],[-0.0738,-0.1587],[-0.0611,-0.1659],[-0.0357,-0.1706],[-0.023,-0.1706],[0.0032,-0.1659],[0.0159,-0.1587],[0.0214,-0.1571],[0.0413,-0.1421],[0.054,-0.1294],[0.0659,-0.1111],[0.0865,-0.0857],[0.0944,-0.073],[0.0984,-0.0619],[0.1032,-0.054],[0.1063,-0.0389],[0.1063,-0.0079],[0.1024,0.004],[0.0905,0.0159],[0.0857,0.0183],[0.073,0.0206],[0.0659,0.0206],[0.0452,0.0167],[0.0294,0.0079],[0.0,-0.0151],[-0.0048,-0.0159],[-0.0143,-0.0206],[-0.027,-0.023],[-0.0437,-0.0206],[-0.0579,-0.0151],[-0.0881,0.0087],[-0.0944,0.0111],[-0.0992,0.0151],[-0.1071,0.0183],[-0.1135,0.0183],[-0.123,0.0206],[-0.1444,0.0183],[-0.1492,0.0159],[-0.1611,0.0024]],"h":[]},{"o":[[-0.0278,0.0667],[-0.0365,0.0635],[-0.0468,0.0563],[-0.0532,0.046],[-0.0548,0.0413],[-0.0548,0.0349],[-0.0524,0.0286],[-0.0437,0.0167],[-0.0325,0.0103],[-0.023,0.0095],[-0.0167,0.0119],[-0.0048,0.0198],[0.0024,0.0333],[0.0024,0.0421],[-0.0032,0.054],[-0.0071,0.0587],[-0.0183,0.0651]],"h":[]},{"o":[[-0.0524,0.1206],[-0.0619,0.1159],[-0.0651,0.1095],[-0.0651,0.1048],[-0.0635,0.1008],[-0.0571,0.0944],[-0.054,0.0929],[-0.0492,0.0929],[-0.0381,0.1024],[-0.0373,0.1095],[-0.0397,0.1143],[-0.0452,0.119]],"h":[]},{"o":[[0.0048,0.123],[0.0,0.1222],[-0.0119,0.1159],[-0.0206,0.1024],[-0.0206,0.0952],[-0.0151,0.0849],[-0.0071,0.077],[0.0016,0.0738],[0.0063,0.0738],[0.0159,0.077],[0.0262,0.0881],[0.0294,0.0984],[0.0278,0.1056],[0.0214,0.1151],[0.0143,0.1198]],"h":[]},{"o":[[0.1722,0.1873],[0.1683,0.181],[0.1675,0.1421],[0.1698,0.1341],[0.1754,0.131],[0.2167,0.131],[0.2214,0.1333],[0.2254,0.1413],[0.2254,0.1786],[0.223,0.1841],[0.219,0.1881],[0.2143,0.1897],[0.1794,0.1897]],"h":[]},{"o":[[0.1008,0.2746],[0.0968,0.2683],[0.096,0.2302],[0.0992,0.223],[0.104,0.219],[0.1087,0.2175],[0.1429,0.2175],[0.1508,0.2198],[0.1556,0.2278],[0.1556,0.269],[0.1524,0.2746],[0.1492,0.2762],[0.1071,0.277]],"h":[]},{"o":[[0.2198,0.2913],[0.2167,0.2873],[0.2151,0.2825],[0.2151,0.2294],[0.219,0.2214],[0.2262,0.2175],[0.2762,0.2175],[0.2833,0.2198],[0.2881,0.2254],[0.2873,0.2881],[0.2841,0.2913],[0.2786,0.2929],[0.2238,0.2929]],"h":[]},{"o":[[-0.104,0.3143],[-0.1127,0.3071],[-0.1183,0.2944],[-0.1183,0.2881],[-0.1135,0.2762],[-0.1024,0.2675],[-0.0968,0.2611],[-0.0984,0.2548],[-0.0984,0.2206],[-0.1048,0.1992],[-0.1151,0.1833],[-0.1833,0.1159],[-0.204,0.0921],[-0.2198,0.0667],[-0.2286,0.0429],[-0.2302,0.031],[-0.2286,0.0087],[-0.219,-0.0143],[-0.2079,-0.0278],[-0.2048,-0.0349],[-0.2016,-0.0381],[-0.1976,-0.0397],[-0.1921,-0.0397],[-0.1897,-0.0373],[-0.1897,-0.0143],[-0.1849,0.0111],[-0.1778,0.0302],[-0.1722,0.0389],[-0.1675,0.05],[-0.1643,0.0532],[-0.1595,0.0619],[-0.1429,0.0825],[-0.1286,0.0976],[-0.0786,0.146],[-0.0706,0.1548],[-0.0619,0.1675],[-0.0532,0.1873],[-0.0492,0.2119],[-0.05,0.2611],[-0.0444,0.2659],[-0.0071,0.2659],[-0.0024,0.2619],[-0.0024,0.2095],[0.0032,0.1841],[0.0095,0.173],[0.0119,0.1659],[0.0254,0.1484],[0.0849,0.0865],[0.1087,0.0556],[0.1135,0.0444],[0.1198,0.0341],[0.127,0.0151],[0.1325,-0.0151],[0.1325,-0.0373],[0.1357,-0.0397],[0.1413,-0.0397],[0.1452,-0.0373],[0.15,-0.0286],[0.1619,-0.0135],[0.1706,0.0071],[0.173,0.0262],[0.1706,0.05],[0.1643,0.0635],[0.1619,0.0722],[0.1444,0.0984],[0.1214,0.1246],[0.0659,0.1825],[0.0563,0.1968],[0.05,0.219],[0.05,0.2524],[0.0484,0.2603],[0.05,0.2651],[0.0603,0.2754],[0.0643,0.2825],[0.0651,0.2952],[0.0619,0.3048],[0.054,0.3127],[0.0476,0.3167],[0.0333,0.3183],[-0.0913,0.3183],[-0.0984,0.3175]],"h":[]},{"o":[[0.2937,0.3984],[0.2897,0.3905],[0.2897,0.3532],[0.2921,0.3468],[0.2976,0.3421],[0.3341,0.3413],[0.3413,0.3421],[0.346,0.3468],[0.3484,0.3571],[0.3484,0.3865],[0.346,0.3968],[0.3413,0.4008],[0.2976,0.4008]],"h":[]},{"o":[[0.1143,0.3976],[0.1127,0.3937],[0.1119,0.3159],[0.1135,0.3103],[0.119,0.3048],[0.1262,0.3016],[0.204,0.3024],[0.2119,0.3071],[0.2135,0.3111],[0.2135,0.3952],[0.2127,0.3984],[0.2103,0.4008],[0.2016,0.404],[0.1246,0.404],[0.1175,0.4008]],"h":[]},{"o":[[0.0524,0.4238],[0.0302,0.427],[0.0143,0.427],[0.004,0.4286],[-0.0254,0.4286],[-0.0698,0.4246],[-0.0841,0.4198],[-0.104,0.4167],[-0.1222,0.4095],[-0.131,0.4079],[-0.1405,0.4024],[-0.1484,0.4008],[-0.1603,0.3937],[-0.1651,0.3929],[-0.173,0.3873],[-0.1841,0.3825],[-0.2032,0.369],[-0.2087,0.3667],[-0.2294,0.3508],[-0.2524,0.3302],[-0.2786,0.3008],[-0.2952,0.2786],[-0.3103,0.2532],[-0.331,0.2087],[-0.331,0.2048],[-0.3381,0.1881],[-0.3389,0.1786],[-0.346,0.1563],[-0.3468,0.1389],[-0.3492,0.127],[-0.3492,0.0746],[-0.3444,0.0373],[-0.3389,0.0222],[-0.3381,0.0143],[-0.3317,0.0008],[-0.3286,-0.0103],[-0.3238,-0.0175],[-0.3198,-0.0278],[-0.2952,-0.0643],[-0.2802,-0.081],[-0.2405,-0.1198],[-0.2159,-0.15],[-0.2,-0.1762],[-0.196,-0.1873],[-0.1905,-0.1968],[-0.1873,-0.2087],[-0.177,-0.2262],[-0.1683,-0.2365],[-0.1524,-0.2484],[-0.1333,-0.2548],[0.0087,-0.2548],[0.0254,-0.2563],[0.0698,-0.2563],[0.0865,-0.2516],[0.1008,-0.2429],[0.1135,-0.2302],[0.1198,-0.2214],[0.1397,-0.1746],[0.1587,-0.1444],[0.1802,-0.119],[0.2222,-0.0778],[0.246,-0.0476],[0.2627,-0.0167],[0.2722,0.0095],[0.273,0.0167],[0.2802,0.0421],[0.2817,0.069],[0.2794,0.0722],[0.273,0.0722],[0.2651,0.0683],[0.2595,0.0675],[0.2476,0.0611],[0.2349,0.0579],[0.2222,0.0516],[0.2183,0.0468],[0.2127,0.031],[0.2095,0.0167],[0.204,0.0063],[0.2016,-0.0024],[0.1849,-0.0302],[0.1603,-0.0603],[0.1198,-0.1016],[0.1048,-0.119],[0.0873,-0.1429],[0.0841,-0.15],[0.0786,-0.1571],[0.0754,-0.1651],[0.0706,-0.1714],[0.0675,-0.1802],[0.0619,-0.1881],[0.054,-0.1952],[0.0452,-0.1992],[0.0294,-0.2],[0.0008,-0.204],[-0.019,-0.204],[-0.0262,-0.2063],[-0.0563,-0.2056],[-0.1056,-0.2],[-0.1151,-0.196],[-0.127,-0.1841],[-0.1286,-0.1786],[-0.1357,-0.1667],[-0.1381,-0.1563],[-0.1437,-0.1468],[-0.146,-0.1373],[-0.1508,-0.1302],[-0.1548,-0.1198],[-0.1595,-0.1143],[-0.1706,-0.0952],[-0.1944,-0.069],[-0.2254,-0.0413],[-0.2444,-0.0206],[-0.2603,0.004],[-0.2611,0.0087],[-0.2683,0.0206],[-0.2714,0.0341],[-0.277,0.0468],[-0.2794,0.0603],[-0.2794,0.0722],[-0.2817,0.0841],[-0.2817,0.1135],[-0.2794,0.1254],[-0.2794,0.1365],[-0.2762,0.1532],[-0.2714,0.1635],[-0.269,0.1762],[-0.2627,0.1881],[-0.2603,0.1976],[-0.2556,0.204],[-0.2516,0.2143],[-0.2468,0.2198],[-0.2444,0.2262],[-0.2357,0.2389],[-0.2143,0.2651],[-0.1897,0.2889],[-0.1683,0.3056],[-0.1627,0.3079],[-0.1548,0.3143],[-0.1222,0.3317],[-0.1135,0.3341],[-0.0992,0.3413],[-0.0921,0.3421],[-0.0738,0.3492],[-0.0619,0.35],[-0.0452,0.3548],[-0.019,0.3579],[0.0286,0.3579],[0.0349,0.3643],[0.0611,0.4016],[0.0698,0.4111],[0.0698,0.4159],[0.0683,0.4183]],"h":[]},{"o":[[0.2246,0.4667],[0.2214,0.4627],[0.2206,0.4238],[0.223,0.4159],[0.2325,0.4111],[0.2675,0.4111],[0.2738,0.4135],[0.2778,0.4175],[0.2786,0.4206],[0.2786,0.4603],[0.277,0.4651],[0.2698,0.469],[0.2302,0.469]],"h":[]}];
+    const cargarThree = () => new Promise((ok, mal) => {
+      if (window.THREE) return ok(window.THREE);
+      const fuentes = ['three.min.js', 'https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js'];
+      const probar = (i) => { if (i >= fuentes.length) return mal(new Error('sin three')); const sc = document.createElement('script'); sc.src = fuentes[i]; sc.onload = () => (window.THREE ? ok(window.THREE) : probar(i + 1)); sc.onerror = () => { sc.remove(); probar(i + 1); }; document.head.appendChild(sc); };
+      probar(0);
+    });
+    const hayWebGL = () => { try { const c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); } catch (e) { return false; } };
+    if (!hayWebGL()) return;
+    cargarThree().then((THREE) => new Promise((ok, mal) => { new THREE.TextureLoader().load('logo-tex.jpg', (tex) => ok([THREE, tex]), undefined, mal); })).then(([THREE, tex]) => {
+      const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+      renderer.setClearColor(0x000000, 0);
+      const cv = renderer.domElement; cv.className = 'l3-gl'; stage.appendChild(cv);
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 20); camera.position.set(0, 0, 2.55);
+      // Entorno para los reflejos del dorado: estudio oscuro con dos luces cálidas y una fría
+      const pm = new THREE.PMREMGenerator(renderer);
+      const env = new THREE.Scene();
+      env.add(new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.03, 0.05, 0.1), side: THREE.BackSide })));
+      const caja = (w, h, x, y, z, c) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide })); m.position.set(x, y, z); m.lookAt(0, 0, 0); env.add(m); };
+      caja(4, 2, -2, 3, 3, new THREE.Color(3.2, 2.6, 1.6)); caja(2, 4, 3.5, 0.5, 2, new THREE.Color(2.4, 1.5, 0.6)); caja(3, 1.2, 0, -3, 2.5, new THREE.Color(0.5, 0.8, 1.6)); caja(2, 3, -3, -1, -3, new THREE.Color(1.2, 1.4, 2.2));
+      scene.environment = pm.fromScene(env, 0.035).texture;
+      // Geometría: el contorno del logo extruido con bisel
+      const shapes = FORMA.map((f) => { const sh = new THREE.Shape(f.o.map(([x, y]) => new THREE.Vector2(x, y))); f.h.forEach((h) => sh.holes.push(new THREE.Path(h.map(([x, y]) => new THREE.Vector2(x, y))))); return sh; });
+      const PROFUNDIDAD = 0.085, BISEL = 0.02;
+      const geo = new THREE.ExtrudeGeometry(shapes, { depth: PROFUNDIDAD, bevelEnabled: true, bevelThickness: BISEL, bevelSize: 0.007, bevelOffset: 0, bevelSegments: 5, curveSegments: 6 });
+      geo.translate(0, 0, -PROFUNDIDAD / 2);
+      geo.computeVertexNormals();
+      tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); tex.offset.set(0.5, 0.5);
+      const cara = new THREE.MeshPhysicalMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.04, metalness: 0.05, roughness: 0.38, clearcoat: 1, clearcoatRoughness: 0.18, envMapIntensity: 0.45 });
+      const canto = new THREE.MeshPhysicalMaterial({ color: 0xF2A10C, metalness: 1, roughness: 0.22, clearcoat: 0.5, clearcoatRoughness: 0.2, emissive: 0xff6a00, emissiveIntensity: 0.04, envMapIntensity: 1.25 });
+      const pieza = new THREE.Mesh(geo, [cara, canto]);
+      const grupo = new THREE.Group(); grupo.add(pieza); scene.add(grupo);
+      // Luces: principal cálida, contraluz fría y la luz del bombillo que se enciende al tocar
+      scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+      const key = new THREE.DirectionalLight(0xfff1d6, 1.6); key.position.set(-1.6, 2, 2.4); scene.add(key);
+      const rim = new THREE.DirectionalLight(0x8fb4ff, 1.2); rim.position.set(2, -0.6, -2.2); scene.add(rim);
+      const bombillo = new THREE.PointLight(0xffb020, 0, 3, 2); bombillo.position.set(-0.05, 0.12, 0.55); scene.add(bombillo);
+      const ajustar = () => { const w = Math.round((stage.clientWidth || 220) * 1.12); renderer.setSize(w, w, false); cv.style.width = cv.style.height = '100%'; camera.aspect = 1; camera.updateProjectionMatrix(); };
+      ajustar(); window.addEventListener('resize', ajustar);
+      gl = {
+        pintar: (rxd, ryd, flota, l, atras) => {
+          grupo.rotation.set((rxd * Math.PI) / 180, (ryd * Math.PI) / 180, 0);
+          grupo.position.y = -flota / 160;
+          pieza.scale.x = atras ? -1 : 1; // volteo tipo moneda: por detrás el logo se lee igual que por delante
+          cara.emissiveIntensity = 0.04 + l * 0.8; canto.emissiveIntensity = 0.04 + l * 0.5; bombillo.intensity = l * 3.2;
+          renderer.render(scene, camera);
+        },
+      };
+      obj.style.display = 'none'; host.classList.add('es-3d');
+      pintar(0); arrancar();
+    }).catch((e) => console.warn('Logo 3D: se usa la versión por capas', e));
   })();
   dash.onData(dibujar);
   const ini = (location.hash || '').slice(1);
