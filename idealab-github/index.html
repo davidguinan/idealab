@@ -47,7 +47,13 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
   const cfg = () => ({ url: SERVIDOR, clave: LS.get('idealab_clave'), usuario: LS.get('idealab_usuario') || '' });
   // Rol de la sesión: 'socios' (todo) o 'creativos' (solo el área de creativos)
   const rolActual = () => (LS.get('idealab_rol') === 'creativos' ? 'creativos' : 'socios');
-  const aplicarRol = (rol) => { document.documentElement.dataset.rol = rol; window.idealabRol = rol; const pon = () => { const el = document.getElementById('ses-cr-n'); if (el) el.textContent = LS.get('idealab_nombre') || 'Creativos'; }; if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', pon); else pon(); };
+  const aplicarRol = (rol) => { document.documentElement.dataset.rol = rol; window.idealabRol = rol; const pon = () => {
+      const ap = LS.get('idealab_apodo'), nom = LS.get('idealab_nombre');
+      const el = document.getElementById('ses-cr-n'); if (el) el.textContent = nom || 'Creativos';
+      const es = document.getElementById('ses-so-n'); if (es) es.textContent = rol === 'socios' && nom ? nom : 'Socios';
+      document.querySelectorAll('[data-hola]').forEach((h) => { h.textContent = ap ? 'Hola, ' + ap + '.' : h.dataset.hola; });
+      window.idealabPersona = { nombre: nom || '', apodo: ap || '' };
+    }; if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', pon); else pon(); };
   aplicarRol(rolActual());
 
   const loaders = {}, calcs = {}, estado = {}, oyentes = [];
@@ -234,14 +240,15 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
       try {
         const j = await pedir({ accion: 'ping' });
         const rol = j && j.rol === 'creativos' ? 'creativos' : 'socios';
-        if (usuario && rol !== 'creativos') throw new Error('Clave incorrecta');
-        LS.set('idealab_rol', rol); if (rol === 'creativos' && j.nombre) LS.set('idealab_nombre', j.nombre); else LS.del('idealab_nombre'); aplicarRol(rol);
+        LS.set('idealab_rol', rol);
+        if (usuario && j.nombre) { LS.set('idealab_nombre', j.nombre); LS.set('idealab_apodo', j.apodo || String(j.nombre).split(' ')[0]); } else { LS.del('idealab_nombre'); LS.del('idealab_apodo'); }
+        aplicarRol(rol);
         document.getElementById('ag-login').hidden = true;
         if (rol === 'creativos') { if (window.idealabIrA) window.idealabIrA('creativos'); cargarCreativos(); } else cargar();
       }
       catch (e) { document.getElementById('lg-msg').textContent = /Clave/.test(e.message) ? 'La clave no es correcta.' : 'No se pudo conectar: ' + e.message; }
     });
-    document.getElementById('ag-salir').addEventListener('click', () => { ['idealab_clave', 'idealab_usuario', 'idealab_rol', 'idealab_nombre'].forEach((k) => LS.del(k)); location.reload(); });
+    document.getElementById('ag-salir').addEventListener('click', () => { ['idealab_clave', 'idealab_usuario', 'idealab_rol', 'idealab_nombre', 'idealab_apodo'].forEach((k) => LS.del(k)); location.reload(); });
     if (cfg().url && cfg().clave) { if (rolActual() === 'creativos') cargarCreativos(); else cargar(); } else mostrarLogin('');
   });
 })();
@@ -462,6 +469,8 @@ tr.cd-vacio td { opacity: .45; }
 .g-v { text-align: right; font-variant-numeric: tabular-nums; color: var(--ag-gold); }
 .g-pie { font-size: 12px; text-align: right; }
 .w-op { opacity: .65; }
+.cr-hola { margin: 0 0 6px; font-family: var(--font-anthropic-serif); font-size: clamp(22px, 3vw, 30px); color: var(--ag-gold); }
+.cr-hola:empty { display: none; }
 .cr-quien { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; font-size: 12.5px; color: var(--ag-muted); }
 .cr-next { display: flex; gap: 10px; }
 .cr-next div { display: grid; gap: 2px; padding: 8px 14px; border-radius: 12px; background: rgba(245,184,0,.07); border: 1px solid rgba(245,184,0,.25); }
@@ -570,7 +579,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       <button type="button" data-v="contabilidad"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"/></svg>Contabilidad</button>
       <button type="button" data-v="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Configuración</button>
     </nav>
-    <div class="ag-session">Sesión<br><span class="ses-socios"><b>Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button></div>
+    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button></div>
   </aside>
 
   <main class="ag-main">
@@ -608,7 +617,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           <p class="l3-hint">Arrástralo para girarlo · tócalo para encender la luz</p>
         </div>
         <div>
-          <p class="ag-take">Hola, Anthony y Alejandra.</p>
+          <p class="ag-take" data-hola="Hola, Anthony y Alejandra.">Hola, Anthony y Alejandra.</p>
           <h2 class="ag-hello">¿A qué área quieres entrar?</h2>
         </div>
       </div>
@@ -707,6 +716,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     <!-- CREATIVOS -->
     <section class="ag-vista" id="creativos" data-vista="creativos" hidden>
       <div class="ag-card">
+        <p class="cr-hola" data-hola="" id="cr-hola"></p>
         <div class="ag-top"><div><h2>Creativos</h2><p class="ag-note">Sube imágenes y videos: cada uno recibe su código consecutivo y queda guardado en Google Drive (carpeta «IdeaLab · Creativos»).</p></div>
           <div class="cr-next" id="cr-next" data-source="creativos"></div></div>
         <label class="cr-drop" id="cr-drop">
@@ -851,8 +861,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         </div>
         <div class="ag-card">
           <h2>Equipo con acceso</h2>
-          <p class="ag-note">Para dar o quitar acceso: compártele (o quítale) este dashboard, la hoja de Google y el acceso a la cuenta publicitaria en tu Business Manager.</p>
+          <p class="ag-note">Cada socio puede tener su propio <b>usuario y clave</b> con acceso total; el saludo de la app usa su apodo. La clave de siempre sigue funcionando.</p>
           <div class="ag-scroll"><table class="ag-table" id="t-equipo" data-source="config" data-row-key="nombre"></table></div>
+          <p class="ag-msg" id="eq-msg"></p>
         </div>
       </div>
       <div class="ag-card" style="margin-top:14px">
@@ -867,6 +878,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           <label>Nota<input class="ag-in" id="w-nota" placeholder="Cargo, cuenta…"></label>
           <label>Usuario para Creativos <span class="w-op">(opcional)</span><input class="ag-in" id="w-usuario" placeholder="ej. natalia" autocapitalize="none" spellcheck="false" autocomplete="off"></label>
           <label>Clave para Creativos <span class="w-op" id="w-clave-op">(opcional)</span><input class="ag-in" id="w-clave" type="text" placeholder="mínimo 6 caracteres" autocomplete="off" spellcheck="false"></label>
+          <label>Apodo para el saludo <span class="w-op">(ej. Nati)</span><input class="ag-in" id="w-apodo" placeholder="Se sugiere solo" autocomplete="off"></label>
           <button type="button" class="ag-btn pri" id="w-guardar">Agregar trabajador</button>
           <button type="button" class="ag-btn" id="w-cancelar" hidden>Cancelar edición</button>
         </div>
@@ -1115,11 +1127,11 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         if (!a) return;
         if (/^equipo/i.test(a)) { seccion = 'equipo'; return; }
         if (/^trabajadores$/i.test(a)) { seccion = 'trabajador'; return; }
-        if (seccion === 'equipo') filas.push({ tipo: 'equipo', parametro: 'equipo:' + a, nombre: a, valor: null, rol: String(r[1] || ''), correo: String(r[2] || ''), nota: '', fila });
-        else if (seccion === 'trabajador') filas.push({ tipo: 'trabajador', parametro: 'trab:' + a + ':' + fila, nombre: a, valor: leerValor(r[1]), rol: 'Trabajador', correo: '', nota: String(r[2] || ''), fila, usuario_cr: String(r[3] || '').trim(), huella_cr: String(r[4] || '').trim() });
+        if (seccion === 'equipo') filas.push({ tipo: 'equipo', parametro: 'equipo:' + a, nombre: a, valor: null, rol: String(r[1] || ''), correo: String(r[2] || ''), nota: '', fila, usuario_cr: String(r[3] || '').trim(), huella_cr: String(r[4] || '').trim(), apodo: String(r[5] || '').trim() });
+        else if (seccion === 'trabajador') filas.push({ tipo: 'trabajador', parametro: 'trab:' + a + ':' + fila, nombre: a, valor: leerValor(r[1]), rol: 'Trabajador', correo: '', nota: String(r[2] || ''), fila, usuario_cr: String(r[3] || '').trim(), huella_cr: String(r[4] || '').trim(), apodo: String(r[5] || '').trim() });
         else filas.push({ tipo: 'porcentaje', parametro: a, nombre: a, valor: leerValor(r[1]), rol: '', correo: '', nota: String(r[2] || ''), fila });
       });
-      return { columns: ['tipo', 'parametro', 'nombre', 'valor', 'rol', 'correo', 'nota', 'fila', 'usuario_cr', 'huella_cr'], rows: filas };
+      return { columns: ['tipo', 'parametro', 'nombre', 'valor', 'rol', 'correo', 'nota', 'fila', 'usuario_cr', 'huella_cr', 'apodo'], rows: filas };
     },
   });
   dash.loader('numeros', {
@@ -2473,7 +2485,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     ].forEach(([l, v, sub, k]) => { const d = document.createElement('div'); if (k) d.className = 'cr-k-' + k; const a = document.createElement('span'); a.textContent = l; const b = document.createElement('b'); b.textContent = v; const c = document.createElement('em'); c.textContent = sub; d.append(a, b, c); res.appendChild(d); });
     // Quién sube (los socios eligen su nombre; una trabajadora sube siempre a su nombre)
     const esTrab = window.idealabRol === 'creativos';
-    $('cr-quien').hidden = esTrab;
+    const yo = window.idealabPersona && window.idealabPersona.nombre;
+    $('cr-quien').hidden = esTrab || !!yo;
     document.querySelectorAll('#cr-quien-b [data-q]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.q === crQuien())));
     const sp = $('cr-por'), personas = [...new Set(todos.map((c) => c.por).filter(Boolean))].sort();
     if (sp.dataset.firma !== personas.join('|')) { const v = sp.value; sp.replaceChildren(new Option('Todas las personas', ''), ...personas.map((x) => new Option('Subido por ' + x, x))); sp.value = personas.includes(v) ? v : ''; sp.dataset.firma = personas.join('|'); }
@@ -2558,7 +2571,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       const bar = document.createElement('i'); const fill = document.createElement('u'); bar.appendChild(fill);
       it.append(nm, st, bar); cola.prepend(it);
       try {
-        const ini = await window.idealabCreativos.enviar({ accion: 'creativos_subir_inicio', tipo: f.type.startsWith('video') ? 'video' : 'imagen', nombre: f.name, mime: f.type, tam: f.size, quien: window.idealabRol === 'creativos' ? '' : crQuien() });
+        const ini = await window.idealabCreativos.enviar({ accion: 'creativos_subir_inicio', tipo: f.type.startsWith('video') ? 'video' : 'imagen', nombre: f.name, mime: f.type, tam: f.size, quien: window.idealabRol === 'creativos' ? '' : (window.idealabPersona && window.idealabPersona.nombre) || crQuien() });
         st.textContent = ini.codigo + ' · subiendo…';
         let desde = 0, fin = null;
         while (desde < f.size) {
@@ -2860,7 +2873,41 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const C = dash.data('config');
     if (C.status !== 'ok') return;
     tabla($('t-config'), [['nombre', 'Parámetro'], ['valor', 'Porcentaje', 'num'], ['nota', 'Cómo se aplica']], C.data.filter((r) => r.tipo === 'porcentaje'), { key: 'parametro', celda: (td, c, f) => { if (c === 'valor') { td.textContent = f.valor === null ? '—' : num.format(f.valor) + '%'; return true; } return false; } });
-    tabla($('t-equipo'), [['nombre', 'Persona'], ['rol', 'Rol'], ['correo', 'Correo']], C.data.filter((r) => r.tipo === 'equipo'), { key: 'parametro' });
+    tabla($('t-equipo'), [['nombre', 'Persona'], ['rol', 'Rol'], ['acceso', 'Usuario en la app'], ['acc', '']], C.data.filter((r) => r.tipo === 'equipo'), {
+      key: 'parametro',
+      celda: (td, c, f) => {
+        if (c === 'acceso') { const sp = document.createElement('span'); const ok = f.usuario_cr && f.huella_cr; sp.className = 'ag-pill ' + (ok ? 'r-Escalar' : 'r-Sin'); sp.textContent = ok ? 'Usuario: ' + f.usuario_cr : 'Sin usuario propio'; td.appendChild(sp); if (f.apodo) { const ap = document.createElement('div'); ap.className = 'f-nota'; ap.textContent = 'Saludo: Hola, ' + f.apodo; td.appendChild(ap); } return true; }
+        if (c !== 'acc') return false;
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'ag-x'; b.textContent = eqEdicion === f.fila ? 'Cerrar' : f.usuario_cr ? 'Cambiar' : 'Crear usuario';
+        b.addEventListener('click', () => { eqEdicion = eqEdicion === f.fila ? null : f.fila; dibujar(); }); td.appendChild(b); return true;
+      },
+      despues: (tr, f, tb) => {
+        if (eqEdicion !== f.fila) return;
+        const r = tb.insertRow(); r.className = 'sub'; const td = r.insertCell(); td.colSpan = 4;
+        const fm = document.createElement('div'); fm.className = 'f-pago';
+        const mk = (lb, tipo, val, ph) => { const l = document.createElement('label'); l.textContent = lb; const i = document.createElement('input'); i.className = 'ag-in'; i.type = tipo; i.value = val || ''; i.placeholder = ph || ''; i.autocomplete = 'off'; i.spellcheck = false; l.appendChild(i); fm.appendChild(l); return i; };
+        const iu = mk('Usuario', 'text', f.usuario_cr || sinTilde(f.nombre).split(/\s+/)[0], 'ej. anthony');
+        const ic = mk('Clave' + (f.huella_cr ? ' (vacía = no cambiarla)' : ''), 'text', '', 'mínimo 6 caracteres');
+        const ia = mk('Apodo para el saludo', 'text', f.apodo || sugerirApodo(f.nombre), 'ej. Thony');
+        const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'ag-btn pri'; ok.textContent = 'Guardar';
+        ok.addEventListener('click', async () => {
+          const u = iu.value.trim().toLowerCase(), cl = ic.value, apo = ia.value.trim();
+          if (u && !/^[a-z0-9._-]{3,30}$/.test(u)) { avisar('eq-msg', 'El usuario debe tener de 3 a 30 letras o números, sin espacios ni tildes.', false); return; }
+          if (cl && cl.length < 6) { avisar('eq-msg', 'La clave debe tener al menos 6 caracteres.', false); return; }
+          if (u && !cl && !f.huella_cr) { avisar('eq-msg', 'Ponle una clave.', false); return; }
+          const ocupadoPor = C.data.find((x) => (x.tipo === 'equipo' || x.tipo === 'trabajador') && x.fila !== f.fila && (x.usuario_cr || '').toLowerCase() === u && u);
+          if (ocupadoPor) { avisar('eq-msg', 'Ese usuario ya lo tiene ' + ocupadoPor.nombre + '.', false); return; }
+          ok.disabled = true; ok.textContent = 'Guardando…';
+          try {
+            const huella = !u ? '' : cl ? await huellaClave(cl) : f.huella_cr;
+            await escribir('update_values', { range: 'Config!D' + f.fila + ':F' + f.fila, values: [[u, huella, apo]] });
+            avisar('eq-msg', f.nombre + (u ? ' entra con el usuario «' + u + '»' + (cl ? ' y la clave que pusiste' : '') + '; el saludo dirá «Hola, ' + (apo || f.nombre.split(' ')[0]) + '».' : ': sin usuario propio (sigue entrando con la clave de siempre).'), true);
+            eqEdicion = null; dash.refresh('config');
+          } catch (e) { avisar('eq-msg', textoError(e), false); ok.disabled = false; ok.textContent = 'Guardar'; }
+        });
+        fm.appendChild(ok); td.appendChild(fm);
+      },
+    });
     const trabs = C.data.filter((r) => r.tipo === 'trabajador');
     const suma = trabs.reduce((x, r) => x + (r.valor || 0), 0);
     $('trab-vacio').hidden = trabs.length > 0;
@@ -2869,15 +2916,15 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       key: 'parametro',
       celda: (td, c, f) => {
         if (c === 'valor') { td.textContent = f.valor === null ? '—' : num.format(f.valor) + '%'; return true; }
-        if (c === 'creativos') { const sp = document.createElement('span'); const ok = f.usuario_cr && f.huella_cr; sp.className = 'ag-pill ' + (ok ? 'r-Escalar' : 'r-Sin'); sp.textContent = ok ? 'Usuario: ' + f.usuario_cr : f.usuario_cr ? 'Falta la clave' : 'Sin acceso'; td.appendChild(sp); return true; }
+        if (c === 'creativos') { const sp = document.createElement('span'); const ok = f.usuario_cr && f.huella_cr; sp.className = 'ag-pill ' + (ok ? 'r-Escalar' : 'r-Sin'); sp.textContent = ok ? 'Usuario: ' + f.usuario_cr : f.usuario_cr ? 'Falta la clave' : 'Sin acceso'; td.appendChild(sp); if (f.apodo) { const ap = document.createElement('div'); ap.className = 'f-nota'; ap.textContent = 'Saludo: Hola, ' + f.apodo; td.appendChild(ap); } return true; }
         if (c !== 'acciones') return false;
         const ed = document.createElement('button'); ed.type = 'button'; ed.className = 'ag-x'; ed.textContent = 'Editar'; ed.style.marginRight = '12px';
-        ed.addEventListener('click', () => { trabEdicion = f; $('w-nombre').value = f.nombre; $('w-pct').value = f.valor ?? ''; $('w-nota').value = f.nota || ''; $('w-usuario').value = f.usuario_cr || ''; $('w-clave').value = ''; $('w-clave-op').textContent = f.huella_cr ? '(déjala vacía para no cambiarla)' : '(opcional)'; $('w-guardar').textContent = 'Guardar cambios'; $('w-cancelar').hidden = false; });
+        ed.addEventListener('click', () => { trabEdicion = f; $('w-nombre').value = f.nombre; $('w-pct').value = f.valor ?? ''; $('w-nota').value = f.nota || ''; $('w-usuario').value = f.usuario_cr || ''; $('w-clave').value = ''; $('w-apodo').value = f.apodo || ''; $('w-apodo').dataset.auto = ''; $('w-clave-op').textContent = f.huella_cr ? '(déjala vacía para no cambiarla)' : '(opcional)'; $('w-guardar').textContent = 'Guardar cambios'; $('w-cancelar').hidden = false; });
         const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'ag-x'; bt.textContent = 'Eliminar';
         bt.addEventListener('click', async () => {
           if (bt.dataset.seguro !== '1') { bt.dataset.seguro = '1'; bt.textContent = '¿Seguro? Toca otra vez'; bt.style.color = 'var(--ag-bad)'; setTimeout(() => { bt.dataset.seguro = ''; bt.textContent = 'Eliminar'; bt.style.color = ''; }, 4000); return; }
           bt.disabled = true;
-          try { await escribir('batch_clear_values', { ranges: ['Config!A' + f.fila + ':E' + f.fila] }); avisar('w-msg', f.nombre + ' eliminado.', true); dash.refresh('config'); }
+          try { await escribir('batch_clear_values', { ranges: ['Config!A' + f.fila + ':F' + f.fila] }); avisar('w-msg', f.nombre + ' eliminado.', true); dash.refresh('config'); }
           catch (e) { avisar('w-msg', textoError(e), false); bt.disabled = false; }
         });
         td.append(ed, bt); return true;
@@ -3017,13 +3064,17 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   });
 
   // Trabajadores
-  let trabEdicion = null;
+  let trabEdicion = null, eqEdicion = null;
+  const APODOS = { natalia: 'Nati', alejandra: 'Alejis', anthony: 'Thony', antonio: 'Toño', valentina: 'Vale', daniela: 'Dani', daniel: 'Dani', gabriela: 'Gabi', mariana: 'Mari', maria: 'Mari', catalina: 'Cata', carolina: 'Caro', alejandro: 'Alejo', sebastian: 'Sebas', juliana: 'Juli', julian: 'Juli', camila: 'Cami', isabella: 'Isa', isabel: 'Isa', andrea: 'Andre', fernanda: 'Fer', fernando: 'Fer', francisco: 'Pacho', jose: 'Pepe', guadalupe: 'Lupe', manuela: 'Manu', manuel: 'Manu', santiago: 'Santi', nicolas: 'Nico', nicole: 'Nicol', laura: 'Lau', paula: 'Pau', sofia: 'Sofi', luisa: 'Lui', ana: 'Anita', diana: 'Didi', estefania: 'Tefa', stephania: 'Tefa', jessica: 'Jessi', johana: 'Joha', viviana: 'Vivi', veronica: 'Vero', patricia: 'Pati', claudia: 'Clau', alexandra: 'Alexa', tatiana: 'Tati', katherine: 'Kathe', carlos: 'Carlitos', andres: 'Andy', felipe: 'Pipe', ricardo: 'Richi', eduardo: 'Lalo', roberto: 'Beto', alberto: 'Beto', rodrigo: 'Rodri', ignacio: 'Nacho', guillermo: 'Memo', enrique: 'Quique', mauricio: 'Mao', natalie: 'Nati', nara: 'Nari' };
+  const sugerirApodo = (n) => { const p = sinTilde(n).split(/\s+/)[0]; if (!p) return ''; return APODOS[p] || (p.length > 5 ? p.charAt(0).toUpperCase() + p.slice(1, 4) + 'i' : p.charAt(0).toUpperCase() + p.slice(1)); };
   const huellaClave = async (clave) => { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('idealab|' + clave)); return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join(''); };
   const usuarioDe = (n) => sinTilde(n).split(/\s+/)[0].replace(/[^a-z0-9._-]/g, '');
+  $('w-nombre').addEventListener('input', () => { const a = $('w-apodo'); if (!a.value || a.dataset.auto === '1') { a.value = sugerirApodo($('w-nombre').value); a.dataset.auto = '1'; } });
+  $('w-apodo').addEventListener('input', () => { $('w-apodo').dataset.auto = ''; });
   $('w-nombre').addEventListener('input', () => { const u = $('w-usuario'); if (!trabEdicion && (!u.value || u.dataset.auto === '1') && $('w-clave').value) { u.value = usuarioDe($('w-nombre').value); u.dataset.auto = '1'; } });
   $('w-usuario').addEventListener('input', () => { $('w-usuario').dataset.auto = ''; });
   $('w-clave').addEventListener('input', () => { const u = $('w-usuario'); if (!u.value && $('w-nombre').value) { u.value = usuarioDe($('w-nombre').value); u.dataset.auto = '1'; } });
-  const limpiarTrab = () => { trabEdicion = null; ['w-nombre', 'w-pct', 'w-nota', 'w-usuario', 'w-clave'].forEach((id) => { $(id).value = ''; }); $('w-clave-op').textContent = '(opcional)'; $('w-guardar').textContent = 'Agregar trabajador'; $('w-cancelar').hidden = true; };
+  const limpiarTrab = () => { trabEdicion = null; ['w-nombre', 'w-pct', 'w-nota', 'w-usuario', 'w-clave', 'w-apodo'].forEach((id) => { $(id).value = ''; }); $('w-clave-op').textContent = '(opcional)'; $('w-guardar').textContent = 'Agregar trabajador'; $('w-cancelar').hidden = true; };
   $('w-cancelar').addEventListener('click', limpiarTrab);
   $('w-guardar').addEventListener('click', async (ev) => {
     const nombre = $('w-nombre').value.trim(), pctW = Number($('w-pct').value);
@@ -3041,9 +3092,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     ocupado(ev.target, true); avisar('w-msg', 'Guardando…', true);
     try {
       const huella = !usuario ? '' : clave ? await huellaClave(clave) : trabEdicion ? trabEdicion.huella_cr : '';
-      const fila = [nombre, pctW, $('w-nota').value.trim(), usuario, huella];
-      if (trabEdicion) await escribir('update_values', { range: 'Config!A' + trabEdicion.fila + ':E' + trabEdicion.fila, values: [fila] });
-      else await escribir('append_values', { range: 'Config!A12:E12', values: [fila] });
+      const fila = [nombre, pctW, $('w-nota').value.trim(), usuario, huella, $('w-apodo').value.trim() || sugerirApodo(nombre)];
+      if (trabEdicion) await escribir('update_values', { range: 'Config!A' + trabEdicion.fila + ':F' + trabEdicion.fila, values: [fila] });
+      else await escribir('append_values', { range: 'Config!A12:F12', values: [fila] });
       avisar('w-msg', (trabEdicion ? 'Cambios guardados: ' : 'Trabajador agregado: ') + nombre + ' · ' + num.format(pctW) + '%' + (usuario ? ' · entra a Creativos con el usuario «' + usuario + '»' + (clave ? ' y la clave que pusiste.' : '.') : '.'), true);
       limpiarTrab();
       dash.refresh('config');
