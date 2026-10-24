@@ -353,7 +353,7 @@ tr.cd-vacio td { opacity: .45; }
 .ag-area em { font-style: normal; font-family: var(--font-anthropic-serif); font-size: 20px; color: var(--ag-fg); }
 .ini-hero { display: flex; align-items: center; gap: clamp(16px, 4vw, 44px); flex-wrap: wrap; }
 .logo3d { --luz: 0; --sh: 0; display: grid; justify-items: center; gap: 8px; user-select: none; -webkit-user-select: none; }
-.l3-stage { position: relative; width: clamp(180px, 27vw, 260px); aspect-ratio: 1; perspective: 1000px; touch-action: none; cursor: grab; }
+.l3-stage { position: relative; width: clamp(240px, 32vw, 340px); aspect-ratio: 1; perspective: 1000px; touch-action: none; cursor: grab; }
 .l3-stage:active { cursor: grabbing; }
 .l3-luz { position: absolute; inset: -22%; border-radius: 50%; pointer-events: none; background: radial-gradient(circle at 46% 42%, rgba(255,220,110, calc(.16 + .6 * var(--luz))) 0%, rgba(249,115,22, calc(.07 + .32 * var(--luz))) 34%, transparent 66%); filter: blur(calc(10px + 16px * var(--luz))); transform: scale(calc(.92 + .28 * var(--luz))); }
 .l3-rayos { position: absolute; inset: -30%; pointer-events: none; border-radius: 50%; opacity: calc(.0 + .7 * var(--luz)); background: repeating-conic-gradient(from calc(var(--sh) * 360deg), rgba(255,210,90,0) 0deg 6deg, rgba(255,210,90,.28) 15deg, rgba(255,210,90,0) 24deg 30deg); filter: blur(3px); -webkit-mask: radial-gradient(circle, #000 18%, transparent 62%); mask: radial-gradient(circle, #000 18%, transparent 62%); }
@@ -364,7 +364,10 @@ tr.cd-vacio td { opacity: .45; }
 .l3-obj .cara { filter: brightness(calc(1.02 + .45 * var(--luz))) saturate(calc(1.05 + .35 * var(--luz))) drop-shadow(0 0 calc(3px + 20px * var(--luz)) rgba(255,196,40, calc(.4 + .55 * var(--luz)))); }
 .l3-obj .canto { -webkit-mask: url(logo-3d.png) center / contain no-repeat; mask: url(logo-3d.png) center / contain no-repeat; background: linear-gradient(160deg, #FFD54A 0%, #F5A000 45%, #D9480F 100%); }
 .l3-obj .brillo { -webkit-mask: url(logo-3d.png) center / contain no-repeat; mask: url(logo-3d.png) center / contain no-repeat; background: linear-gradient(115deg, transparent 0 calc(var(--sh) * 140% - 40%), rgba(255,255,255,.75) calc(var(--sh) * 140% - 28%), transparent calc(var(--sh) * 140% - 16%)); mix-blend-mode: screen; }
-.l3-gl { position: absolute; inset: -6%; width: 112% !important; height: 112% !important; pointer-events: none; filter: drop-shadow(0 0 calc(4px + 26px * var(--luz)) rgba(255,180,30, calc(.25 + .6 * var(--luz)))); }
+.l3-gl { position: absolute; inset: 0; width: 100% !important; height: 100% !important; pointer-events: none; filter: drop-shadow(0 0 calc(2px + 22px * var(--luz)) rgba(255,180,30, calc(.2 + .55 * var(--luz)))); }
+.es-3d .l3-rayos { display: none; }
+.es-3d .l3-luz { inset: 4%; background: radial-gradient(circle at 50% 50%, rgba(70,40,18, .55) 0%, rgba(40,24,12,.35) 40%, transparent 70%), radial-gradient(circle at 48% 44%, rgba(255,190,80, calc(.05 + .45 * var(--luz))) 0%, transparent 45%); filter: blur(6px); transform: none; }
+.es-3d .l3-sombra { bottom: 6%; left: 30%; right: 30%; }
 .l3-chispa { position: absolute; left: 50%; top: 45%; width: 9px; height: 9px; border-radius: 2px; background: linear-gradient(135deg, #FFD54A, #F97316); box-shadow: 0 0 10px rgba(255,190,40,.9); pointer-events: none; animation: l3chispa .9s cubic-bezier(.2,.7,.3,1) forwards; }
 @keyframes l3chispa { from { transform: translate(-50%, -50%) scale(1) rotate(0); opacity: 1; } to { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.2) rotate(220deg); opacity: 0; } }
 .l3-onda { position: absolute; inset: 18%; border-radius: 50%; border: 2px solid rgba(255,200,60,.8); pointer-events: none; animation: l3onda .8s ease-out forwards; }
@@ -400,8 +403,10 @@ tr.cd-vacio td { opacity: .45; }
 .rc-tot span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ag-muted); }
 .rc-tot b { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: 26px; color: var(--fl-ac); font-variant-numeric: tabular-nums; line-height: 1.15; }
 .rc-tot em { font-style: normal; font-size: 12px; color: var(--ag-muted); font-variant-numeric: tabular-nums; }
+.rc-fuerte { background: rgba(255,255,255,.025); }
+.rc-fuerte .rc-lb { color: #E8EDF7; font-weight: 600; }
 .rc-gracias { margin: 12px 16px 0; font-size: 12.5px; line-height: 1.4; color: #E8EDF7; }
-.ag-recibo .ag-recibo-acc { padding: 0 16px; }
+.ag-recibo .ag-recibo-acc { padding: 12px 16px 0; }
 .ag-recibo-acc { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
 .ag-recibo-acc .ag-btn { padding: 7px 12px; font-size: 12.5px; }
 .ag-recibo-msg { font-size: 11.5px; color: var(--ag-bad, #FB7185); }
@@ -1384,7 +1389,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
             if (x.gasto || x.ventas || g_p) pai.push({ clave: p.periodo + '|' + x.pais, periodo: p.periodo, tipo: p.tipo, pais: x.pais, desde: p.desde, hasta: p.hasta, completo: p.hasta < hoy, ventas: Math.round(x.ventas), ventas_n: x.ventas_n, pauta_iva, utilidad: util, pct_prov: P_PROV, comision: com, conversaciones: x.conversaciones,
               gastos: g_p, utilidad_total: ut_p, proveedores: com, pct_trab: P_TRAB, nomina: nom_p, pct_emp: P_EMP, empresa: emp_p, pct_s1: S1, pct_s2: S2, socio1: Math.round((resto_p * S1) / 100), socio2: Math.round((resto_p * S2) / 100),
               rentabilidad: pauta_iva > 0 ? Math.round((ut_p / pauta_iva) * 1000) / 10 : null, roas: x.gasto > 0 ? Math.round((x.ventas / (x.gasto * IVA)) * 100) / 100 : null,
-              moneda, tasa, ventas_local, pauta_local: loc(pauta_iva), utilidad_local: ventas_local === null ? null : Math.round((ventas_local - pauta_iva / tasa) * 100) / 100, comision_local: ventas_local === null ? null : Math.max(0, Math.round((ventas_local - pauta_iva / tasa) * P_PROV) / 100) });
+              moneda, tasa, colchon_tasa: colchonTasa(), ventas_local, pauta_local: loc(pauta_iva), utilidad_local: ventas_local === null ? null : Math.round((ventas_local - pauta_iva / tasa) * 100) / 100, comision_local: ventas_local === null ? null : Math.max(0, Math.round((ventas_local - pauta_iva / tasa) * P_PROV) / 100) });
           });
           const gasto_total = Math.round(gs.reduce((s, g) => s + g.valor, 0));
           const util_total = util_p - gasto_total;
@@ -2444,15 +2449,22 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         if (campo) { b.dataset.source = 'liquidacion_paises'; b.dataset.field = campo; b.dataset.where = 'clave=' + enc(r.clave); }
         l.append(a, b); d.appendChild(l);
       };
-      if (verUtilidadEnComprobante(r.pais)) lineaDoble('Utilidad del país', cop.format(r.utilidad), fLocal(r.utilidad_local, r.moneda), 'utilidad');
+      // En la app se ve el cierre completo del país (el PDF para el proveedor sigue mostrando solo lo que le corresponde)
+      const loc = (cop_) => (local && r.tasa ? fLocal(cop_ / r.tasa, r.moneda) : '');
+      lineaDoble('Ventas del periodo · ' + num.format(r.ventas_n || 0), cop.format(r.ventas), fLocal(r.ventas_local, r.moneda), 'ventas');
+      lineaDoble('Pauta Meta con IVA', cop.format(r.pauta_iva), fLocal(r.pauta_local, r.moneda), 'pauta_iva');
+      lineaDoble('Gastos del país', cop.format(r.gastos || 0), loc(r.gastos || 0), 'gastos');
+      lineaDoble('Utilidad del país', cop.format(r.utilidad), fLocal(r.utilidad_local, r.moneda), 'utilidad');
+      d.lastChild.classList.add('rc-fuerte'); d.lastChild.querySelector('.rc-v b').className = r.utilidad >= 0 ? 'ag-pos' : 'ag-neg';
+      lineaDoble('Utilidad después de gastos', cop.format(r.utilidad_total), loc(r.utilidad_total), 'utilidad_total');
       const lp = document.createElement('div'); lp.className = 'rc-ln'; const a = document.createElement('span'); a.className = 'rc-lb'; a.textContent = 'Porcentaje del proveedor'; const b = document.createElement('span'); b.className = 'rc-v'; const bb = document.createElement('b'); bb.textContent = num.format(r.pct_prov) + '%'; b.appendChild(bb); lp.append(a, b); d.appendChild(lp);
+      if (local) { const lt = document.createElement('div'); lt.className = 'rc-ln'; const a3 = document.createElement('span'); a3.className = 'rc-lb'; a3.textContent = 'Tasa de cambio'; const b3 = document.createElement('span'); b3.className = 'rc-v'; const x1 = document.createElement('b'); x1.textContent = r.tasa ? '1 ' + r.moneda + ' = ' + fTasa(r.tasa) + ' COP' : '—'; b3.appendChild(x1); if (r.tasa && r.colchon_tasa !== undefined) { const x2 = document.createElement('em'); x2.textContent = 'con colchón de ' + num.format(r.colchon_tasa) + '%'; b3.appendChild(x2); } lt.append(a3, b3); d.appendChild(lt); }
       const tot = document.createElement('div'); tot.className = 'rc-tot';
       const tl = document.createElement('span'); tl.textContent = 'A pagar al proveedor';
       const tv = document.createElement('b'); tv.dataset.source = 'liquidacion_paises'; tv.dataset.field = local ? 'comision_local' : 'comision'; tv.dataset.where = 'clave=' + enc(r.clave); tv.textContent = local ? fLocal(r.comision_local, r.moneda) : cop.format(r.comision);
       tot.append(tl, tv);
-      if (local) { const te = document.createElement('em'); te.textContent = cop.format(r.comision) + ' · tasa ' + (r.tasa ? fTasa(r.tasa) + ' COP' : '—'); tot.appendChild(te); }
+      if (local) { const te = document.createElement('em'); te.textContent = 'Equivale a ' + cop.format(r.comision); tot.appendChild(te); }
       d.appendChild(tot);
-      const gr = document.createElement('p'); gr.className = 'rc-gracias'; gr.textContent = MSJ_GRACIAS; d.appendChild(gr);
       botonesComprobante(d, r);
       rc.appendChild(d);
     });
@@ -2878,7 +2890,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       renderer.setClearColor(0x000000, 0);
       const cv = renderer.domElement; cv.className = 'l3-gl'; stage.appendChild(cv);
       const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 20); camera.position.set(0, 0, 2.55);
+      const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 20); camera.position.set(0, 0, 3.1);
       // Entorno para los reflejos del dorado: estudio oscuro con dos luces cálidas y una fría
       const pm = new THREE.PMREMGenerator(renderer);
       const env = new THREE.Scene();
@@ -2888,8 +2900,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       scene.environment = pm.fromScene(env, 0.035).texture;
       // Geometría: el contorno del logo extruido con bisel
       const shapes = FORMA.map((f) => { const sh = new THREE.Shape(f.o.map(([x, y]) => new THREE.Vector2(x, y))); f.h.forEach((h) => sh.holes.push(new THREE.Path(h.map(([x, y]) => new THREE.Vector2(x, y))))); return sh; });
-      const PROFUNDIDAD = 0.085, BISEL = 0.02;
-      const geo = new THREE.ExtrudeGeometry(shapes, { depth: PROFUNDIDAD, bevelEnabled: true, bevelThickness: BISEL, bevelSize: 0.007, bevelOffset: 0, bevelSegments: 5, curveSegments: 6 });
+      const PROFUNDIDAD = 0.13, BISEL = 0.034;
+      const geo = new THREE.ExtrudeGeometry(shapes, { depth: PROFUNDIDAD, bevelEnabled: true, bevelThickness: BISEL, bevelSize: 0.009, bevelOffset: 0, bevelSegments: 7, curveSegments: 6 });
       geo.translate(0, 0, -PROFUNDIDAD / 2);
       geo.computeVertexNormals();
       tex.encoding = THREE.sRGBEncoding; tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); tex.offset.set(0.5, 0.5);
@@ -2902,14 +2914,59 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       const key = new THREE.DirectionalLight(0xfff1d6, 1.6); key.position.set(-1.6, 2, 2.4); scene.add(key);
       const rim = new THREE.DirectionalLight(0x8fb4ff, 1.2); rim.position.set(2, -0.6, -2.2); scene.add(rim);
       const bombillo = new THREE.PointLight(0xffb020, 0, 3, 2); bombillo.position.set(-0.05, 0.12, 0.55); scene.add(bombillo);
-      const ajustar = () => { const w = Math.round((stage.clientWidth || 220) * 1.12); renderer.setSize(w, w, false); cv.style.width = cv.style.height = '100%'; camera.aspect = 1; camera.updateProjectionMatrix(); };
+      // Anillo que gira con el logo (como en el ejemplo)
+      const aro = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.014, 24, 200), new THREE.MeshPhysicalMaterial({ color: 0xFFF3DC, metalness: 0.2, roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.1, emissive: 0xffb347, emissiveIntensity: 0.05 }));
+      grupo.add(aro);
+      // Esfera de líneas finas de fondo
+      const globo = new THREE.Group(); globo.rotation.x = 0.38; scene.add(globo);
+      const lineaMat = new THREE.LineBasicMaterial({ color: 0xE8D9B8, transparent: true, opacity: 0.11, depthWrite: false });
+      const circulo = (r, y) => { const pts = []; for (let k = 0; k <= 160; k++) { const a = (k / 160) * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r)); } return new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), lineaMat); };
+      const RG = 0.86;
+      globo.add(circulo(RG, 0));
+      [0, Math.PI / 2].forEach((a) => { const m = circulo(RG, 0); m.rotation.z = Math.PI / 2; m.rotation.y = a; const g2 = new THREE.Group(); g2.rotation.y = a; m.rotation.y = 0; g2.add(m); globo.add(g2); });
+      // Textura redonda y suave para las partículas
+      const punto = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(255,255,255,.65)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); const t = new THREE.CanvasTexture(c); return t; })();
+      // Brasas que suben alrededor del logo
+      const NB = 220, posB = new Float32Array(NB * 3), colB = new Float32Array(NB * 3), datB = [];
+      const TONOS = [[1, 0.42, 0.08], [1, 0.62, 0.12], [1, 0.82, 0.35], [0.95, 0.25, 0.1], [1, 0.95, 0.85]];
+      const nacer = (k, arriba) => { const a = Math.random() * Math.PI * 2, r = Math.pow(Math.random(), 0.8) * 0.5; datB[k] = { x: Math.cos(a) * r * 0.8, z: Math.sin(a) * r * 0.5, y: arriba ? -0.6 + Math.random() * 1.5 : -0.62 - Math.random() * 0.2, v: 0.08 + Math.random() * 0.22, f: Math.random() * 6.28, c: TONOS[(Math.random() * TONOS.length) | 0], b: 0.5 + Math.random() * 0.5 }; };
+      for (let k = 0; k < NB; k++) nacer(k, true);
+      const geoB = new THREE.BufferGeometry(); geoB.setAttribute('position', new THREE.BufferAttribute(posB, 3)); geoB.setAttribute('color', new THREE.BufferAttribute(colB, 3));
+      const brasas = new THREE.Points(geoB, new THREE.PointsMaterial({ size: 0.13, map: punto, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor, sizeAttenuation: true }));
+      scene.add(brasas);
+      // Destellos sobre las caras del logo
+      const dentro = (x, y) => FORMA.some((f) => { const en = (poly) => { let c = false; for (let a = 0, b = poly.length - 1; a < poly.length; b = a++) { const [xa, ya] = poly[a], [xb, yb] = poly[b]; if ((ya > y) !== (yb > y) && x < ((xb - xa) * (y - ya)) / (yb - ya) + xa) c = !c; } return c; }; return en(f.o) && !f.h.some(en); });
+      const ND = 90, posD = new Float32Array(ND * 3), colD = new Float32Array(ND * 3), fasD = [];
+      for (let k = 0, n = 0; n < ND && k < 5000; k++) { const x = Math.random() - 0.5, y = Math.random() - 0.5; if (!dentro(x, y)) continue; const z = (n % 2 ? -1 : 1) * (PROFUNDIDAD / 2 + BISEL + 0.003); posD.set([x, y, z], n * 3); fasD.push([Math.random() * 6.28, 1.5 + Math.random() * 3]); n++; }
+      const geoD = new THREE.BufferGeometry(); geoD.setAttribute('position', new THREE.BufferAttribute(posD, 3)); geoD.setAttribute('color', new THREE.BufferAttribute(colD, 3));
+      const destellos = new THREE.Points(geoD, new THREE.PointsMaterial({ size: 0.07, map: punto, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor }));
+      pieza.add(destellos);
+      let tPrev = 0, ultLuz = 0, rafaga = 0;
+      const moverParticulas = (t, l) => {
+        const dt = Math.min(0.05, tPrev ? (t - tPrev) / 1000 : 0.016); tPrev = t;
+        if (l > ultLuz + 0.2) rafaga = 1; ultLuz = l; rafaga = Math.max(0, rafaga - dt * 0.7);
+        const vel = 1 + rafaga * 3.5 + l * 0.8, brillo = 0.8 + l * 0.7 + rafaga * 0.8;
+        for (let k = 0; k < NB; k++) {
+          const d = datB[k]; d.y += d.v * vel * dt; d.f += dt * 1.3;
+          if (d.y > 0.95) nacer(k, false);
+          const prog = Math.min(1, Math.max(0, (d.y + 0.62) / 1.57)), fade = Math.sin(prog * Math.PI) * d.b * brillo;
+          posB[k * 3] = d.x + Math.sin(d.f) * 0.03; posB[k * 3 + 1] = d.y; posB[k * 3 + 2] = d.z;
+          colB[k * 3] = d.c[0] * fade; colB[k * 3 + 1] = d.c[1] * fade; colB[k * 3 + 2] = d.c[2] * fade;
+        }
+        geoB.attributes.position.needsUpdate = true; geoB.attributes.color.needsUpdate = true;
+        for (let k = 0; k < fasD.length; k++) { const [f, r] = fasD[k]; const v = Math.pow(Math.max(0, Math.sin(t / 1000 * r + f)), 10) * (0.9 + l); colD.set([v, v * 0.95, v * 0.85], k * 3); }
+        geoD.attributes.color.needsUpdate = true;
+        globo.rotation.y = t / 9000;
+      };
+      const ajustar = () => { const w = Math.round(stage.clientWidth || 260); renderer.setSize(w, w, false); cv.style.width = cv.style.height = '100%'; camera.aspect = 1; camera.updateProjectionMatrix(); };
       ajustar(); window.addEventListener('resize', ajustar);
       gl = {
         pintar: (rxd, ryd, flota, l, atras) => {
           grupo.rotation.set((rxd * Math.PI) / 180, (ryd * Math.PI) / 180, 0);
           grupo.position.y = -flota / 160;
-          pieza.scale.x = atras ? -1 : 1; // volteo tipo moneda: por detrás el logo se lee igual que por delante
-          cara.emissiveIntensity = 0.04 + l * 0.8; canto.emissiveIntensity = 0.04 + l * 0.5; bombillo.intensity = l * 3.2;
+          pieza.scale.set(atras ? -1.12 : 1.12, 1.12, 1.12); // volteo tipo moneda: por detrás el logo se lee igual que por delante
+          cara.emissiveIntensity = 0.04 + l * 0.8; canto.emissiveIntensity = 0.04 + l * 0.5; bombillo.intensity = l * 3.2; aro.material.emissiveIntensity = 0.05 + l * 0.6;
+          moverParticulas(performance.now(), l);
           renderer.render(scene, camera);
         },
       };
