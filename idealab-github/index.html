@@ -21,6 +21,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 #ag-login { position: fixed; inset: 0; background: rgba(5,9,18,.92); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; font-family: Inter, sans-serif; color: #E8EDF7; }
 #ag-login[hidden] { display: none; }
 #ag-login .box { width: min(420px, 100%); background: #101A2D; border: 1px solid rgba(255,255,255,.1); border-radius: 18px; padding: 24px; display: grid; gap: 12px; }
+#ag-login label span { font-size: 11px; }
 #ag-login img { width: 64px; filter: drop-shadow(0 0 12px rgba(245,184,0,.35)); }
 #ag-login h1 { margin: 0; font: 400 24px "Source Serif 4", serif; }
 #ag-login label { display: grid; gap: 4px; font-size: 12px; color: #8D9AB3; }
@@ -33,6 +34,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 <div id="ag-login" hidden><div class="box">
   <img src="logo-3d.png" alt="IdeaLab">
   <h1>Rentabilidad Meta Ads</h1>
+  <label>Usuario <span style="opacity:.6">(solo para la cuenta de creativos; los socios lo dejan vacío)</span><input id="lg-usuario" autocomplete="username" autocapitalize="none" spellcheck="false"></label>
   <label>Clave de la app<input id="lg-clave" type="password" autofocus autocomplete="current-password"></label>
   <button type="button" id="lg-entrar">Entrar</button>
   <p id="lg-msg"></p>
@@ -42,7 +44,11 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 (function () {
   const LS = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} }, del: (k) => { try { localStorage.removeItem(k); } catch (e) {} } };
   const SERVIDOR = 'https://script.google.com/macros/s/AKfycbyE1mFlAslIAeAguL1hAoJD9TrVC85szu3RqJNE-J8-wIHAFl7ZPseecNb7IHNbJw3c/exec';
-  const cfg = () => ({ url: SERVIDOR, clave: LS.get('idealab_clave') });
+  const cfg = () => ({ url: SERVIDOR, clave: LS.get('idealab_clave'), usuario: LS.get('idealab_usuario') || '' });
+  // Rol de la sesión: 'socios' (todo) o 'creativos' (solo el área de creativos)
+  const rolActual = () => (LS.get('idealab_rol') === 'creativos' ? 'creativos' : 'socios');
+  const aplicarRol = (rol) => { document.documentElement.dataset.rol = rol; window.idealabRol = rol; };
+  aplicarRol(rolActual());
 
   const loaders = {}, calcs = {}, estado = {}, oyentes = [];
   let params = {};
@@ -82,16 +88,16 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 
   // ---- llamadas al servidor
   const pedir = async (q) => {
-    const { url, clave } = cfg();
+    const { url, clave, usuario } = cfg();
     if (!url || !clave) throw new Error('sin_login');
-    const r = await fetch(url + '?' + new URLSearchParams({ ...q, clave }).toString(), { redirect: 'follow' });
+    const r = await fetch(url + '?' + new URLSearchParams({ ...q, clave, ...(usuario ? { usuario } : {}) }).toString(), { redirect: 'follow' });
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'Error del servidor');
     return j;
   };
   const enviar = async (body) => {
-    const { url, clave } = cfg();
-    const r = await fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...body, clave }) });
+    const { url, clave, usuario } = cfg();
+    const r = await fetch(url, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...body, clave, ...(usuario ? { usuario } : {}) }) });
     const j = await r.json();
     if (!j.ok) { const e = new Error(j.error || 'Error del servidor'); e.code = 'tool_error'; throw e; }
     return j;
@@ -130,6 +136,16 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     fijar('facturas', { status: 'error', data: [], message: 'sin_servidor' }); avisar();
   };
 
+  // ---- creativos (pestaña Creativos, por el servidor)
+  const leerCreativos = (vals) => vals.slice(1).map((r, i) => ({ fila: i + 2, codigo: String(r[0] || '').trim().toUpperCase(), tipo: /video/i.test(String(r[1] || '')) || /^VD/i.test(String(r[0] || '')) ? 'Video' : 'Imagen', original: String(r[2] || ''), enlace: String(r[3] || ''), id: String(r[4] || '').trim(), subido: leerFecha(r[5]) || String(r[5] || ''), por: String(r[6] || ''), estado: String(r[7] || '').trim() || 'Sin publicar', inicio: leerFecha(r[8]) || '', fin: leerFecha(r[9]) || '', nota: String(r[11] || '') })).filter((r) => r.codigo);
+  const cargarCreativos = async () => {
+    if (!estado.creativos || estado.creativos.status !== 'ok') fijar('creativos', { status: 'loading', data: [] }); avisar();
+    try { const r = await enviar({ accion: 'creativos_leer' }); const vals = buscarValues(r); if (!vals) throw new Error('sin_servidor'); fijar('creativos', { status: 'ok', data: leerCreativos(vals) }); if (rolActual() === 'creativos') document.getElementById('ag-actualizado').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }); }
+    catch (e) { fijar('creativos', { status: 'error', data: [], message: /desconocid|unknown|no v[aá]lid|sin_servidor|Clave/i.test(String(e.message)) || e instanceof SyntaxError ? 'sin_servidor' : String(e.message || e) }); }
+    avisar();
+  };
+  window.idealabCreativos = { recargar: cargarCreativos, enviar: (b) => enviar(b) };
+
   const calcular = () => {
     let pendientes = Object.keys(calcs);
     for (let vuelta = 0; vuelta < 10 && pendientes.length; vuelta++) {
@@ -157,6 +173,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
       const j = await pedir({ accion: 'datos', desde: p.desde || '', hasta: p.hasta || '' });
       ultimoRango = (p.desde || '') + '|' + (p.hasta || '');
       cargarTodo(j);
+      cargarCreativos();
       document.getElementById('ag-actualizado').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
     } catch (e) {
       if (String(e.message) === 'sin_login' || /Clave incorrecta/.test(e.message)) { mostrarLogin(/Clave/.test(e.message) ? 'La clave no es correcta.' : ''); }
@@ -185,7 +202,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     params: () => ({ ...params }),
     setParams: (p) => { params = { ...params, ...p }; clearTimeout(window.dash._t); window.dash._t = setTimeout(cargarRango, 250); avisar(); },
     resetParams: () => { params = {}; avisar(); },
-    refresh: (id) => { clearTimeout(window.dash._r); window.dash._r = setTimeout(cargar, 150); },
+    refresh: (id) => { clearTimeout(window.dash._r); window.dash._r = setTimeout(rolActual() === 'creativos' || id === 'creativos' ? cargarCreativos : cargar, 150); },
     setLink: (n) => { try { history.replaceState(null, '', '#' + n); } catch (e) {} },
     colors: ['#F5B800', '#2DD4BF', '#60A5FA', '#FB7185', '#A3E635', '#C084FC', '#F97316', '#E8EDF7'],
   };
@@ -210,15 +227,22 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
   }
   window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('lg-entrar').addEventListener('click', async () => {
-      const clave = document.getElementById('lg-clave').value;
+      const clave = document.getElementById('lg-clave').value, usuario = document.getElementById('lg-usuario').value.trim();
       if (!clave) { document.getElementById('lg-msg').textContent = 'Escribe la clave.'; return; }
-      LS.set('idealab_clave', clave);
+      LS.set('idealab_clave', clave); if (usuario) LS.set('idealab_usuario', usuario); else LS.del('idealab_usuario');
       document.getElementById('lg-msg').textContent = 'Verificando…';
-      try { await pedir({ accion: 'ping' }); document.getElementById('ag-login').hidden = true; cargar(); }
+      try {
+        const j = await pedir({ accion: 'ping' });
+        const rol = j && j.rol === 'creativos' ? 'creativos' : 'socios';
+        if (usuario && rol !== 'creativos') throw new Error('Clave incorrecta');
+        LS.set('idealab_rol', rol); aplicarRol(rol);
+        document.getElementById('ag-login').hidden = true;
+        if (rol === 'creativos') { if (window.idealabIrA) window.idealabIrA('creativos'); cargarCreativos(); } else cargar();
+      }
       catch (e) { document.getElementById('lg-msg').textContent = /Clave/.test(e.message) ? 'La clave no es correcta.' : 'No se pudo conectar: ' + e.message; }
     });
-    document.getElementById('ag-salir').addEventListener('click', () => { LS.del('idealab_clave'); location.reload(); });
-    if (cfg().url && cfg().clave) cargar(); else mostrarLogin('');
+    document.getElementById('ag-salir').addEventListener('click', () => { ['idealab_clave', 'idealab_usuario', 'idealab_rol'].forEach((k) => LS.del(k)); location.reload(); });
+    if (cfg().url && cfg().clave) { if (rolActual() === 'creativos') cargarCreativos(); else cargar(); } else mostrarLogin('');
   });
 })();
 
@@ -244,6 +268,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 .ag-nav svg { width: 16px; height: 16px; stroke: var(--ag-gold); fill: none; stroke-width: 1.8; flex: none; }
 .ag-session { margin-top: auto; border: 1px solid var(--ag-line); border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--ag-muted); }
 .ag-session b { color: var(--ag-gold); font-weight: 600; }
+.ses-cr { display: none; } [data-rol="creativos"] .ses-cr { display: inline; } [data-rol="creativos"] .ses-socios { display: none; }
 .ag-main { padding: clamp(16px, 3vw, 32px); display: grid; gap: 18px; align-content: start; min-width: 0; grid-template-columns: minmax(0, 1fr); }
 .ag-vista { min-width: 0; }
 .ag-top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; justify-content: space-between; }
@@ -436,6 +461,62 @@ tr.cd-vacio td { opacity: .45; }
 .g-pc { color: var(--ag-muted); }
 .g-v { text-align: right; font-variant-numeric: tabular-nums; color: var(--ag-gold); }
 .g-pie { font-size: 12px; text-align: right; }
+.cr-next { display: flex; gap: 10px; }
+.cr-next div { display: grid; gap: 2px; padding: 8px 14px; border-radius: 12px; background: rgba(245,184,0,.07); border: 1px solid rgba(245,184,0,.25); }
+.cr-next span { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ag-muted); }
+.cr-next b { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: 22px; color: var(--ag-gold); }
+.cr-drop { display: grid; justify-items: center; gap: 6px; margin-top: 12px; padding: 26px 16px; border: 1.5px dashed rgba(245,184,0,.45); border-radius: 14px; background: rgba(245,184,0,.03); cursor: pointer; text-align: center; transition: background .2s, border-color .2s; }
+.cr-drop:hover, .cr-drop.sobre { background: rgba(245,184,0,.09); border-color: var(--ag-gold); }
+.cr-drop svg { width: 30px; height: 30px; fill: none; stroke: var(--ag-gold); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.cr-drop b { font-size: 15px; }
+.cr-drop span { font-size: 12.5px; color: var(--ag-muted); }
+.cr-cola { display: grid; gap: 6px; margin-top: 10px; }
+.cr-item { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 8px 12px; border-radius: 10px; background: rgba(255,255,255,.03); font-size: 12.5px; }
+.cr-item-n { color: var(--ag-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-item b { font-weight: 600; }
+.cr-item i { grid-column: 1 / -1; height: 4px; border-radius: 99px; background: rgba(255,255,255,.07); overflow: hidden; }
+.cr-item u { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #F97316, #F5B800); transition: width .3s; }
+.cr-item.ok b { color: #2DD4BF; } .cr-item.ok u { background: #2DD4BF; }
+.cr-item.mal b { color: var(--ag-bad); }
+.cr-res { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 10px 0 14px; }
+.cr-res > div { display: grid; gap: 2px; padding: 12px; border-radius: 12px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); }
+.cr-res span { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ag-muted); }
+.cr-res b { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: 24px; }
+.cr-res em { font-style: normal; font-size: 11.5px; color: var(--ag-muted); }
+.cr-k-es b { color: #2DD4BF; } .cr-k-tt b { color: var(--ag-gold); } .cr-k-mu b { color: var(--ag-bad); }
+.cr-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); }
+.cr-card { border: 1px solid rgba(255,255,255,.08); border-radius: 14px; overflow: hidden; background: rgba(0,0,0,.18); display: grid; grid-template-rows: auto 1fr; }
+.cr-th { position: relative; aspect-ratio: 4 / 5; background: radial-gradient(circle at 50% 40%, rgba(245,184,0,.12), rgba(0,0,0,.35)); overflow: hidden; }
+.cr-th.click { cursor: pointer; }
+.cr-th img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .35s; }
+.cr-th.click:hover img { transform: scale(1.04); }
+.cr-ic { position: absolute; right: 10px; top: 10px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: rgba(10,17,32,.75); color: #fff; font-size: 12px; backdrop-filter: blur(4px); }
+.cr-th.sin .cr-ic { left: 50%; top: 42%; right: auto; transform: translate(-50%, -50%); width: 54px; height: 54px; font-size: 20px; color: var(--ag-gold); }
+.cr-cod { position: absolute; left: 10px; bottom: 10px; padding: 4px 10px; border-radius: 8px; background: rgba(10,17,32,.82); color: var(--ag-gold); font-family: var(--font-anthropic-serif); font-weight: 400; font-size: 20px; letter-spacing: .02em; backdrop-filter: blur(4px); }
+.cr-bd { display: grid; gap: 8px; padding: 12px; align-content: start; }
+.cr-f1 { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.cr-est { font-size: 11.5px; padding: 3px 10px; border-radius: 99px; border: 1px solid; }
+.cr-est.sp { color: #B7C2D8; border-color: rgba(255,255,255,.2); }
+.cr-est.tt { color: #FBBF24; border-color: rgba(251,191,36,.45); background: rgba(251,191,36,.07); }
+.cr-est.es { color: #2DD4BF; border-color: rgba(45,212,191,.45); background: rgba(45,212,191,.07); }
+.cr-est.mu { color: #FB7185; border-color: rgba(251,113,133,.45); background: rgba(251,113,133,.07); }
+.cr-est.ap { color: #8D9AB3; border-color: rgba(141,154,179,.35); }
+.cr-est.sb { color: #60A5FA; border-color: rgba(96,165,250,.4); }
+.cr-dias { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cr-meta { font-size: 11.5px; color: var(--ag-muted); line-height: 1.4; }
+.cr-nota { margin: 0; font-size: 12.5px; }
+.cr-acc { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.cr-acc .ag-btn { padding: 6px 12px; font-size: 12.5px; }
+.cr-acc a.ag-x { text-decoration: none; }
+.cr-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; border-radius: 10px; background: rgba(245,184,0,.05); border: 1px dashed rgba(245,184,0,.3); }
+.cr-form label { display: grid; gap: 4px; font-size: 11px; color: var(--ag-muted); }
+.cr-form label:first-child, .cr-form .ancho, .cr-form .cr-dur, .cr-form .ag-btn { grid-column: 1 / -1; }
+.cr-form .ag-in, .cr-form .ag-sel { width: 100%; }
+.cr-dur { margin: 0; font-size: 12.5px; color: var(--ag-gold); }
+/* Cuenta de creativos: solo ve este apartado */
+[data-rol="creativos"] #nav button:not([data-v="creativos"]) { display: none !important; }
+[data-rol="creativos"] #rango, [data-rol="creativos"] #takeaway { display: none !important; }
+[data-rol="creativos"] .ag-session b::after { content: ''; }
 .f-res { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin: 10px 0 12px; }
 .f-res > div { display: grid; gap: 2px; padding: 12px; border-radius: 12px; background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); }
 .f-res span { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ag-muted); }
@@ -483,10 +564,11 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       <button type="button" data-v="campanas"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l6 5V5L7 10H4a1 1 0 0 0-1 1zM17 8a5 5 0 0 1 0 8"/></svg>Campañas</button>
       <button type="button" data-v="graficas"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Gráficas</button>
       <button type="button" data-v="paginas"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></svg>Fan pages</button>
+      <button type="button" data-v="creativos"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6M15 9h.01"/></svg>Creativos</button>
       <button type="button" data-v="contabilidad"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"/></svg>Contabilidad</button>
       <button type="button" data-v="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Configuración</button>
     </nav>
-    <div class="ag-session">Sesión<br><b>Socios</b> · acceso total<br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button></div>
+    <div class="ag-session">Sesión<br><span class="ses-socios"><b>Socios</b> · acceso total</span><span class="ses-cr"><b>Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button></div>
   </aside>
 
   <main class="ag-main">
@@ -533,6 +615,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         <button type="button" class="ag-area" data-ir="campanas"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l6 5V5L7 10H4a1 1 0 0 0-1 1zM17 8a5 5 0 0 1 0 8"/></svg><b>Campañas</b><span>Diagnóstico de cada campaña y anuncio: escalar, mantener, bajar o apagar.</span><em id="a-camp">—</em></button>
         <button type="button" class="ag-area" data-ir="graficas"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><b>Gráficas</b><span>Día a día por país o campaña: ganancia, ROAS, pauta, ventas y conversaciones.</span></button>
         <button type="button" class="ag-area" data-ir="paginas"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></svg><b>Fan pages</b><span>Tus páginas, cuáles están pautando y con qué campañas, y tus números de WhatsApp.</span><em id="a-pag">—</em></button>
+        <button type="button" class="ag-area" data-ir="creativos"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6M15 9h.01"/></svg><b>Creativos</b><span>Imágenes y videos con su código (IMG, VD), estado y cuántos días duró cada uno.</span><em id="a-cr">—</em></button>
         <button type="button" class="ag-area" data-ir="contabilidad"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"/></svg><b>Contabilidad</b><span>Cierres quincenales y mensuales, reparto entre socios, nómina, proveedores y bitácora.</span></button>
         <button type="button" class="ag-area" data-ir="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg><b>Configuración</b><span>Porcentajes del reparto, equipo con acceso y cambios programados.</span></button>
       </div>
@@ -616,6 +699,27 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         <div class="vida-tl" id="vida-tl" data-source="vida_ads"></div>
         <div id="vida-det"></div>
         <button type="button" class="ag-x" id="vida-mas" hidden>Ver todos</button>
+      </div>
+    </section>
+
+    <!-- CREATIVOS -->
+    <section class="ag-vista" id="creativos" data-vista="creativos" hidden>
+      <div class="ag-card">
+        <div class="ag-top"><div><h2>Creativos</h2><p class="ag-note">Sube imágenes y videos: cada uno recibe su código consecutivo y queda guardado en Google Drive (carpeta «IdeaLab · Creativos»).</p></div>
+          <div class="cr-next" id="cr-next" data-source="creativos"></div></div>
+        <label class="cr-drop" id="cr-drop">
+          <input type="file" id="cr-file" accept="image/*,video/*" multiple hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+          <b>Arrastra aquí las imágenes y los videos</b><span>o toca para elegirlos · puedes subir varios a la vez</span>
+        </label>
+        <div class="cr-cola" id="cr-cola"></div>
+      </div>
+      <div class="ag-card" style="margin-top:14px">
+        <div class="ag-top"><div><h2>Biblioteca</h2><p class="ag-note" id="cr-nota">Toca «Editar» para poner el estado y las fechas de cada creativo.</p></div>
+          <div class="ag-chips"><select class="ag-sel" id="cr-tipo" aria-label="Tipo"><option value="">Imágenes y videos</option><option value="Imagen">Solo imágenes</option><option value="Video">Solo videos</option></select><select class="ag-sel" id="cr-est" aria-label="Estado"><option value="">Todos los estados</option></select><input class="ag-in" id="cr-buscar" placeholder="Buscar IMG12, VD3…" aria-label="Buscar"></div></div>
+        <div class="cr-res" id="cr-res"></div>
+        <div class="cr-grid" id="cr-grid" data-source="creativos"></div>
+        <p class="ag-msg" id="cr-msg"></p>
       </div>
     </section>
 
@@ -1480,10 +1584,11 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   // ---------- Navegación ----------
   let vista = 'inicio';
   const mostrar = (v) => {
+    if (window.idealabRol === 'creativos') v = 'creativos';
     vista = v;
     document.querySelectorAll('[data-vista]').forEach((s) => { s.hidden = s.dataset.vista !== v; });
     document.querySelectorAll('#nav button').forEach((b) => { if (b.dataset.v === v) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
-    $('rango').style.visibility = v === 'contabilidad' || v === 'config' || v === 'paginas' ? 'hidden' : 'visible';
+    $('rango').style.visibility = v === 'contabilidad' || v === 'config' || v === 'paginas' || v === 'creativos' ? 'hidden' : 'visible';
     dash.setLink(v);
     dibujar();
   };
@@ -1685,6 +1790,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     if (vista === 'paginas') dibujarPaginas();
     if (vista === 'contabilidad') dibujarContabilidad();
     if (vista === 'config') dibujarConfig();
+    if (vista === 'creativos') dibujarCreativos();
+    const CRd = dash.data('creativos'); if ($('a-cr')) $('a-cr').textContent = CRd.status === 'ok' ? num.format(CRd.data.filter((x) => x.tipo === 'Imagen').length) + ' imágenes · ' + num.format(CRd.data.filter((x) => x.tipo === 'Video').length) + ' videos' : '—';
   }
 
   function dibujarResumen(filas, okR, sel, clave, ORDEN, rangoTxt) {
@@ -2319,6 +2426,150 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     if (prueba) mk('Compartir', async ({ blob, nombre }) => { const f = new File([blob], nombre, { type: 'application/pdf' }); await navigator.share({ files: [f], title: 'Comprobante ' + r.pais, text: 'Comprobante de pago · ' + r.pais + ' · ' + fLarga(r.desde) + ' al ' + fLarga(r.hasta) }); });
     fila.appendChild(msg); d.appendChild(fila);
   };
+
+  // ---------- Creativos ----------
+  const CR_ESTADOS = ['Sin publicar', 'En testeo', 'Escalado', 'Murió en testeo', 'Apagado'];
+  const CR_BASE = { IMG: 10, VD: 10 }; // ya existían hasta IMG10 y VD10
+  const CR_CLASE = { 'Sin publicar': 'sp', 'En testeo': 'tt', 'Escalado': 'es', 'Murió en testeo': 'mu', 'Apagado': 'ap', 'Subiendo': 'sb' };
+  let crEdit = null, crSubiendo = false;
+  const crSiguiente = (lista, pref) => { let m = CR_BASE[pref]; lista.forEach((c) => { const x = c.codigo.match(new RegExp('^' + pref + '(\\d+)$')); if (x) m = Math.max(m, Number(x[1])); }); return pref + (m + 1); };
+  const crDias = (c) => {
+    const dif = (a, b) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 864e5) + 1;
+    if (c.inicio && c.fin) return { n: dif(c.inicio, c.fin), txt: 'Duró ' };
+    if (c.inicio && (c.estado === 'En testeo' || c.estado === 'Escalado')) return { n: dif(c.inicio, HOY), txt: 'Lleva ' };
+    return null;
+  };
+  const crMiniatura = (c) => (c.id ? 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(c.id) + '&sz=w600' : '');
+  function dibujarCreativos() {
+    const C = dash.data('creativos'), grid = $('cr-grid'), res = $('cr-res'), nx = $('cr-next');
+    const se = $('cr-est'); if (se.options.length === 1) CR_ESTADOS.forEach((e) => se.appendChild(new Option(e, e)));
+    if (C.status === 'error') {
+      nx.replaceChildren(); res.replaceChildren(); grid.replaceChildren();
+      const e = document.createElement('p'); e.className = 'ag-note f-aviso';
+      e.textContent = C.message === 'sin_servidor' ? 'Para subir y ver los creativos falta instalar en el servidor de Apps Script el archivo servidor-idealab.gs (versión con creativos).' : 'No se pudieron cargar los creativos: ' + C.message;
+      grid.appendChild(e); return;
+    }
+    if (C.status !== 'ok') { grid.replaceChildren(); const e = document.createElement('span'); e.className = 'dash-skeleton'; e.textContent = 'Cargando creativos…'; grid.appendChild(e); return; }
+    const todos = C.data;
+    nx.replaceChildren();
+    [['Próxima imagen', crSiguiente(todos, 'IMG')], ['Próximo video', crSiguiente(todos, 'VD')]].forEach(([l, v]) => { const d = document.createElement('div'); const a = document.createElement('span'); a.textContent = l; const b = document.createElement('b'); b.textContent = v; d.append(a, b); nx.appendChild(d); });
+    // Resumen por estado
+    res.replaceChildren();
+    const fin_ = todos.filter((c) => c.inicio && c.fin);
+    const prom = (arr) => (arr.length ? Math.round((arr.reduce((s, c) => s + crDias(c).n, 0) / arr.length) * 10) / 10 : null);
+    [['Total', num.format(todos.length), num.format(todos.filter((c) => c.tipo === 'Imagen').length) + ' imágenes · ' + num.format(todos.filter((c) => c.tipo === 'Video').length) + ' videos', ''],
+      ['Escalados', num.format(todos.filter((c) => c.estado === 'Escalado').length), (() => { const p = prom(fin_.filter((c) => c.estado === 'Escalado')); return p ? 'duran ' + dec.format(p).replace(/,0+$/, '') + ' días en promedio' : 'los que llegaron a escalar'; })(), 'es'],
+      ['En testeo', num.format(todos.filter((c) => c.estado === 'En testeo').length), 'pautando ahora', 'tt'],
+      ['Murieron en testeo', num.format(todos.filter((c) => c.estado === 'Murió en testeo').length), (() => { const p = prom(fin_.filter((c) => c.estado === 'Murió en testeo')); return p ? 'duraron ' + dec.format(p).replace(/,0+$/, '') + ' días en promedio' : ''; })(), 'mu'],
+      ['Sin publicar', num.format(todos.filter((c) => c.estado === 'Sin publicar').length), 'listos para usar', 'sp'],
+    ].forEach(([l, v, sub, k]) => { const d = document.createElement('div'); if (k) d.className = 'cr-k-' + k; const a = document.createElement('span'); a.textContent = l; const b = document.createElement('b'); b.textContent = v; const c = document.createElement('em'); c.textContent = sub; d.append(a, b, c); res.appendChild(d); });
+    // Filtros
+    const ft = $('cr-tipo').value, fe = se.value, fb = $('cr-buscar').value.trim().toUpperCase();
+    const lista = todos.filter((c) => (!ft || c.tipo === ft) && (!fe || c.estado === fe) && (!fb || c.codigo.includes(fb) || c.original.toUpperCase().includes(fb) || c.nota.toUpperCase().includes(fb)))
+      .sort((a, b) => (a.tipo === b.tipo ? 0 : a.tipo === 'Video' ? -1 : 1) || Number((b.codigo.match(/\d+/) || [0])[0]) - Number((a.codigo.match(/\d+/) || [0])[0]));
+    lista.sort((a, b) => String(b.subido).localeCompare(String(a.subido)) || Number((b.codigo.match(/\d+/) || [0])[0]) - Number((a.codigo.match(/\d+/) || [0])[0]));
+    $('cr-nota').textContent = num.format(lista.length) + (lista.length === 1 ? ' creativo' : ' creativos') + (ft || fe || fb ? ' con este filtro' : '') + '. Toca «Editar» para poner el estado, el día de inicio y el día de fin.';
+    grid.replaceChildren();
+    if (!lista.length) { const e = document.createElement('p'); e.className = 'ag-empty'; e.textContent = todos.length ? 'Ningún creativo coincide con el filtro.' : 'Todavía no hay creativos: sube el primero arriba.'; grid.appendChild(e); return; }
+    lista.forEach((c) => {
+      const card = document.createElement('article'); card.className = 'cr-card';
+      const th = document.createElement('div'); th.className = 'cr-th';
+      const url = crMiniatura(c);
+      if (url) { const im = document.createElement('img'); im.loading = 'lazy'; im.alt = c.codigo; im.referrerPolicy = 'no-referrer'; im.src = url; im.onerror = () => { im.remove(); th.classList.add('sin'); }; th.appendChild(im); } else th.classList.add('sin');
+      const ic = document.createElement('span'); ic.className = 'cr-ic'; ic.textContent = c.tipo === 'Video' ? '▶' : '▣'; th.appendChild(ic);
+      const cod = document.createElement('b'); cod.className = 'cr-cod'; cod.textContent = c.codigo; th.appendChild(cod);
+      if (c.enlace) { th.classList.add('click'); th.title = 'Abrir ' + c.codigo; th.addEventListener('click', () => window.open(c.enlace, '_blank', 'noopener')); }
+      card.appendChild(th);
+      const bd = document.createElement('div'); bd.className = 'cr-bd';
+      const fila1 = document.createElement('div'); fila1.className = 'cr-f1';
+      const pill = document.createElement('span'); pill.className = 'cr-est ' + (CR_CLASE[c.estado] || 'sp'); pill.textContent = c.estado === 'Subiendo' ? (c.enlace ? 'Sin publicar' : 'Subida incompleta') : c.estado; fila1.appendChild(pill);
+      const d = crDias(c); if (d) { const dd = document.createElement('span'); dd.className = 'cr-dias'; dd.textContent = d.txt + num.format(d.n) + (d.n === 1 ? ' día' : ' días'); fila1.appendChild(dd); }
+      bd.appendChild(fila1);
+      const meta = document.createElement('div'); meta.className = 'cr-meta';
+      meta.textContent = (c.inicio ? 'Inicio ' + fCorta(c.inicio) : 'Sin fecha de inicio') + (c.fin ? ' · Fin ' + fCorta(c.fin) : c.inicio ? ' · sigue' : '') + ' · ' + c.tipo.toLowerCase() + ' subida ' + (c.subido && /^\d{4}-/.test(c.subido) ? fCorta(c.subido) : c.subido) + (c.por ? ' por ' + c.por : '');
+      bd.appendChild(meta);
+      if (c.nota) { const n = document.createElement('p'); n.className = 'cr-nota'; n.textContent = c.nota; bd.appendChild(n); }
+      const acc = document.createElement('div'); acc.className = 'cr-acc';
+      const ed = document.createElement('button'); ed.type = 'button'; ed.className = 'ag-btn'; ed.textContent = crEdit === c.codigo ? 'Cerrar' : 'Editar'; ed.addEventListener('click', () => { crEdit = crEdit === c.codigo ? null : c.codigo; dibujar(); }); acc.appendChild(ed);
+      if (c.enlace) { const ab = document.createElement('a'); ab.className = 'ag-x'; ab.href = c.enlace; ab.target = '_blank'; ab.rel = 'noopener'; ab.textContent = 'Ver'; acc.appendChild(ab); }
+      if (c.id) { const dl = document.createElement('a'); dl.className = 'ag-x'; dl.href = 'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(c.id); dl.target = '_blank'; dl.rel = 'noopener'; dl.textContent = 'Descargar'; acc.appendChild(dl); }
+      if (window.idealabRol !== 'creativos') {
+        const del = document.createElement('button'); del.type = 'button'; del.className = 'ag-x'; del.textContent = 'Eliminar';
+        del.addEventListener('click', async () => {
+          if (del.dataset.seguro !== '1') { del.dataset.seguro = '1'; del.textContent = '¿Borrar ' + c.codigo + '?'; del.style.color = 'var(--ag-bad)'; setTimeout(() => { del.dataset.seguro = ''; del.textContent = 'Eliminar'; del.style.color = ''; }, 4000); return; }
+          del.disabled = true;
+          try { await window.idealabCreativos.enviar({ accion: 'creativos_borrar', fila: c.fila, codigo: c.codigo }); avisar('cr-msg', c.codigo + ' eliminado (el archivo quedó en la papelera de Drive).', true); window.idealabCreativos.recargar(); }
+          catch (e) { avisar('cr-msg', 'No se pudo eliminar: ' + e.message, false); del.disabled = false; }
+        });
+        acc.appendChild(del);
+      }
+      bd.appendChild(acc);
+      if (crEdit === c.codigo) {
+        const fm = document.createElement('div'); fm.className = 'cr-form';
+        const l1 = document.createElement('label'); l1.textContent = 'Estado'; const es = document.createElement('select'); es.className = 'ag-sel'; CR_ESTADOS.forEach((e) => es.appendChild(new Option(e, e))); es.value = CR_ESTADOS.includes(c.estado) ? c.estado : 'Sin publicar'; l1.appendChild(es);
+        const l2 = document.createElement('label'); l2.textContent = 'Día de inicio'; const fi = document.createElement('input'); fi.type = 'date'; fi.className = 'ag-in'; fi.value = c.inicio || ''; l2.appendChild(fi);
+        const l3 = document.createElement('label'); l3.textContent = 'Día de fin'; const ff = document.createElement('input'); ff.type = 'date'; ff.className = 'ag-in'; ff.value = c.fin || ''; l3.appendChild(ff);
+        const l4 = document.createElement('label'); l4.className = 'ancho'; l4.textContent = 'Nota'; const no = document.createElement('input'); no.className = 'ag-in'; no.placeholder = 'Producto, país, campaña, idea…'; no.value = c.nota || ''; l4.appendChild(no);
+        const dur = document.createElement('p'); dur.className = 'cr-dur';
+        const calc = () => { if (fi.value && ff.value) { const n = Math.round((Date.parse(ff.value + 'T12:00:00Z') - Date.parse(fi.value + 'T12:00:00Z')) / 864e5) + 1; dur.textContent = n > 0 ? 'Duró ' + num.format(n) + (n === 1 ? ' día' : ' días') : 'El día de fin debe ser después del inicio'; dur.className = 'cr-dur ' + (n > 0 ? '' : 'ag-neg'); } else dur.textContent = fi.value ? 'Sin día de fin: cuenta los días hasta hoy mientras esté en testeo o escalado.' : ''; };
+        [fi, ff].forEach((x) => x.addEventListener('change', calc)); calc();
+        es.addEventListener('change', () => { if ((es.value === 'Murió en testeo' || es.value === 'Apagado') && fi.value && !ff.value) { ff.value = HOY; calc(); } if ((es.value === 'En testeo' || es.value === 'Escalado') && !fi.value) { fi.value = HOY; calc(); } });
+        const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'ag-btn pri'; ok.textContent = 'Guardar';
+        ok.addEventListener('click', async () => {
+          if (fi.value && ff.value && ff.value < fi.value) { avisar('cr-msg', 'El día de fin debe ser después del día de inicio.', false); return; }
+          ok.disabled = true; ok.textContent = 'Guardando…';
+          try { await window.idealabCreativos.enviar({ accion: 'creativos_actualizar', fila: c.fila, codigo: c.codigo, estado: es.value, inicio: fi.value, fin: ff.value, nota: no.value.trim() }); avisar('cr-msg', c.codigo + ' guardado: ' + es.value + (fi.value && ff.value ? ' · duró ' + dur.textContent.replace(/^Duró /, '') : '') + '.', true); crEdit = null; window.idealabCreativos.recargar(); }
+          catch (e) { avisar('cr-msg', 'No se pudo guardar: ' + e.message, false); ok.disabled = false; ok.textContent = 'Guardar'; }
+        });
+        fm.append(l1, l2, l3, l4, dur, ok); bd.appendChild(fm);
+      }
+      card.appendChild(bd); grid.appendChild(card);
+    });
+  }
+  // Subida por partes (5 MB) a Drive a través del servidor
+  const CR_PARTE = 5 * 1024 * 1024;
+  const aBase64 = (blob) => new Promise((ok, mal) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1] || ''); fr.onerror = () => mal(fr.error); fr.readAsDataURL(blob); });
+  const fTam = (b) => (b >= 1048576 ? dec.format(b / 1048576) + ' MB' : num.format(Math.ceil(b / 1024)) + ' KB');
+  const subirCreativos = async (files) => {
+    const lista = [...files].filter((f) => /^(image|video)\//.test(f.type));
+    if (!lista.length) { avisar('cr-msg', 'Solo se pueden subir imágenes o videos.', false); return; }
+    if (dash.data('creativos').status === 'error') { avisar('cr-msg', 'Primero hay que instalar en el servidor el archivo servidor-idealab.gs (versión con creativos).', false); return; }
+    const cola = $('cr-cola');
+    crSubiendo = true;
+    for (const f of lista) {
+      const it = document.createElement('div'); it.className = 'cr-item';
+      const nm = document.createElement('span'); nm.className = 'cr-item-n'; nm.textContent = f.name + ' · ' + fTam(f.size);
+      const st = document.createElement('b'); st.textContent = 'Preparando…';
+      const bar = document.createElement('i'); const fill = document.createElement('u'); bar.appendChild(fill);
+      it.append(nm, st, bar); cola.prepend(it);
+      try {
+        const ini = await window.idealabCreativos.enviar({ accion: 'creativos_subir_inicio', tipo: f.type.startsWith('video') ? 'video' : 'imagen', nombre: f.name, mime: f.type, tam: f.size });
+        st.textContent = ini.codigo + ' · subiendo…';
+        let desde = 0, fin = null;
+        while (desde < f.size) {
+          const parte = f.slice(desde, Math.min(f.size, desde + CR_PARTE));
+          const datos = await aBase64(parte);
+          let r, intento = 0;
+          for (;;) { try { r = await window.idealabCreativos.enviar({ accion: 'creativos_subir_parte', token: ini.token, desde, datos }); break; } catch (e) { if (++intento >= 3) throw e; await new Promise((x) => setTimeout(x, 1500 * intento)); } }
+          desde += parte.size;
+          fill.style.width = Math.round((desde / f.size) * 100) + '%';
+          st.textContent = ini.codigo + ' · ' + Math.round((desde / f.size) * 100) + '%';
+          if (r.completo) { fin = r; break; }
+        }
+        it.classList.add('ok'); st.textContent = '✓ Guardado como ' + (fin ? fin.codigo : ini.codigo);
+      } catch (e) { it.classList.add('mal'); st.textContent = 'No se pudo subir: ' + (e.message || e); }
+      await window.idealabCreativos.recargar();
+    }
+    crSubiendo = false;
+  };
+  $('cr-file').addEventListener('change', (e) => { subirCreativos(e.target.files); e.target.value = ''; });
+  const drop = $('cr-drop');
+  ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('sobre'); }));
+  ['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove('sobre'); }));
+  drop.addEventListener('drop', (e) => { if (e.dataTransfer && e.dataTransfer.files) subirCreativos(e.dataTransfer.files); });
+  ['cr-tipo', 'cr-est'].forEach((id) => $(id).addEventListener('change', dibujarSeguro));
+  $('cr-buscar').addEventListener('input', dibujarSeguro);
+  window.addEventListener('beforeunload', (e) => { if (crSubiendo) { e.preventDefault(); e.returnValue = ''; } });
 
   // ---------- Facturas por pagar ----------
   let fFiltro = 'pend', fPagando = null;
@@ -2976,7 +3227,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   })();
   dash.onData(dibujar);
   const ini = (location.hash || '').slice(1);
-  mostrar(['inicio', 'resumen', 'campanas', 'graficas', 'paginas', 'contabilidad', 'config'].includes(ini) ? ini : 'inicio');
+  window.idealabIrA = mostrar;
+  mostrar(['inicio', 'resumen', 'campanas', 'graficas', 'paginas', 'creativos', 'contabilidad', 'config'].includes(ini) ? ini : 'inicio');
 })();
 </script>
 
