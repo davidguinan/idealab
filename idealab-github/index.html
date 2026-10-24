@@ -34,7 +34,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 <div id="ag-login" hidden><div class="box">
   <img src="logo-3d.png" alt="IdeaLab">
   <h1>Rentabilidad Meta Ads</h1>
-  <label>Usuario <span style="opacity:.6">(solo para la cuenta de creativos; los socios lo dejan vacío)</span><input id="lg-usuario" autocomplete="username" autocapitalize="none" spellcheck="false"></label>
+  <label>Usuario <span style="opacity:.6">(solo para trabajadoras de creativos; los socios lo dejan vacío)</span><input id="lg-usuario" autocomplete="username" autocapitalize="none" spellcheck="false"></label>
   <label>Clave de la app<input id="lg-clave" type="password" autofocus autocomplete="current-password"></label>
   <button type="button" id="lg-entrar">Entrar</button>
   <p id="lg-msg"></p>
@@ -47,7 +47,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
   const cfg = () => ({ url: SERVIDOR, clave: LS.get('idealab_clave'), usuario: LS.get('idealab_usuario') || '' });
   // Rol de la sesión: 'socios' (todo) o 'creativos' (solo el área de creativos)
   const rolActual = () => (LS.get('idealab_rol') === 'creativos' ? 'creativos' : 'socios');
-  const aplicarRol = (rol) => { document.documentElement.dataset.rol = rol; window.idealabRol = rol; };
+  const aplicarRol = (rol) => { document.documentElement.dataset.rol = rol; window.idealabRol = rol; const pon = () => { const el = document.getElementById('ses-cr-n'); if (el) el.textContent = LS.get('idealab_nombre') || 'Creativos'; }; if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', pon); else pon(); };
   aplicarRol(rolActual());
 
   const loaders = {}, calcs = {}, estado = {}, oyentes = [];
@@ -235,13 +235,13 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
         const j = await pedir({ accion: 'ping' });
         const rol = j && j.rol === 'creativos' ? 'creativos' : 'socios';
         if (usuario && rol !== 'creativos') throw new Error('Clave incorrecta');
-        LS.set('idealab_rol', rol); aplicarRol(rol);
+        LS.set('idealab_rol', rol); if (rol === 'creativos' && j.nombre) LS.set('idealab_nombre', j.nombre); else LS.del('idealab_nombre'); aplicarRol(rol);
         document.getElementById('ag-login').hidden = true;
         if (rol === 'creativos') { if (window.idealabIrA) window.idealabIrA('creativos'); cargarCreativos(); } else cargar();
       }
       catch (e) { document.getElementById('lg-msg').textContent = /Clave/.test(e.message) ? 'La clave no es correcta.' : 'No se pudo conectar: ' + e.message; }
     });
-    document.getElementById('ag-salir').addEventListener('click', () => { ['idealab_clave', 'idealab_usuario', 'idealab_rol'].forEach((k) => LS.del(k)); location.reload(); });
+    document.getElementById('ag-salir').addEventListener('click', () => { ['idealab_clave', 'idealab_usuario', 'idealab_rol', 'idealab_nombre'].forEach((k) => LS.del(k)); location.reload(); });
     if (cfg().url && cfg().clave) { if (rolActual() === 'creativos') cargarCreativos(); else cargar(); } else mostrarLogin('');
   });
 })();
@@ -461,6 +461,8 @@ tr.cd-vacio td { opacity: .45; }
 .g-pc { color: var(--ag-muted); }
 .g-v { text-align: right; font-variant-numeric: tabular-nums; color: var(--ag-gold); }
 .g-pie { font-size: 12px; text-align: right; }
+.w-op { opacity: .65; }
+.cr-quien { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; font-size: 12.5px; color: var(--ag-muted); }
 .cr-next { display: flex; gap: 10px; }
 .cr-next div { display: grid; gap: 2px; padding: 8px 14px; border-radius: 12px; background: rgba(245,184,0,.07); border: 1px solid rgba(245,184,0,.25); }
 .cr-next span { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ag-muted); }
@@ -568,7 +570,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       <button type="button" data-v="contabilidad"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"/></svg>Contabilidad</button>
       <button type="button" data-v="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Configuración</button>
     </nav>
-    <div class="ag-session">Sesión<br><span class="ses-socios"><b>Socios</b> · acceso total</span><span class="ses-cr"><b>Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button></div>
+    <div class="ag-session">Sesión<br><span class="ses-socios"><b>Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button></div>
   </aside>
 
   <main class="ag-main">
@@ -712,11 +714,12 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
           <b>Arrastra aquí las imágenes y los videos</b><span>o toca para elegirlos · puedes subir varios a la vez</span>
         </label>
+        <div class="cr-quien" id="cr-quien">Quién sube: <span class="ag-chips" id="cr-quien-b"><button type="button" class="ag-btn" data-q="Anthony Guiñan">Anthony Guiñan</button><button type="button" class="ag-btn" data-q="Alejandra Acosta">Alejandra Acosta</button></span></div>
         <div class="cr-cola" id="cr-cola"></div>
       </div>
       <div class="ag-card" style="margin-top:14px">
         <div class="ag-top"><div><h2>Biblioteca</h2><p class="ag-note" id="cr-nota">Toca «Editar» para poner el estado y las fechas de cada creativo.</p></div>
-          <div class="ag-chips"><select class="ag-sel" id="cr-tipo" aria-label="Tipo"><option value="">Imágenes y videos</option><option value="Imagen">Solo imágenes</option><option value="Video">Solo videos</option></select><select class="ag-sel" id="cr-est" aria-label="Estado"><option value="">Todos los estados</option></select><input class="ag-in" id="cr-buscar" placeholder="Buscar IMG12, VD3…" aria-label="Buscar"></div></div>
+          <div class="ag-chips"><select class="ag-sel" id="cr-tipo" aria-label="Tipo"><option value="">Imágenes y videos</option><option value="Imagen">Solo imágenes</option><option value="Video">Solo videos</option></select><select class="ag-sel" id="cr-est" aria-label="Estado"><option value="">Todos los estados</option></select><select class="ag-sel" id="cr-por" aria-label="Subido por"><option value="">Todas las personas</option></select><input class="ag-in" id="cr-buscar" placeholder="Buscar IMG12, VD3…" aria-label="Buscar"></div></div>
         <div class="cr-res" id="cr-res"></div>
         <div class="cr-grid" id="cr-grid" data-source="creativos"></div>
         <p class="ag-msg" id="cr-msg"></p>
@@ -855,12 +858,15 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       <div class="ag-card" style="margin-top:14px">
         <h2>Trabajadores</h2>
         <p class="ag-note" id="trab-nota">Cada trabajador cobra su % de la utilidad del periodo. La nómina total es la suma de esos %.</p>
+        <p class="ag-note">Si le pones <b>usuario y clave para Creativos</b>, esa persona puede entrar a la app y solo verá el área de Creativos; lo que suba queda a su nombre. Para quitarle el acceso, edítala y borra el usuario.</p>
         <div class="ag-scroll"><table class="ag-table" id="t-trab" data-source="config" data-row-key="parametro"></table></div>
         <p class="ag-empty" id="trab-vacio" hidden>Todavía no hay trabajadores. Mientras tanto la nómina usa el % de «Trabajadoras» de arriba.</p>
         <div class="ag-form">
           <label>Nombre<input class="ag-in" id="w-nombre" placeholder="Nombre del trabajador"></label>
           <label>% de pago (de la utilidad)<input class="ag-in" type="number" id="w-pct" min="0" max="100" step="0.5"></label>
           <label>Nota<input class="ag-in" id="w-nota" placeholder="Cargo, cuenta…"></label>
+          <label>Usuario para Creativos <span class="w-op">(opcional)</span><input class="ag-in" id="w-usuario" placeholder="ej. natalia" autocapitalize="none" spellcheck="false" autocomplete="off"></label>
+          <label>Clave para Creativos <span class="w-op" id="w-clave-op">(opcional)</span><input class="ag-in" id="w-clave" type="text" placeholder="mínimo 6 caracteres" autocomplete="off" spellcheck="false"></label>
           <button type="button" class="ag-btn pri" id="w-guardar">Agregar trabajador</button>
           <button type="button" class="ag-btn" id="w-cancelar" hidden>Cancelar edición</button>
         </div>
@@ -1110,10 +1116,10 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         if (/^equipo/i.test(a)) { seccion = 'equipo'; return; }
         if (/^trabajadores$/i.test(a)) { seccion = 'trabajador'; return; }
         if (seccion === 'equipo') filas.push({ tipo: 'equipo', parametro: 'equipo:' + a, nombre: a, valor: null, rol: String(r[1] || ''), correo: String(r[2] || ''), nota: '', fila });
-        else if (seccion === 'trabajador') filas.push({ tipo: 'trabajador', parametro: 'trab:' + a + ':' + fila, nombre: a, valor: leerValor(r[1]), rol: 'Trabajador', correo: '', nota: String(r[2] || ''), fila });
+        else if (seccion === 'trabajador') filas.push({ tipo: 'trabajador', parametro: 'trab:' + a + ':' + fila, nombre: a, valor: leerValor(r[1]), rol: 'Trabajador', correo: '', nota: String(r[2] || ''), fila, usuario_cr: String(r[3] || '').trim(), huella_cr: String(r[4] || '').trim() });
         else filas.push({ tipo: 'porcentaje', parametro: a, nombre: a, valor: leerValor(r[1]), rol: '', correo: '', nota: String(r[2] || ''), fila });
       });
-      return { columns: ['tipo', 'parametro', 'nombre', 'valor', 'rol', 'correo', 'nota', 'fila'], rows: filas };
+      return { columns: ['tipo', 'parametro', 'nombre', 'valor', 'rol', 'correo', 'nota', 'fila', 'usuario_cr', 'huella_cr'], rows: filas };
     },
   });
   dash.loader('numeros', {
@@ -2432,6 +2438,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   const CR_BASE = { IMG: 10, VD: 10 }; // ya existían hasta IMG10 y VD10
   const CR_CLASE = { 'Sin publicar': 'sp', 'En testeo': 'tt', 'Escalado': 'es', 'Murió en testeo': 'mu', 'Apagado': 'ap', 'Subiendo': 'sb' };
   let crEdit = null, crSubiendo = false;
+  const crQuien = () => { let q = null; try { q = localStorage.getItem('idealab_quien'); } catch (e) {} return q === 'Alejandra Acosta' ? q : 'Anthony Guiñan'; };
+  $('cr-quien-b').addEventListener('click', (e) => { const b = e.target.closest('[data-q]'); if (!b) return; try { localStorage.setItem('idealab_quien', b.dataset.q); } catch (x) {} dibujar(); });
   const crSiguiente = (lista, pref) => { let m = CR_BASE[pref]; lista.forEach((c) => { const x = c.codigo.match(new RegExp('^' + pref + '(\\d+)$')); if (x) m = Math.max(m, Number(x[1])); }); return pref + (m + 1); };
   const crDias = (c) => {
     const dif = (a, b) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 864e5) + 1;
@@ -2463,9 +2471,16 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       ['Murieron en testeo', num.format(todos.filter((c) => c.estado === 'Murió en testeo').length), (() => { const p = prom(fin_.filter((c) => c.estado === 'Murió en testeo')); return p ? 'duraron ' + dec.format(p).replace(/,0+$/, '') + ' días en promedio' : ''; })(), 'mu'],
       ['Sin publicar', num.format(todos.filter((c) => c.estado === 'Sin publicar').length), 'listos para usar', 'sp'],
     ].forEach(([l, v, sub, k]) => { const d = document.createElement('div'); if (k) d.className = 'cr-k-' + k; const a = document.createElement('span'); a.textContent = l; const b = document.createElement('b'); b.textContent = v; const c = document.createElement('em'); c.textContent = sub; d.append(a, b, c); res.appendChild(d); });
+    // Quién sube (los socios eligen su nombre; una trabajadora sube siempre a su nombre)
+    const esTrab = window.idealabRol === 'creativos';
+    $('cr-quien').hidden = esTrab;
+    document.querySelectorAll('#cr-quien-b [data-q]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.q === crQuien())));
+    const sp = $('cr-por'), personas = [...new Set(todos.map((c) => c.por).filter(Boolean))].sort();
+    if (sp.dataset.firma !== personas.join('|')) { const v = sp.value; sp.replaceChildren(new Option('Todas las personas', ''), ...personas.map((x) => new Option('Subido por ' + x, x))); sp.value = personas.includes(v) ? v : ''; sp.dataset.firma = personas.join('|'); }
+    const fp = sp.value;
     // Filtros
     const ft = $('cr-tipo').value, fe = se.value, fb = $('cr-buscar').value.trim().toUpperCase();
-    const lista = todos.filter((c) => (!ft || c.tipo === ft) && (!fe || c.estado === fe) && (!fb || c.codigo.includes(fb) || c.original.toUpperCase().includes(fb) || c.nota.toUpperCase().includes(fb)))
+    const lista = todos.filter((c) => (!ft || c.tipo === ft) && (!fe || c.estado === fe) && (!fp || c.por === fp) && (!fb || c.codigo.includes(fb) || c.original.toUpperCase().includes(fb) || c.nota.toUpperCase().includes(fb)))
       .sort((a, b) => (a.tipo === b.tipo ? 0 : a.tipo === 'Video' ? -1 : 1) || Number((b.codigo.match(/\d+/) || [0])[0]) - Number((a.codigo.match(/\d+/) || [0])[0]));
     lista.sort((a, b) => String(b.subido).localeCompare(String(a.subido)) || Number((b.codigo.match(/\d+/) || [0])[0]) - Number((a.codigo.match(/\d+/) || [0])[0]));
     $('cr-nota').textContent = num.format(lista.length) + (lista.length === 1 ? ' creativo' : ' creativos') + (ft || fe || fb ? ' con este filtro' : '') + '. Toca «Editar» para poner el estado, el día de inicio y el día de fin.';
@@ -2543,7 +2558,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       const bar = document.createElement('i'); const fill = document.createElement('u'); bar.appendChild(fill);
       it.append(nm, st, bar); cola.prepend(it);
       try {
-        const ini = await window.idealabCreativos.enviar({ accion: 'creativos_subir_inicio', tipo: f.type.startsWith('video') ? 'video' : 'imagen', nombre: f.name, mime: f.type, tam: f.size });
+        const ini = await window.idealabCreativos.enviar({ accion: 'creativos_subir_inicio', tipo: f.type.startsWith('video') ? 'video' : 'imagen', nombre: f.name, mime: f.type, tam: f.size, quien: window.idealabRol === 'creativos' ? '' : crQuien() });
         st.textContent = ini.codigo + ' · subiendo…';
         let desde = 0, fin = null;
         while (desde < f.size) {
@@ -2567,7 +2582,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('sobre'); }));
   ['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove('sobre'); }));
   drop.addEventListener('drop', (e) => { if (e.dataTransfer && e.dataTransfer.files) subirCreativos(e.dataTransfer.files); });
-  ['cr-tipo', 'cr-est'].forEach((id) => $(id).addEventListener('change', dibujarSeguro));
+  ['cr-tipo', 'cr-est', 'cr-por'].forEach((id) => $(id).addEventListener('change', dibujarSeguro));
   $('cr-buscar').addEventListener('input', dibujarSeguro);
   window.addEventListener('beforeunload', (e) => { if (crSubiendo) { e.preventDefault(); e.returnValue = ''; } });
 
@@ -2850,18 +2865,19 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const suma = trabs.reduce((x, r) => x + (r.valor || 0), 0);
     $('trab-vacio').hidden = trabs.length > 0;
     $('trab-nota').textContent = trabs.length ? 'Nómina total: ' + num.format(suma) + '% de la utilidad del periodo (suma de los % de cada trabajador).' : 'Cada trabajador cobra su % de la utilidad del periodo. La nómina total es la suma de esos %.';
-    tabla($('t-trab'), [['nombre', 'Trabajador'], ['valor', '% de pago', 'num'], ['nota', 'Nota'], ['acciones', '']], trabs, {
+    tabla($('t-trab'), [['nombre', 'Trabajador'], ['valor', '% de pago', 'num'], ['nota', 'Nota'], ['creativos', 'Acceso a Creativos'], ['acciones', '']], trabs, {
       key: 'parametro',
       celda: (td, c, f) => {
         if (c === 'valor') { td.textContent = f.valor === null ? '—' : num.format(f.valor) + '%'; return true; }
+        if (c === 'creativos') { const sp = document.createElement('span'); const ok = f.usuario_cr && f.huella_cr; sp.className = 'ag-pill ' + (ok ? 'r-Escalar' : 'r-Sin'); sp.textContent = ok ? 'Usuario: ' + f.usuario_cr : f.usuario_cr ? 'Falta la clave' : 'Sin acceso'; td.appendChild(sp); return true; }
         if (c !== 'acciones') return false;
         const ed = document.createElement('button'); ed.type = 'button'; ed.className = 'ag-x'; ed.textContent = 'Editar'; ed.style.marginRight = '12px';
-        ed.addEventListener('click', () => { trabEdicion = f; $('w-nombre').value = f.nombre; $('w-pct').value = f.valor ?? ''; $('w-nota').value = f.nota || ''; $('w-guardar').textContent = 'Guardar cambios'; $('w-cancelar').hidden = false; });
+        ed.addEventListener('click', () => { trabEdicion = f; $('w-nombre').value = f.nombre; $('w-pct').value = f.valor ?? ''; $('w-nota').value = f.nota || ''; $('w-usuario').value = f.usuario_cr || ''; $('w-clave').value = ''; $('w-clave-op').textContent = f.huella_cr ? '(déjala vacía para no cambiarla)' : '(opcional)'; $('w-guardar').textContent = 'Guardar cambios'; $('w-cancelar').hidden = false; });
         const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'ag-x'; bt.textContent = 'Eliminar';
         bt.addEventListener('click', async () => {
           if (bt.dataset.seguro !== '1') { bt.dataset.seguro = '1'; bt.textContent = '¿Seguro? Toca otra vez'; bt.style.color = 'var(--ag-bad)'; setTimeout(() => { bt.dataset.seguro = ''; bt.textContent = 'Eliminar'; bt.style.color = ''; }, 4000); return; }
           bt.disabled = true;
-          try { await escribir('batch_clear_values', { ranges: ['Config!A' + f.fila + ':C' + f.fila] }); avisar('w-msg', f.nombre + ' eliminado.', true); dash.refresh('config'); }
+          try { await escribir('batch_clear_values', { ranges: ['Config!A' + f.fila + ':E' + f.fila] }); avisar('w-msg', f.nombre + ' eliminado.', true); dash.refresh('config'); }
           catch (e) { avisar('w-msg', textoError(e), false); bt.disabled = false; }
         });
         td.append(ed, bt); return true;
@@ -3002,7 +3018,12 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 
   // Trabajadores
   let trabEdicion = null;
-  const limpiarTrab = () => { trabEdicion = null; ['w-nombre', 'w-pct', 'w-nota'].forEach((id) => { $(id).value = ''; }); $('w-guardar').textContent = 'Agregar trabajador'; $('w-cancelar').hidden = true; };
+  const huellaClave = async (clave) => { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('idealab|' + clave)); return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join(''); };
+  const usuarioDe = (n) => sinTilde(n).split(/\s+/)[0].replace(/[^a-z0-9._-]/g, '');
+  $('w-nombre').addEventListener('input', () => { const u = $('w-usuario'); if (!trabEdicion && (!u.value || u.dataset.auto === '1') && $('w-clave').value) { u.value = usuarioDe($('w-nombre').value); u.dataset.auto = '1'; } });
+  $('w-usuario').addEventListener('input', () => { $('w-usuario').dataset.auto = ''; });
+  $('w-clave').addEventListener('input', () => { const u = $('w-usuario'); if (!u.value && $('w-nombre').value) { u.value = usuarioDe($('w-nombre').value); u.dataset.auto = '1'; } });
+  const limpiarTrab = () => { trabEdicion = null; ['w-nombre', 'w-pct', 'w-nota', 'w-usuario', 'w-clave'].forEach((id) => { $(id).value = ''; }); $('w-clave-op').textContent = '(opcional)'; $('w-guardar').textContent = 'Agregar trabajador'; $('w-cancelar').hidden = true; };
   $('w-cancelar').addEventListener('click', limpiarTrab);
   $('w-guardar').addEventListener('click', async (ev) => {
     const nombre = $('w-nombre').value.trim(), pctW = Number($('w-pct').value);
@@ -3012,12 +3033,18 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const otros = C.status === 'ok' ? C.data.filter((r) => r.tipo === 'trabajador' && (!trabEdicion || r.fila !== trabEdicion.fila)) : [];
     const emp = C.status === 'ok' ? (C.data.find((r) => r.tipo === 'porcentaje' && /empresa/i.test(r.parametro)) || {}).valor || 0 : 0;
     if (otros.reduce((x, r) => x + (r.valor || 0), 0) + pctW + emp >= 100) { avisar('w-msg', 'Con este % la nómina + empresa llegaría a 100% o más de la utilidad.', false); return; }
+    const usuario = $('w-usuario').value.trim().toLowerCase(), clave = $('w-clave').value;
+    if (usuario && !/^[a-z0-9._-]{3,30}$/.test(usuario)) { avisar('w-msg', 'El usuario debe tener de 3 a 30 letras o números, sin espacios ni tildes.', false); return; }
+    if (clave && clave.length < 6) { avisar('w-msg', 'La clave para Creativos debe tener al menos 6 caracteres.', false); return; }
+    if (usuario && !clave && !(trabEdicion && trabEdicion.huella_cr)) { avisar('w-msg', 'Ponle una clave para que pueda entrar a Creativos.', false); return; }
+    if (usuario && otros.some((r) => (r.usuario_cr || '').toLowerCase() === usuario)) { avisar('w-msg', 'Ese usuario ya lo tiene otra persona.', false); return; }
     ocupado(ev.target, true); avisar('w-msg', 'Guardando…', true);
     try {
-      const fila = [nombre, pctW, $('w-nota').value.trim()];
-      if (trabEdicion) await escribir('update_values', { range: 'Config!A' + trabEdicion.fila + ':C' + trabEdicion.fila, values: [fila] });
-      else await escribir('append_values', { range: 'Config!A12:C12', values: [fila] });
-      avisar('w-msg', (trabEdicion ? 'Cambios guardados: ' : 'Trabajador agregado: ') + nombre + ' · ' + num.format(pctW) + '%.', true);
+      const huella = !usuario ? '' : clave ? await huellaClave(clave) : trabEdicion ? trabEdicion.huella_cr : '';
+      const fila = [nombre, pctW, $('w-nota').value.trim(), usuario, huella];
+      if (trabEdicion) await escribir('update_values', { range: 'Config!A' + trabEdicion.fila + ':E' + trabEdicion.fila, values: [fila] });
+      else await escribir('append_values', { range: 'Config!A12:E12', values: [fila] });
+      avisar('w-msg', (trabEdicion ? 'Cambios guardados: ' : 'Trabajador agregado: ') + nombre + ' · ' + num.format(pctW) + '%' + (usuario ? ' · entra a Creativos con el usuario «' + usuario + '»' + (clave ? ' y la clave que pusiste.' : '.') : '.'), true);
       limpiarTrab();
       dash.refresh('config');
     } catch (e) { avisar('w-msg', textoError(e), false); }

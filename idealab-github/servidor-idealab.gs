@@ -31,9 +31,12 @@
  *
  *     (cambia "body" por el nombre que tenga ahí el objeto que llega en el POST, por ejemplo datos o req)
  *
- *  5. Arriba, en la lista de funciones, elige "idealabConfigurarCreativos", cambia antes el usuario y la
- *     clave que están dentro de esa función, y pulsa Ejecutar. Acepta los permisos que pide Google
- *     (Drive para guardar los archivos y conexión externa para subirlos).
+ *  5. Arriba, en la lista de funciones, elige "idealabConfigurarCreativos" y pulsa Ejecutar. Acepta los
+ *     permisos que pide Google (Drive para guardar los archivos y conexión externa para subirlos).
+ *     Eso crea la carpeta "IdeaLab · Creativos" en el Drive de la cuenta dueña de este proyecto.
+ *
+ *     Las trabajadoras NO se configuran aquí: se agregan en la app, en Configuración → Trabajadores,
+ *     con su usuario y su clave para Creativos. Apenas las guardas, ya pueden entrar.
  *
  *  6. Revisa idealabTokenMeta(): debe devolver el MISMO token de Meta que ya usa tu servidor.
  *
@@ -50,15 +53,30 @@ var IDEALAB_CARPETA_CREATIVOS = 'IdeaLab · Creativos';
 var IDEALAB_BASE_CONSECUTIVO = { IMG: 10, VD: 10 };
 var IDEALAB_COLS_CREATIVOS = ['Código', 'Tipo', 'Archivo original', 'Enlace', 'ID archivo', 'Subido', 'Subido por', 'Estado', 'Inicio', 'Fin', 'Días', 'Nota'];
 
-/** Ejecútala UNA vez desde el editor (después de cambiar el usuario y la clave). */
+/** Ejecútala UNA vez desde el editor para dar los permisos y crear la pestaña y la carpeta. */
 function idealabConfigurarCreativos() {
-  var props = PropertiesService.getScriptProperties();
-  props.setProperty('USUARIO_CREATIVOS', 'creativos');      // ← usuario para la chica de creativos
-  props.setProperty('CLAVE_CREATIVOS', 'CAMBIA-ESTA-CLAVE'); // ← su clave (no uses la de los socios)
-  props.setProperty('NOMBRE_CREATIVOS', 'Creativos');       // ← cómo aparece en "Subido por"
   idealabHojaCreativos();
-  idealabCarpetaCreativos();
-  Logger.log('Listo: usuario y clave de creativos guardados, pestaña y carpeta creadas.');
+  var c = idealabCarpetaCreativos();
+  Logger.log('Listo. Carpeta de creativos: ' + c.getUrl());
+}
+
+/** Huella de la clave (la app guarda solo esto en Config, nunca la clave). */
+function idealabHuella(clave) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, 'idealab|' + String(clave), Utilities.Charset.UTF_8)
+    .map(function (b) { return ('0' + (b & 255).toString(16)).slice(-2); }).join('');
+}
+
+/** Busca la trabajadora en Config → Trabajadores (A: nombre, D: usuario, E: huella de la clave). */
+function idealabTrabajadora(usuario, clave) {
+  var v = SpreadsheetApp.openById(IDEALAB_HOJA).getSheetByName('Config').getDataRange().getDisplayValues();
+  var enTrab = false, u = String(usuario || '').trim().toLowerCase(), h = idealabHuella(clave);
+  for (var i = 0; i < v.length; i++) {
+    var a = String(v[i][0] || '').trim();
+    if (/^trabajadores$/i.test(a)) { enTrab = true; continue; }
+    if (!enTrab || !a) continue;
+    if (String(v[i][3] || '').trim().toLowerCase() === u && String(v[i][4] || '').trim() && String(v[i][4]).trim() === h) return a;
+  }
+  return null;
 }
 
 function idealabJson(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
@@ -69,18 +87,16 @@ function idealabCuerpo(e) {
 }
 
 /**
- * Va al inicio de doGet y doPost. Atiende solo a quien entra con usuario (la cuenta de creativos);
+ * Va al inicio de doGet y doPost. Atiende solo a quien entra con usuario (una trabajadora de creativos);
  * a los socios (que entran solo con clave) los deja pasar a tu código de siempre devolviendo null.
  */
 function idealabEntradaCreativos(e) {
   var body = idealabCuerpo(e);
   if (!body || !body.usuario) return null;
-  var props = PropertiesService.getScriptProperties();
-  var u = String(props.getProperty('USUARIO_CREATIVOS') || '').trim().toLowerCase();
-  var c = String(props.getProperty('CLAVE_CREATIVOS') || '');
-  if (!u || !c || String(body.usuario).trim().toLowerCase() !== u || String(body.clave || '') !== c) return idealabJson({ ok: false, error: 'Clave incorrecta' });
-  if (body.accion === 'ping') return idealabJson({ ok: true, rol: 'creativos', nombre: props.getProperty('NOMBRE_CREATIVOS') || 'Creativos' });
-  if (String(body.accion || '').indexOf('creativos_') === 0) return idealabCreativosRespuesta(body, 'creativos');
+  var nombre = idealabTrabajadora(body.usuario, body.clave);
+  if (!nombre) return idealabJson({ ok: false, error: 'Clave incorrecta' });
+  if (body.accion === 'ping') return idealabJson({ ok: true, rol: 'creativos', nombre: nombre });
+  if (String(body.accion || '').indexOf('creativos_') === 0) { body.quien = nombre; return idealabCreativosRespuesta(body, 'creativos'); }
   return idealabJson({ ok: false, error: 'Sin permiso: esta cuenta solo abre Creativos' });
 }
 
@@ -112,8 +128,8 @@ function idealabCreativosRespuesta(body, rol) {
 
 function idealabCreativos(body, rol) {
   var h = idealabHojaCreativos();
-  var props = PropertiesService.getScriptProperties();
-  var quien = rol === 'creativos' ? (props.getProperty('NOMBRE_CREATIVOS') || 'Creativos') : (body.quien || 'Socios');
+  // Quién sube: la trabajadora que entró, o el socio que eligieron en la app
+  var quien = String(body.quien || '').trim() || (rol === 'creativos' ? 'Trabajadora' : 'Socios');
   var cache = CacheService.getScriptCache();
 
   if (body.accion === 'creativos_leer') return { ok: true, rol: rol, values: h.getDataRange().getDisplayValues() };
