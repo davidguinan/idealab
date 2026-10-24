@@ -143,10 +143,14 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
   };
 
   // ---- creativos (pestaña Creativos, por el servidor)
-  const leerCreativos = (vals) => vals.slice(1).map((r, i) => ({ fila: i + 2, codigo: String(r[0] || '').trim().toUpperCase(), tipo: /video/i.test(String(r[1] || '')) || /^VD/i.test(String(r[0] || '')) ? 'Video' : 'Imagen', original: String(r[2] || ''), enlace: String(r[3] || ''), id: String(r[4] || '').trim(), subido: leerFecha(r[5]) || String(r[5] || ''), por: String(r[6] || ''), estado: String(r[7] || '').trim() || 'Sin publicar', inicio: leerFecha(r[8]) || '', fin: leerFecha(r[9]) || '', nota: String(r[11] || '') })).filter((r) => r.codigo);
+  const leerCreativos = (vals, pvals) => {
+    const porCod = {};
+    (pvals || []).slice(1).forEach((r) => { const cod = String(r[1] || '').trim().toUpperCase(); if (!cod || !r[2] || !leerFecha(r[3])) return; (porCod[cod] = porCod[cod] || []).push({ id: String(r[0] || ''), pais: String(r[2] || '').trim(), inicio: leerFecha(r[3]), escala: leerFecha(r[4]) || '', fin: leerFecha(r[5]) || '', nota: String(r[7] || ''), actualizado: String(r[8] || ''), por: String(r[9] || ''), bitacora: String(r[10] || '').split('\n').map((x) => x.trim()).filter(Boolean) }); });
+    return vals.slice(1).map((r, i) => ({ fila: i + 2, codigo: String(r[0] || '').trim().toUpperCase(), tipo: /video/i.test(String(r[1] || '')) || /^VD/i.test(String(r[0] || '')) ? 'Video' : 'Imagen', original: String(r[2] || ''), enlace: String(r[3] || ''), id: String(r[4] || '').trim(), subido: leerFecha(r[5]) || String(r[5] || ''), por: String(r[6] || ''), estadoHoja: String(r[7] || '').trim() || 'Sin publicar', nota: String(r[11] || '') })).filter((r) => r.codigo).map((c) => ({ ...c, paises: porCod[c.codigo] || [] }));
+  };
   const cargarCreativos = async () => {
     if (!estado.creativos || estado.creativos.status !== 'ok') fijar('creativos', { status: 'loading', data: [] }); avisar();
-    try { const r = await enviar({ accion: 'creativos_leer' }); const vals = buscarValues(r); if (!vals) throw new Error('sin_servidor'); fijar('creativos', { status: 'ok', data: leerCreativos(vals) }); if (rolActual() === 'creativos') document.getElementById('ag-actualizado').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }); }
+    try { const r = await enviar({ accion: 'creativos_leer' }); const vals = r && Array.isArray(r.values) ? r.values : null; if (!vals) throw new Error('sin_servidor'); window.idealabCrMeta = { consecutivos: r.consecutivos || null, lista_paises: r.lista_paises || [] }; fijar('creativos', { status: 'ok', data: leerCreativos(vals, r.paises) }); if (rolActual() === 'creativos') document.getElementById('ag-actualizado').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }); }
     catch (e) { fijar('creativos', { status: 'error', data: [], message: /desconocid|unknown|no v[aá]lid|sin_servidor|Clave/i.test(String(e.message)) || e instanceof SyntaxError ? 'sin_servidor' : String(e.message || e) }); }
     avisar();
   };
@@ -476,6 +480,7 @@ tr.cd-vacio td { opacity: .45; }
 .cr-next div { display: grid; gap: 2px; padding: 8px 14px; border-radius: 12px; background: rgba(245,184,0,.07); border: 1px solid rgba(245,184,0,.25); }
 .cr-next span { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ag-muted); }
 .cr-next b { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: 22px; color: var(--ag-gold); }
+.cr-next em { font-style: normal; font-size: 11.5px; color: var(--ag-muted); }
 .cr-drop { display: grid; justify-items: center; gap: 6px; margin-top: 12px; padding: 26px 16px; border: 1.5px dashed rgba(245,184,0,.45); border-radius: 14px; background: rgba(245,184,0,.03); cursor: pointer; text-align: center; transition: background .2s, border-color .2s; }
 .cr-drop:hover, .cr-drop.sobre { background: rgba(245,184,0,.09); border-color: var(--ag-gold); }
 .cr-drop svg { width: 30px; height: 30px; fill: none; stroke: var(--ag-gold); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -496,7 +501,34 @@ tr.cd-vacio td { opacity: .45; }
 .cr-res em { font-style: normal; font-size: 11.5px; color: var(--ag-muted); }
 .cr-k-es b { color: #2DD4BF; } .cr-k-tt b { color: var(--ag-gold); } .cr-k-mu b { color: var(--ag-bad); }
 .cr-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); }
-.cr-card { border: 1px solid rgba(255,255,255,.08); border-radius: 14px; overflow: hidden; background: rgba(0,0,0,.18); display: grid; grid-template-rows: auto 1fr; }
+.cr-card { border: 1px solid rgba(255,255,255,.08); border-radius: 14px; overflow: hidden; background: rgba(0,0,0,.18); display: grid; grid-template-rows: auto 1fr; min-width: 0; }
+.cr-card * { min-width: 0; }
+.cr-th.play { aspect-ratio: 9 / 16; background: #000; }
+.cr-th iframe { width: 100%; height: 100%; border: 0; display: block; }
+.cr-ic.vid { left: 50%; top: 45%; right: auto; transform: translate(-50%, -50%); width: 56px; height: 56px; font-size: 20px; color: var(--ag-gold); background: rgba(10,17,32,.7); box-shadow: 0 0 0 2px rgba(245,184,0,.45); }
+.cr-th.click:hover .cr-ic.vid { background: rgba(245,184,0,.9); color: #1A1300; }
+.cr-paises { display: grid; gap: 8px; }
+.cr-p { display: grid; gap: 4px; padding: 9px 10px; border-radius: 10px; background: rgba(255,255,255,.03); border-left: 3px solid rgba(255,255,255,.2); }
+.cr-p.tt { border-left-color: #FBBF24; } .cr-p.es { border-left-color: #2DD4BF; } .cr-p.mu { border-left-color: #FB7185; } .cr-p.ap { border-left-color: #8D9AB3; }
+.cr-p-t { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.cr-p-t b { font-size: 13.5px; }
+.cr-p-e { font-size: 11.5px; color: var(--ag-muted); }
+.cr-p.tt .cr-p-e { color: #FBBF24; } .cr-p.es .cr-p-e { color: #2DD4BF; } .cr-p.mu .cr-p-e { color: #FB7185; }
+.cr-p-d { font-size: 12px; line-height: 1.45; font-variant-numeric: tabular-nums; }
+.cr-p-n { font-size: 11.5px; color: var(--ag-muted); }
+.cr-p-a { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.cr-p-a .ag-x { font-size: 11.5px; }
+.cr-hist { margin: 2px 0 0; padding: 6px 0 0 16px; border-top: 1px dashed rgba(255,255,255,.1); font-size: 11.5px; color: var(--ag-muted); display: grid; gap: 3px; }
+.cr-nota-ed { display: flex; gap: 6px; } .cr-nota-ed .ag-in { flex: 1; }
+.cr-rep { cursor: pointer; }
+.cr-form-b { grid-column: 1 / -1; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.cr-visor { position: fixed; inset: 0; z-index: 200; background: rgba(5,9,18,.92); display: grid; place-items: center; padding: 56px 16px 16px; }
+.cr-visor[hidden] { display: none; }
+.cr-visor-c { width: min(100%, 980px); height: min(100%, 86vh); display: grid; place-items: center; }
+.cr-visor-c img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 10px; }
+.cr-visor-c iframe { width: 100%; height: 100%; border: 0; border-radius: 10px; background: #000; }
+.cr-visor-x { position: absolute; top: 12px; right: 16px; width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.06); color: #fff; font-size: 16px; cursor: pointer; }
+.cr-visor-t { position: absolute; top: 18px; left: 20px; color: var(--ag-gold); font-family: var(--font-anthropic-serif); font-weight: 400; font-size: 22px; }
 .cr-th { position: relative; aspect-ratio: 4 / 5; background: radial-gradient(circle at 50% 40%, rgba(245,184,0,.12), rgba(0,0,0,.35)); overflow: hidden; }
 .cr-th.click { cursor: pointer; }
 .cr-th img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .35s; }
@@ -519,9 +551,10 @@ tr.cd-vacio td { opacity: .45; }
 .cr-acc { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .cr-acc .ag-btn { padding: 6px 12px; font-size: 12.5px; }
 .cr-acc a.ag-x { text-decoration: none; }
-.cr-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; border-radius: 10px; background: rgba(245,184,0,.05); border: 1px dashed rgba(245,184,0,.3); }
+.cr-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; padding: 10px; border-radius: 10px; background: rgba(245,184,0,.05); border: 1px dashed rgba(245,184,0,.3); }
 .cr-form label { display: grid; gap: 4px; font-size: 11px; color: var(--ag-muted); }
-.cr-form label:first-child, .cr-form .ancho, .cr-form .cr-dur, .cr-form .ag-btn { grid-column: 1 / -1; }
+.cr-form label:first-child, .cr-form .ancho, .cr-form .cr-dur { grid-column: 1 / -1; }
+.cr-form label .ag-in + .ag-in, .cr-form label .ag-sel + .ag-in { margin-top: 6px; }
 .cr-form .ag-in, .cr-form .ag-sel { width: 100%; }
 .cr-dur { margin: 0; font-size: 12.5px; color: var(--ag-gold); }
 /* Cuenta de creativos: solo ve este apartado */
@@ -729,7 +762,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       </div>
       <div class="ag-card" style="margin-top:14px">
         <div class="ag-top"><div><h2>Biblioteca</h2><p class="ag-note" id="cr-nota">Toca «Editar» para poner el estado y las fechas de cada creativo.</p></div>
-          <div class="ag-chips"><select class="ag-sel" id="cr-tipo" aria-label="Tipo"><option value="">Imágenes y videos</option><option value="Imagen">Solo imágenes</option><option value="Video">Solo videos</option></select><select class="ag-sel" id="cr-est" aria-label="Estado"><option value="">Todos los estados</option></select><select class="ag-sel" id="cr-por" aria-label="Subido por"><option value="">Todas las personas</option></select><input class="ag-in" id="cr-buscar" placeholder="Buscar IMG12, VD3…" aria-label="Buscar"></div></div>
+          <div class="ag-chips"><select class="ag-sel" id="cr-tipo" aria-label="Tipo"><option value="">Imágenes y videos</option><option value="Imagen">Solo imágenes</option><option value="Video">Solo videos</option></select><select class="ag-sel" id="cr-est" aria-label="Estado"><option value="">Todos los estados</option></select><select class="ag-sel" id="cr-pais" aria-label="País"><option value="">Todos los países</option></select><select class="ag-sel" id="cr-por" aria-label="Subido por"><option value="">Todas las personas</option></select><input class="ag-in" id="cr-buscar" placeholder="Buscar IMG12, VD3…" aria-label="Buscar"></div></div>
         <div class="cr-res" id="cr-res"></div>
         <div class="cr-grid" id="cr-grid" data-source="creativos"></div>
         <p class="ag-msg" id="cr-msg"></p>
@@ -2446,132 +2479,237 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   };
 
   // ---------- Creativos ----------
-  const CR_ESTADOS = ['Sin publicar', 'En testeo', 'Escalado', 'Murió en testeo', 'Apagado'];
-  const CR_BASE = { IMG: 10, VD: 10 }; // ya existían hasta IMG10 y VD10
-  const CR_CLASE = { 'Sin publicar': 'sp', 'En testeo': 'tt', 'Escalado': 'es', 'Murió en testeo': 'mu', 'Apagado': 'ap', 'Subiendo': 'sb' };
-  let crEdit = null, crSubiendo = false;
+  const CR_ESTADOS = ['Sin publicar', 'En testeo', 'Escalado', 'Apagado', 'Murió en testeo'];
+  const CR_CLASE = { 'Sin publicar': 'sp', 'En testeo': 'tt', 'Escalado': 'es', 'Murió en testeo': 'mu', 'Apagado': 'ap', 'Escaló y se apagó': 'ap', 'Subiendo': 'sb' };
+  let crSubiendo = false, crPaisForm = null, crNotaEd = null, crHist = {}, crPlay = null;
   const crQuien = () => { let q = null; try { q = localStorage.getItem('idealab_quien'); } catch (e) {} return q === 'Alejandra Acosta' ? q : 'Anthony Guiñan'; };
   $('cr-quien-b').addEventListener('click', (e) => { const b = e.target.closest('[data-q]'); if (!b) return; try { localStorage.setItem('idealab_quien', b.dataset.q); } catch (x) {} dibujar(); });
-  const crSiguiente = (lista, pref) => { let m = CR_BASE[pref]; lista.forEach((c) => { const x = c.codigo.match(new RegExp('^' + pref + '(\\d+)$')); if (x) m = Math.max(m, Number(x[1])); }); return pref + (m + 1); };
-  const crDias = (c) => {
-    const dif = (a, b) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 864e5) + 1;
-    if (c.inicio && c.fin) return { n: dif(c.inicio, c.fin), txt: 'Duró ' };
-    if (c.inicio && (c.estado === 'En testeo' || c.estado === 'Escalado')) return { n: dif(c.inicio, HOY), txt: 'Lleva ' };
-    return null;
+  const crDif = (a, b) => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 864e5);
+  // Días en testeo y en escala de un país: testeo va del inicio al día antes de escalar; escala, del día que escaló al fin (o hoy)
+  const crDiasPais = (p) => {
+    const finT = p.escala || (p.fin ? null : null);
+    const test = p.escala ? crDif(p.inicio, p.escala) : crDif(p.inicio, p.fin || HOY) + 1;
+    const esc = p.escala ? crDif(p.escala, p.fin || HOY) + 1 : 0;
+    return { test: Math.max(0, test), esc: Math.max(0, esc), total: crDif(p.inicio, p.fin || HOY) + 1, activo: !p.fin, finT };
   };
-  const crMiniatura = (c) => (c.id ? 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(c.id) + '&sz=w600' : '');
+  const crResultado = (p) => (p.fin ? (p.escala ? 'Escaló y se apagó' : 'Murió en testeo') : p.escala ? 'Escalado' : 'En testeo');
+  const crEstado = (c) => {
+    const ps = c.paises || [];
+    if (!ps.length) return c.estadoHoja === 'Subiendo' && !c.enlace ? 'Subiendo' : 'Sin publicar';
+    if (ps.some((p) => p.escala && !p.fin)) return 'Escalado';
+    if (ps.some((p) => !p.escala && !p.fin)) return 'En testeo';
+    return ps.some((p) => p.escala) ? 'Apagado' : 'Murió en testeo';
+  };
+  const nDias = (n) => num.format(n) + (n === 1 ? ' día' : ' días');
+  const crMiniatura = (c) => (c.id ? 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(c.id) + '&sz=w800' : '');
+  // Visor grande para imágenes (y videos a pantalla completa)
+  const crVisor = (() => {
+    const v = document.createElement('div'); v.className = 'cr-visor'; v.hidden = true;
+    const cerrar = document.createElement('button'); cerrar.type = 'button'; cerrar.className = 'cr-visor-x'; cerrar.textContent = '✕'; cerrar.setAttribute('aria-label', 'Cerrar');
+    const cont = document.createElement('div'); cont.className = 'cr-visor-c';
+    const tit = document.createElement('b'); tit.className = 'cr-visor-t';
+    v.append(cerrar, tit, cont); document.body.appendChild(v);
+    const ocultar = () => { v.hidden = true; cont.replaceChildren(); };
+    cerrar.addEventListener('click', ocultar); v.addEventListener('click', (e) => { if (e.target === v) ocultar(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !v.hidden) ocultar(); });
+    return (c) => {
+      cont.replaceChildren(); tit.textContent = c.codigo;
+      if (c.tipo === 'Video') { const f = document.createElement('iframe'); f.src = 'https://drive.google.com/file/d/' + encodeURIComponent(c.id) + '/preview'; f.allow = 'autoplay; fullscreen'; f.allowFullscreen = true; cont.appendChild(f); }
+      else { const im = document.createElement('img'); im.alt = c.codigo; im.referrerPolicy = 'no-referrer'; im.src = 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(c.id) + '&sz=w2000'; cont.appendChild(im); }
+      v.hidden = false;
+    };
+  })();
+  const crGuardarPais = async (c, p, cambios, msg) => {
+    const d = { ...p, ...cambios };
+    await window.idealabCreativos.enviar({ accion: 'creativos_pais_guardar', id: p.id || '', codigo: c.codigo, pais: d.pais, inicio: d.inicio, escala: d.escala || '', fin: d.fin || '', nota: d.nota || '' });
+    avisar('cr-msg', msg || c.codigo + ' · ' + d.pais + ' guardado.', true);
+    await window.idealabCreativos.recargar();
+  };
+  function formPais(c, p, cont) {
+    const lista = (window.idealabCrMeta && window.idealabCrMeta.lista_paises) || [];
+    const fm = document.createElement('div'); fm.className = 'cr-form';
+    const l0 = document.createElement('label'); l0.textContent = 'País'; const sp = document.createElement('select'); sp.className = 'ag-sel';
+    [...new Set([...lista, ...(p && p.pais && !lista.includes(p.pais) ? [p.pais] : [])])].forEach((x) => sp.appendChild(new Option(x, x))); sp.appendChild(new Option('Otro…', '__otro'));
+    const otro = document.createElement('input'); otro.className = 'ag-in'; otro.placeholder = 'Escribe el país'; otro.hidden = true;
+    sp.value = p ? p.pais : lista[0] || '__otro'; otro.hidden = sp.value !== '__otro';
+    sp.addEventListener('change', () => { otro.hidden = sp.value !== '__otro'; if (!otro.hidden) otro.focus(); });
+    l0.append(sp, otro);
+    const fecha = (lb, val) => { const l = document.createElement('label'); l.textContent = lb; const i = document.createElement('input'); i.type = 'date'; i.className = 'ag-in'; i.value = val || ''; i.max = HOY; l.appendChild(i); fm.appendChild(l); return i; };
+    fm.appendChild(l0);
+    const fi = fecha('Empezó el testeo', p ? p.inicio : HOY), fe = fecha('Escaló (opcional)', p && p.escala), ff = fecha('Se apagó (opcional)', p && p.fin);
+    const l4 = document.createElement('label'); l4.className = 'ancho'; l4.textContent = 'Nota'; const no = document.createElement('input'); no.className = 'ag-in'; no.placeholder = 'Campaña, cuenta, presupuesto…'; no.value = p ? p.nota : ''; l4.appendChild(no); fm.appendChild(l4);
+    const dur = document.createElement('p'); dur.className = 'cr-dur'; fm.appendChild(dur);
+    const calc = () => { if (!fi.value) { dur.textContent = ''; return; } const d = crDiasPais({ inicio: fi.value, escala: fe.value, fin: ff.value }); dur.textContent = (fe.value ? nDias(d.test) + ' en testeo · ' + nDias(d.esc) + ' en escala' : nDias(d.test) + ' en testeo') + (ff.value ? ' · ya se apagó' : ' · sigue activo'); };
+    [fi, fe, ff].forEach((x) => x.addEventListener('change', calc)); calc();
+    const bot = document.createElement('div'); bot.className = 'cr-form-b';
+    const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'ag-btn pri'; ok.textContent = p ? 'Guardar cambios' : 'Agregar país';
+    ok.addEventListener('click', async () => {
+      const pais = sp.value === '__otro' ? otro.value.trim() : sp.value;
+      if (!pais) { avisar('cr-msg', 'Elige o escribe el país.', false); return; }
+      if (!fi.value) { avisar('cr-msg', 'Pon el día en que empezó el testeo.', false); return; }
+      if (fe.value && fe.value < fi.value) { avisar('cr-msg', 'El día de escala no puede ser antes del inicio del testeo.', false); return; }
+      if (ff.value && ff.value < (fe.value || fi.value)) { avisar('cr-msg', 'El día en que se apagó no puede ser antes del inicio.', false); return; }
+      if (!p && (c.paises || []).some((x) => x.pais === pais && !x.fin)) { avisar('cr-msg', c.codigo + ' ya está activo en ' + pais + '. Edita ese registro.', false); return; }
+      ok.disabled = true; ok.textContent = 'Guardando…';
+      try { crPaisForm = null; await crGuardarPais(c, p || {}, { pais, inicio: fi.value, escala: fe.value, fin: ff.value, nota: no.value.trim() }, c.codigo + ' · ' + pais + ': ' + dur.textContent + '.'); }
+      catch (e) { avisar('cr-msg', 'No se pudo guardar: ' + e.message, false); ok.disabled = false; ok.textContent = 'Guardar'; }
+    });
+    const no2 = document.createElement('button'); no2.type = 'button'; no2.className = 'ag-x'; no2.textContent = 'Cancelar'; no2.addEventListener('click', () => { crPaisForm = null; dibujar(); });
+    bot.append(ok, no2);
+    if (p && p.id) {
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'ag-x'; del.textContent = 'Borrar este país'; del.style.marginLeft = 'auto';
+      del.addEventListener('click', async () => {
+        if (del.dataset.seguro !== '1') { del.dataset.seguro = '1'; del.textContent = '¿Seguro? Toca otra vez'; del.style.color = 'var(--ag-bad)'; setTimeout(() => { del.dataset.seguro = ''; del.textContent = 'Borrar este país'; del.style.color = ''; }, 4000); return; }
+        del.disabled = true;
+        try { await window.idealabCreativos.enviar({ accion: 'creativos_pais_borrar', id: p.id }); crPaisForm = null; avisar('cr-msg', p.pais + ' quitado de ' + c.codigo + '.', true); window.idealabCreativos.recargar(); }
+        catch (e) { avisar('cr-msg', 'No se pudo borrar: ' + e.message, false); del.disabled = false; }
+      });
+      bot.appendChild(del);
+    }
+    fm.appendChild(bot); cont.appendChild(fm);
+  }
   function dibujarCreativos() {
     const C = dash.data('creativos'), grid = $('cr-grid'), res = $('cr-res'), nx = $('cr-next');
     const se = $('cr-est'); if (se.options.length === 1) CR_ESTADOS.forEach((e) => se.appendChild(new Option(e, e)));
     if (C.status === 'error') {
       nx.replaceChildren(); res.replaceChildren(); grid.replaceChildren();
       const e = document.createElement('p'); e.className = 'ag-note f-aviso';
-      e.textContent = C.message === 'sin_servidor' ? 'Para subir y ver los creativos falta instalar en el servidor de Apps Script el archivo servidor-idealab.gs (versión con creativos).' : 'No se pudieron cargar los creativos: ' + C.message;
+      e.textContent = C.message === 'sin_servidor' ? 'Para subir y ver los creativos hay que publicar en Apps Script la versión nueva del servidor (Código.gs).' : 'No se pudieron cargar los creativos: ' + C.message;
       grid.appendChild(e); return;
     }
     if (C.status !== 'ok') { grid.replaceChildren(); const e = document.createElement('span'); e.className = 'dash-skeleton'; e.textContent = 'Cargando creativos…'; grid.appendChild(e); return; }
-    const todos = C.data;
+    const todos = C.data.map((c) => ({ ...c, estado: crEstado(c) }));
+    const meta = window.idealabCrMeta || {};
     nx.replaceChildren();
-    [['Próxima imagen', crSiguiente(todos, 'IMG')], ['Próximo video', crSiguiente(todos, 'VD')]].forEach(([l, v]) => { const d = document.createElement('div'); const a = document.createElement('span'); a.textContent = l; const b = document.createElement('b'); b.textContent = v; d.append(a, b); nx.appendChild(d); });
-    // Resumen por estado
-    res.replaceChildren();
-    const fin_ = todos.filter((c) => c.inicio && c.fin);
-    const prom = (arr) => (arr.length ? Math.round((arr.reduce((s, c) => s + crDias(c).n, 0) / arr.length) * 10) / 10 : null);
-    [['Total', num.format(todos.length), num.format(todos.filter((c) => c.tipo === 'Imagen').length) + ' imágenes · ' + num.format(todos.filter((c) => c.tipo === 'Video').length) + ' videos', ''],
-      ['Escalados', num.format(todos.filter((c) => c.estado === 'Escalado').length), (() => { const p = prom(fin_.filter((c) => c.estado === 'Escalado')); return p ? 'duran ' + dec.format(p).replace(/,0+$/, '') + ' días en promedio' : 'los que llegaron a escalar'; })(), 'es'],
-      ['En testeo', num.format(todos.filter((c) => c.estado === 'En testeo').length), 'pautando ahora', 'tt'],
-      ['Murieron en testeo', num.format(todos.filter((c) => c.estado === 'Murió en testeo').length), (() => { const p = prom(fin_.filter((c) => c.estado === 'Murió en testeo')); return p ? 'duraron ' + dec.format(p).replace(/,0+$/, '') + ' días en promedio' : ''; })(), 'mu'],
-      ['Sin publicar', num.format(todos.filter((c) => c.estado === 'Sin publicar').length), 'listos para usar', 'sp'],
-    ].forEach(([l, v, sub, k]) => { const d = document.createElement('div'); if (k) d.className = 'cr-k-' + k; const a = document.createElement('span'); a.textContent = l; const b = document.createElement('b'); b.textContent = v; const c = document.createElement('em'); c.textContent = sub; d.append(a, b, c); res.appendChild(d); });
-    // Quién sube (los socios eligen su nombre; una trabajadora sube siempre a su nombre)
-    const esTrab = window.idealabRol === 'creativos';
-    const yo = window.idealabPersona && window.idealabPersona.nombre;
+    [['Imágenes', meta.consecutivos && meta.consecutivos.IMG], ['Videos', meta.consecutivos && meta.consecutivos.VD]].forEach(([l, k]) => {
+      const d = document.createElement('div'); const a = document.createElement('span'); a.textContent = l; const b = document.createElement('b'); b.textContent = k ? 'Sigue ' + k.siguiente : '—'; const s = document.createElement('em'); s.textContent = k ? 'vamos en ' + k.actual : ''; d.append(a, b, s); nx.appendChild(d);
+    });
+    // Quién sube (los socios eligen su nombre si entraron con la clave general)
+    const esTrab = window.idealabRol === 'creativos', yo = window.idealabPersona && window.idealabPersona.nombre;
     $('cr-quien').hidden = esTrab || !!yo;
     document.querySelectorAll('#cr-quien-b [data-q]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.q === crQuien())));
+    // Resumen
+    res.replaceChildren();
+    const regs = todos.flatMap((c) => (c.paises || []).map((p) => ({ ...p, d: crDiasPais(p) })));
+    const prom = (arr, k) => (arr.length ? Math.round((arr.reduce((s, x) => s + x.d[k], 0) / arr.length) * 10) / 10 : null);
+    const pf = (n) => dec.format(n).replace(/,0+$/, '');
+    const muertos = regs.filter((p) => p.fin && !p.escala), escalados = regs.filter((p) => p.escala);
+    [['Total', num.format(todos.length), (() => { const i = todos.filter((c) => c.tipo === 'Imagen').length, v = todos.length - i; return num.format(i) + (i === 1 ? ' imagen' : ' imágenes') + ' · ' + num.format(v) + (v === 1 ? ' video' : ' videos'); })(), ''],
+      ['Escalados ahora', num.format(todos.filter((c) => c.estado === 'Escalado').length), escalados.length ? 'tardan ' + pf(prom(escalados, 'test')) + ' días en escalar · duran ' + pf(prom(escalados, 'esc')) + ' en escala' : 'aún sin escalados', 'es'],
+      ['En testeo', num.format(todos.filter((c) => c.estado === 'En testeo').length), 'pautando ahora', 'tt'],
+      ['Murieron en testeo', num.format(todos.filter((c) => c.estado === 'Murió en testeo').length), muertos.length ? 'duran ' + pf(prom(muertos, 'test')) + ' días en promedio' : '', 'mu'],
+      ['Sin publicar', num.format(todos.filter((c) => c.estado === 'Sin publicar').length), 'listos para usar', 'sp'],
+    ].forEach(([l, v, sub, k]) => { const d = document.createElement('div'); if (k) d.className = 'cr-k-' + k; const a = document.createElement('span'); a.textContent = l; const b = document.createElement('b'); b.textContent = v; const c2 = document.createElement('em'); c2.textContent = sub; d.append(a, b, c2); res.appendChild(d); });
+    // Filtros
     const sp = $('cr-por'), personas = [...new Set(todos.map((c) => c.por).filter(Boolean))].sort();
     if (sp.dataset.firma !== personas.join('|')) { const v = sp.value; sp.replaceChildren(new Option('Todas las personas', ''), ...personas.map((x) => new Option('Subido por ' + x, x))); sp.value = personas.includes(v) ? v : ''; sp.dataset.firma = personas.join('|'); }
-    const fp = sp.value;
-    // Filtros
-    const ft = $('cr-tipo').value, fe = se.value, fb = $('cr-buscar').value.trim().toUpperCase();
-    const lista = todos.filter((c) => (!ft || c.tipo === ft) && (!fe || c.estado === fe) && (!fp || c.por === fp) && (!fb || c.codigo.includes(fb) || c.original.toUpperCase().includes(fb) || c.nota.toUpperCase().includes(fb)))
-      .sort((a, b) => (a.tipo === b.tipo ? 0 : a.tipo === 'Video' ? -1 : 1) || Number((b.codigo.match(/\d+/) || [0])[0]) - Number((a.codigo.match(/\d+/) || [0])[0]));
-    lista.sort((a, b) => String(b.subido).localeCompare(String(a.subido)) || Number((b.codigo.match(/\d+/) || [0])[0]) - Number((a.codigo.match(/\d+/) || [0])[0]));
-    $('cr-nota').textContent = num.format(lista.length) + (lista.length === 1 ? ' creativo' : ' creativos') + (ft || fe || fb ? ' con este filtro' : '') + '. Toca «Editar» para poner el estado, el día de inicio y el día de fin.';
+    const spa = $('cr-pais'), paisesUs = [...new Set(regs.map((p) => p.pais))].sort();
+    if (spa.dataset.firma !== paisesUs.join('|')) { const v = spa.value; spa.replaceChildren(new Option('Todos los países', ''), ...paisesUs.map((x) => new Option(x, x))); spa.value = paisesUs.includes(v) ? v : ''; spa.dataset.firma = paisesUs.join('|'); }
+    const ft = $('cr-tipo').value, fe = se.value, fp = sp.value, fpa = spa.value, fb = $('cr-buscar').value.trim().toUpperCase();
+    const numDe = (c) => Number((c.codigo.match(/\d+/) || [0])[0]);
+    const lista = todos.filter((c) => (!ft || c.tipo === ft) && (!fe || c.estado === fe) && (!fp || c.por === fp) && (!fpa || (c.paises || []).some((p) => p.pais === fpa)) && (!fb || c.codigo.includes(fb) || c.original.toUpperCase().includes(fb) || c.nota.toUpperCase().includes(fb)))
+      .sort((a, b) => (a.tipo === b.tipo ? numDe(b) - numDe(a) : a.tipo === 'Video' ? -1 : 1));
+    $('cr-nota').textContent = num.format(lista.length) + (lista.length === 1 ? ' creativo' : ' creativos') + (ft || fe || fp || fpa || fb ? ' con este filtro' : '') + '. Toca la imagen o el video para verlo; con «+ País» registras dónde se testeó, cuándo escaló y cuándo se apagó.';
     grid.replaceChildren();
     if (!lista.length) { const e = document.createElement('p'); e.className = 'ag-empty'; e.textContent = todos.length ? 'Ningún creativo coincide con el filtro.' : 'Todavía no hay creativos: sube el primero arriba.'; grid.appendChild(e); return; }
     lista.forEach((c) => {
       const card = document.createElement('article'); card.className = 'cr-card';
+      // Imagen o video: se ve y se reproduce aquí mismo
       const th = document.createElement('div'); th.className = 'cr-th';
-      const url = crMiniatura(c);
-      if (url) { const im = document.createElement('img'); im.loading = 'lazy'; im.alt = c.codigo; im.referrerPolicy = 'no-referrer'; im.src = url; im.onerror = () => { im.remove(); th.classList.add('sin'); }; th.appendChild(im); } else th.classList.add('sin');
-      const ic = document.createElement('span'); ic.className = 'cr-ic'; ic.textContent = c.tipo === 'Video' ? '▶' : '▣'; th.appendChild(ic);
+      if (crPlay === c.codigo && c.id && c.tipo === 'Video') {
+        const f = document.createElement('iframe'); f.src = 'https://drive.google.com/file/d/' + encodeURIComponent(c.id) + '/preview'; f.allow = 'autoplay; fullscreen'; f.allowFullscreen = true; f.title = c.codigo; th.classList.add('play'); th.appendChild(f);
+      } else {
+        const url = crMiniatura(c);
+        if (url) { const im = document.createElement('img'); im.loading = 'lazy'; im.alt = c.codigo; im.referrerPolicy = 'no-referrer'; im.src = url; im.onerror = () => { im.remove(); th.classList.add('sin'); }; th.appendChild(im); } else th.classList.add('sin');
+        const ic = document.createElement('span'); ic.className = 'cr-ic' + (c.tipo === 'Video' ? ' vid' : ''); ic.textContent = c.tipo === 'Video' ? '▶' : '⤢'; th.appendChild(ic);
+        if (c.id) { th.classList.add('click'); th.title = c.tipo === 'Video' ? 'Reproducir ' + c.codigo : 'Ver ' + c.codigo + ' en grande'; th.addEventListener('click', () => { if (c.tipo === 'Video') { crPlay = c.codigo; dibujar(); } else crVisor(c); }); }
+      }
       const cod = document.createElement('b'); cod.className = 'cr-cod'; cod.textContent = c.codigo; th.appendChild(cod);
-      if (c.enlace) { th.classList.add('click'); th.title = 'Abrir ' + c.codigo; th.addEventListener('click', () => window.open(c.enlace, '_blank', 'noopener')); }
       card.appendChild(th);
       const bd = document.createElement('div'); bd.className = 'cr-bd';
-      const fila1 = document.createElement('div'); fila1.className = 'cr-f1';
-      const pill = document.createElement('span'); pill.className = 'cr-est ' + (CR_CLASE[c.estado] || 'sp'); pill.textContent = c.estado === 'Subiendo' ? (c.enlace ? 'Sin publicar' : 'Subida incompleta') : c.estado; fila1.appendChild(pill);
-      const d = crDias(c); if (d) { const dd = document.createElement('span'); dd.className = 'cr-dias'; dd.textContent = d.txt + num.format(d.n) + (d.n === 1 ? ' día' : ' días'); fila1.appendChild(dd); }
-      bd.appendChild(fila1);
-      const meta = document.createElement('div'); meta.className = 'cr-meta';
-      meta.textContent = (c.inicio ? 'Inicio ' + fCorta(c.inicio) : 'Sin fecha de inicio') + (c.fin ? ' · Fin ' + fCorta(c.fin) : c.inicio ? ' · sigue' : '') + ' · ' + c.tipo.toLowerCase() + ' subida ' + (c.subido && /^\d{4}-/.test(c.subido) ? fCorta(c.subido) : c.subido) + (c.por ? ' por ' + c.por : '');
-      bd.appendChild(meta);
-      if (c.nota) { const n = document.createElement('p'); n.className = 'cr-nota'; n.textContent = c.nota; bd.appendChild(n); }
+      const f1 = document.createElement('div'); f1.className = 'cr-f1';
+      const pill = document.createElement('span'); pill.className = 'cr-est ' + (CR_CLASE[c.estado] || 'sp'); pill.textContent = c.estado === 'Subiendo' ? 'Subida incompleta' : c.estado; f1.appendChild(pill);
+      const tot = (c.paises || []).length; if (tot) { const tp = document.createElement('span'); tp.className = 'cr-dias'; tp.textContent = num.format(tot) + (tot === 1 ? ' país' : ' países'); f1.appendChild(tp); }
+      bd.appendChild(f1);
+      const meta1 = document.createElement('div'); meta1.className = 'cr-meta';
+      meta1.textContent = c.tipo + ' subida ' + (c.subido && /^\d{4}-/.test(c.subido) ? fCorta(c.subido) : c.subido) + (c.por ? ' por ' + c.por : '');
+      bd.appendChild(meta1);
+      // Países: testeo, escala y fin de cada uno
+      const pl = document.createElement('div'); pl.className = 'cr-paises';
+      (c.paises || []).slice().sort((a, b) => (a.fin ? 1 : 0) - (b.fin ? 1 : 0) || String(b.inicio).localeCompare(String(a.inicio))).forEach((p) => {
+        const d = crDiasPais(p), r = crResultado(p);
+        const row = document.createElement('div'); row.className = 'cr-p ' + (CR_CLASE[r] || 'tt');
+        const top = document.createElement('div'); top.className = 'cr-p-t';
+        const n = document.createElement('b'); n.textContent = p.pais; const e = document.createElement('span'); e.className = 'cr-p-e'; e.textContent = r; top.append(n, e);
+        const txt = document.createElement('div'); txt.className = 'cr-p-d';
+        txt.textContent = 'Testeo ' + fCorta(p.inicio) + ' · ' + nDias(d.test) + (p.escala ? ' → escaló ' + fCorta(p.escala) + ' · ' + nDias(d.esc) + ' en escala' : '') + (p.fin ? ' · se apagó ' + fCorta(p.fin) : d.activo ? (p.escala ? ' (sigue escalado)' : ' (sigue en testeo)') : '');
+        row.append(top, txt);
+        if (p.nota) { const pn = document.createElement('div'); pn.className = 'cr-p-n'; pn.textContent = p.nota; row.appendChild(pn); }
+        const acc = document.createElement('div'); acc.className = 'cr-p-a';
+        const mk = (t, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'ag-x'; b.textContent = t; b.addEventListener('click', async () => { b.disabled = true; try { await fn(); } catch (er) { avisar('cr-msg', 'No se pudo guardar: ' + er.message, false); b.disabled = false; } }); acc.appendChild(b); };
+        if (!p.fin && !p.escala) mk('Escaló hoy', () => crGuardarPais(c, p, { escala: HOY }, c.codigo + ' escaló hoy en ' + p.pais + ' después de ' + nDias(crDif(p.inicio, HOY)) + ' de testeo.'));
+        if (!p.fin) mk('Se apagó hoy', () => crGuardarPais(c, p, { fin: HOY }, c.codigo + ' se apagó hoy en ' + p.pais + '.'));
+        mk('Editar', () => { crPaisForm = c.codigo + '|' + p.id; dibujar(); });
+        if (p.bitacora.length) mk((crHist[p.id] ? 'Ocultar' : 'Historial') + ' (' + p.bitacora.length + ')', () => { crHist[p.id] = !crHist[p.id]; dibujar(); });
+        row.appendChild(acc);
+        if (crHist[p.id]) { const hl = document.createElement('ul'); hl.className = 'cr-hist'; p.bitacora.slice().reverse().forEach((l) => { const li = document.createElement('li'); li.textContent = l; hl.appendChild(li); }); row.appendChild(hl); }
+        if (crPaisForm === c.codigo + '|' + p.id) formPais(c, p, row);
+        pl.appendChild(row);
+      });
+      bd.appendChild(pl);
+      if (crPaisForm === c.codigo + '|nuevo') formPais(c, null, bd);
+      if (c.nota || crNotaEd === c.codigo) {
+        if (crNotaEd === c.codigo) {
+          const w = document.createElement('div'); w.className = 'cr-nota-ed'; const i = document.createElement('input'); i.className = 'ag-in'; i.value = c.nota; i.placeholder = 'Nota general del creativo';
+          const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'ag-btn pri'; ok.textContent = 'Guardar';
+          ok.addEventListener('click', async () => { ok.disabled = true; try { await window.idealabCreativos.enviar({ accion: 'creativos_actualizar', fila: c.fila, codigo: c.codigo, nota: i.value.trim() }); crNotaEd = null; avisar('cr-msg', 'Nota de ' + c.codigo + ' guardada.', true); window.idealabCreativos.recargar(); } catch (e) { avisar('cr-msg', 'No se pudo guardar: ' + e.message, false); ok.disabled = false; } });
+          w.append(i, ok); bd.appendChild(w);
+        } else { const nn = document.createElement('p'); nn.className = 'cr-nota'; nn.textContent = c.nota; bd.appendChild(nn); }
+      }
       const acc = document.createElement('div'); acc.className = 'cr-acc';
-      const ed = document.createElement('button'); ed.type = 'button'; ed.className = 'ag-btn'; ed.textContent = crEdit === c.codigo ? 'Cerrar' : 'Editar'; ed.addEventListener('click', () => { crEdit = crEdit === c.codigo ? null : c.codigo; dibujar(); }); acc.appendChild(ed);
-      if (c.enlace) { const ab = document.createElement('a'); ab.className = 'ag-x'; ab.href = c.enlace; ab.target = '_blank'; ab.rel = 'noopener'; ab.textContent = 'Ver'; acc.appendChild(ab); }
+      const bp = document.createElement('button'); bp.type = 'button'; bp.className = 'ag-btn'; bp.textContent = '+ País'; bp.title = 'Registrar en qué país se testeó'; bp.addEventListener('click', () => { crPaisForm = crPaisForm === c.codigo + '|nuevo' ? null : c.codigo + '|nuevo'; dibujar(); }); acc.appendChild(bp);
+      const bn = document.createElement('button'); bn.type = 'button'; bn.className = 'ag-x'; bn.textContent = 'Nota'; bn.addEventListener('click', () => { crNotaEd = crNotaEd === c.codigo ? null : c.codigo; dibujar(); }); acc.appendChild(bn);
       if (c.id) { const dl = document.createElement('a'); dl.className = 'ag-x'; dl.href = 'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(c.id); dl.target = '_blank'; dl.rel = 'noopener'; dl.textContent = 'Descargar'; acc.appendChild(dl); }
-      if (window.idealabRol !== 'creativos') {
+      // Reemplazar: sube una versión mejorada con el mismo código y conserva el historial
+      const rp = document.createElement('label'); rp.className = 'ag-x cr-rep'; rp.textContent = 'Reemplazar';
+      const ri = document.createElement('input'); ri.type = 'file'; ri.accept = c.tipo === 'Video' ? 'video/*' : 'image/*'; ri.hidden = true;
+      ri.addEventListener('change', () => { if (ri.files[0]) subirCreativos([ri.files[0]], c); ri.value = ''; });
+      rp.appendChild(ri); acc.appendChild(rp);
+      const puedeBorrar = !esTrab || (c.por && yo && c.por.toLowerCase() === yo.toLowerCase());
+      if (puedeBorrar) {
         const del = document.createElement('button'); del.type = 'button'; del.className = 'ag-x'; del.textContent = 'Eliminar';
         del.addEventListener('click', async () => {
           if (del.dataset.seguro !== '1') { del.dataset.seguro = '1'; del.textContent = '¿Borrar ' + c.codigo + '?'; del.style.color = 'var(--ag-bad)'; setTimeout(() => { del.dataset.seguro = ''; del.textContent = 'Eliminar'; del.style.color = ''; }, 4000); return; }
           del.disabled = true;
-          try { await window.idealabCreativos.enviar({ accion: 'creativos_borrar', fila: c.fila, codigo: c.codigo }); avisar('cr-msg', c.codigo + ' eliminado (el archivo quedó en la papelera de Drive).', true); window.idealabCreativos.recargar(); }
+          try { await window.idealabCreativos.enviar({ accion: 'creativos_borrar', fila: c.fila, codigo: c.codigo }); avisar('cr-msg', c.codigo + ' eliminado (el archivo quedó en la papelera de Drive, por si lo necesitas).', true); window.idealabCreativos.recargar(); }
           catch (e) { avisar('cr-msg', 'No se pudo eliminar: ' + e.message, false); del.disabled = false; }
         });
         acc.appendChild(del);
       }
       bd.appendChild(acc);
-      if (crEdit === c.codigo) {
-        const fm = document.createElement('div'); fm.className = 'cr-form';
-        const l1 = document.createElement('label'); l1.textContent = 'Estado'; const es = document.createElement('select'); es.className = 'ag-sel'; CR_ESTADOS.forEach((e) => es.appendChild(new Option(e, e))); es.value = CR_ESTADOS.includes(c.estado) ? c.estado : 'Sin publicar'; l1.appendChild(es);
-        const l2 = document.createElement('label'); l2.textContent = 'Día de inicio'; const fi = document.createElement('input'); fi.type = 'date'; fi.className = 'ag-in'; fi.value = c.inicio || ''; l2.appendChild(fi);
-        const l3 = document.createElement('label'); l3.textContent = 'Día de fin'; const ff = document.createElement('input'); ff.type = 'date'; ff.className = 'ag-in'; ff.value = c.fin || ''; l3.appendChild(ff);
-        const l4 = document.createElement('label'); l4.className = 'ancho'; l4.textContent = 'Nota'; const no = document.createElement('input'); no.className = 'ag-in'; no.placeholder = 'Producto, país, campaña, idea…'; no.value = c.nota || ''; l4.appendChild(no);
-        const dur = document.createElement('p'); dur.className = 'cr-dur';
-        const calc = () => { if (fi.value && ff.value) { const n = Math.round((Date.parse(ff.value + 'T12:00:00Z') - Date.parse(fi.value + 'T12:00:00Z')) / 864e5) + 1; dur.textContent = n > 0 ? 'Duró ' + num.format(n) + (n === 1 ? ' día' : ' días') : 'El día de fin debe ser después del inicio'; dur.className = 'cr-dur ' + (n > 0 ? '' : 'ag-neg'); } else dur.textContent = fi.value ? 'Sin día de fin: cuenta los días hasta hoy mientras esté en testeo o escalado.' : ''; };
-        [fi, ff].forEach((x) => x.addEventListener('change', calc)); calc();
-        es.addEventListener('change', () => { if ((es.value === 'Murió en testeo' || es.value === 'Apagado') && fi.value && !ff.value) { ff.value = HOY; calc(); } if ((es.value === 'En testeo' || es.value === 'Escalado') && !fi.value) { fi.value = HOY; calc(); } });
-        const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'ag-btn pri'; ok.textContent = 'Guardar';
-        ok.addEventListener('click', async () => {
-          if (fi.value && ff.value && ff.value < fi.value) { avisar('cr-msg', 'El día de fin debe ser después del día de inicio.', false); return; }
-          ok.disabled = true; ok.textContent = 'Guardando…';
-          try { await window.idealabCreativos.enviar({ accion: 'creativos_actualizar', fila: c.fila, codigo: c.codigo, estado: es.value, inicio: fi.value, fin: ff.value, nota: no.value.trim() }); avisar('cr-msg', c.codigo + ' guardado: ' + es.value + (fi.value && ff.value ? ' · duró ' + dur.textContent.replace(/^Duró /, '') : '') + '.', true); crEdit = null; window.idealabCreativos.recargar(); }
-          catch (e) { avisar('cr-msg', 'No se pudo guardar: ' + e.message, false); ok.disabled = false; ok.textContent = 'Guardar'; }
-        });
-        fm.append(l1, l2, l3, l4, dur, ok); bd.appendChild(fm);
-      }
       card.appendChild(bd); grid.appendChild(card);
     });
   }
-  // Subida por partes (5 MB) a Drive a través del servidor
+  // Subida por partes (5 MB) a Drive a través del servidor. Con «reemplazo» se sube una nueva versión del mismo código.
   const CR_PARTE = 5 * 1024 * 1024;
   const aBase64 = (blob) => new Promise((ok, mal) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1] || ''); fr.onerror = () => mal(fr.error); fr.readAsDataURL(blob); });
   const fTam = (b) => (b >= 1048576 ? dec.format(b / 1048576) + ' MB' : num.format(Math.ceil(b / 1024)) + ' KB');
-  const subirCreativos = async (files) => {
+  const subirCreativos = async (files, reemplazo) => {
     const lista = [...files].filter((f) => /^(image|video)\//.test(f.type));
     if (!lista.length) { avisar('cr-msg', 'Solo se pueden subir imágenes o videos.', false); return; }
-    if (dash.data('creativos').status === 'error') { avisar('cr-msg', 'Primero hay que instalar en el servidor el archivo servidor-idealab.gs (versión con creativos).', false); return; }
+    if (dash.data('creativos').status === 'error') { avisar('cr-msg', 'Primero hay que publicar en Apps Script la versión nueva del servidor.', false); return; }
+    if (reemplazo && (reemplazo.tipo === 'Video') !== lista[0].type.startsWith('video')) { avisar('cr-msg', reemplazo.codigo + ' es ' + (reemplazo.tipo === 'Video' ? 'un video' : 'una imagen') + ': reemplázalo con ' + (reemplazo.tipo === 'Video' ? 'otro video.' : 'otra imagen.'), false); return; }
     const cola = $('cr-cola');
     crSubiendo = true;
+    if (reemplazo) document.getElementById('creativos').scrollIntoView({ behavior: 'smooth', block: 'start' });
     for (const f of lista) {
       const it = document.createElement('div'); it.className = 'cr-item';
-      const nm = document.createElement('span'); nm.className = 'cr-item-n'; nm.textContent = f.name + ' · ' + fTam(f.size);
+      const nm = document.createElement('span'); nm.className = 'cr-item-n'; nm.textContent = (reemplazo ? 'Nueva versión de ' + reemplazo.codigo + ': ' : '') + f.name + ' · ' + fTam(f.size);
       const st = document.createElement('b'); st.textContent = 'Preparando…';
       const bar = document.createElement('i'); const fill = document.createElement('u'); bar.appendChild(fill);
       it.append(nm, st, bar); cola.prepend(it);
       try {
-        const ini = await window.idealabCreativos.enviar({ accion: 'creativos_subir_inicio', tipo: f.type.startsWith('video') ? 'video' : 'imagen', nombre: f.name, mime: f.type, tam: f.size, quien: window.idealabRol === 'creativos' ? '' : (window.idealabPersona && window.idealabPersona.nombre) || crQuien() });
+        const ini = await window.idealabCreativos.enviar({ accion: 'creativos_subir_inicio', tipo: f.type.startsWith('video') ? 'video' : 'imagen', nombre: f.name, mime: f.type, tam: f.size, quien: window.idealabRol === 'creativos' ? '' : (window.idealabPersona && window.idealabPersona.nombre) || crQuien(), ...(reemplazo ? { reemplazar_fila: reemplazo.fila, codigo: reemplazo.codigo } : {}) });
         st.textContent = ini.codigo + ' · subiendo…';
         let desde = 0, fin = null;
         while (desde < f.size) {
@@ -2584,7 +2722,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           st.textContent = ini.codigo + ' · ' + Math.round((desde / f.size) * 100) + '%';
           if (r.completo) { fin = r; break; }
         }
-        it.classList.add('ok'); st.textContent = '✓ Guardado como ' + (fin ? fin.codigo : ini.codigo);
+        it.classList.add('ok'); st.textContent = '✓ ' + (reemplazo ? 'Reemplazado ' : 'Guardado como ') + (fin ? fin.codigo : ini.codigo);
       } catch (e) { it.classList.add('mal'); st.textContent = 'No se pudo subir: ' + (e.message || e); }
       await window.idealabCreativos.recargar();
     }
@@ -2595,7 +2733,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   ['dragenter', 'dragover'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add('sobre'); }));
   ['dragleave', 'drop'].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove('sobre'); }));
   drop.addEventListener('drop', (e) => { if (e.dataTransfer && e.dataTransfer.files) subirCreativos(e.dataTransfer.files); });
-  ['cr-tipo', 'cr-est', 'cr-por'].forEach((id) => $(id).addEventListener('change', dibujarSeguro));
+  ['cr-tipo', 'cr-est', 'cr-por', 'cr-pais'].forEach((id) => $(id).addEventListener('change', dibujarSeguro));
   $('cr-buscar').addEventListener('input', dibujarSeguro);
   window.addEventListener('beforeunload', (e) => { if (crSubiendo) { e.preventDefault(); e.returnValue = ''; } });
 
