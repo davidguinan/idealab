@@ -58,7 +58,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 
   const loaders = {}, calcs = {}, estado = {}, oyentes = [];
   let params = {};
-  const HOJAS = { meta_diario: 'meta_diario', paises: 'productos', tasas: 'tasas', config: 'config', gastos: 'gastos', cierres: 'cierres', cambios: 'cambios', numeros: 'numeros' };
+  const HOJAS = { meta_diario: 'meta_diario', paises: 'productos', tasas: 'tasas', config: 'config', gastos: 'gastos', cierres: 'cierres', cambios: 'cambios', numeros: 'numeros', fan_pages: 'fan_pages' };
 
   const fijar = (id, st) => { estado[id] = st; };
   const avisar = () => { clearTimeout(avisar.t); avisar.t = setTimeout(() => oyentes.forEach((fn) => { try { fn(); } catch (e) { console.error(e); } }), 10); };
@@ -122,7 +122,8 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     fijar('meta_rango', { status: 'ok', data: filasMeta(j.meta.rango).rows });
     fijar('meta_hoy', { status: 'ok', data: filasMeta(j.meta.hoy).rows });
     fijar('meta_campanas', { status: 'ok', data: j.meta.campanas.map((c) => ({ campana_id: c.id, campana: c.name, cuenta: c.cuenta, cuenta_id: c.cuenta_id, estado: c.effective_status, presupuesto: c.daily_budget ? Number(c.daily_budget) : null })) });
-    fijar('meta_conjuntos', { status: 'ok', data: j.meta.conjuntos.map((c) => ({ conjunto_id: c.id, conjunto: c.name, campana_id: c.campaign_id, cuenta: c.cuenta, estado: c.effective_status, presupuesto: c.daily_budget ? Number(c.daily_budget) : null })) });
+    fijar('meta_conjuntos', { status: 'ok', data: j.meta.conjuntos.map((c) => ({ conjunto_id: c.id, conjunto: c.name, campana_id: c.campaign_id, cuenta: c.cuenta, estado: c.effective_status, presupuesto: c.daily_budget ? Number(c.daily_budget) : null, whatsapp: String(c.whatsapp || '') })) });
+    fijar('meta_wa', { status: 'ok', data: (j.meta.anuncios_wa || []).map((a) => ({ ad_id: String(a.id), whatsapp: String(a.whatsapp || '') })) });
     fijar('meta_creativos', { status: 'ok', data: j.meta.activos.map((a) => { const sid = String((a.creative && a.creative.effective_object_story_id) || ''); return { ad_id: a.id, anuncio: a.name, campana_id: a.campaign ? a.campaign.id : '', campana: a.campaign ? a.campaign.name : '', cuenta: a.cuenta, cuenta_id: a.cuenta_id, estado: a.effective_status, page_id: sid.includes('_') ? sid.split('_')[0] : '' }; }) });
     cargarFacturas(j);
     fijar('meta_paginas', { status: 'ok', data: j.meta.paginas.map((p) => ({ page_id: p.page_id, pagina: p.pagina, usada_en: (p.cuentas || []).join(', '), pauta: (p.cuentas || []).length ? 'Sí' : 'No' })) });
@@ -473,6 +474,8 @@ tr.cd-vacio td { opacity: .45; }
 .g-v { text-align: right; font-variant-numeric: tabular-nums; color: var(--ag-gold); }
 .g-pie { font-size: 12px; text-align: right; }
 .w-op { opacity: .65; }
+.fp-pais { padding: 5px 8px; font-size: 12.5px; }
+.fp-aviso { font-size: 11px; color: var(--ag-muted); margin-top: 3px; white-space: normal; }
 .cr-hola { margin: 0 0 6px; font-family: var(--font-anthropic-serif); font-size: clamp(22px, 3vw, 30px); color: var(--ag-gold); }
 .cr-hola:empty { display: none; }
 .cr-quien { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; font-size: 12.5px; color: var(--ag-muted); }
@@ -775,10 +778,12 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         <h2>Fan pages</h2>
         <p class="ag-note">Todas tus páginas. «Pautando ahora» = tiene al menos un anuncio activo en Meta en este momento; se ven sus campañas, países y la cuenta publicitaria.</p>
         <div class="ag-scroll"><table class="ag-table" id="t-paginas" data-source="paginas_uso" data-row-key="page_id"></table></div>
+        <p class="ag-msg" id="fp-msg"></p>
       </div>
       <div class="ag-card" style="margin-top:14px">
         <h2>Números de WhatsApp (bots)</h2>
-        <p class="ag-note">El <b>código</b> se asigna solo (B1, B2, B3…). Un número nuevo entra en <b>CALENTAMIENTO</b>. El estado cambia solo: pasa a <b>ACTIVO</b> cuando su fan page vinculada tiene anuncios activos en Meta y a <b>SIN USO</b> cuando esas campañas se apagan. Meta no entrega el número de WhatsApp de cada anuncio (solo la fan page que lo publica), así que el vínculo número ↔ fan page lo indicas tú una vez con «Editar»; desde ahí el estado, la página donde se pauta, las campañas y las conversaciones de hoy se actualizan solos. PAUSADO y BLOQUEADO los pones tú y no cambian solos.</p>
+        <p class="ag-note">El <b>código</b> se asigna solo (B1, B2, B3…). Un número nuevo entra en <b>CALENTAMIENTO</b>. El estado cambia solo: pasa a <b>ACTIVO</b> cuando su fan page vinculada tiene anuncios activos en Meta y a <b>SIN USO</b> cuando esas campañas se apagan. El vínculo número ↔ fan page lo indicas tú una vez con «Editar»; desde ahí el estado, la página donde se pauta y las campañas se actualizan solos. PAUSADO y BLOQUEADO los pones tú y no cambian solos.</p>
+        <p class="ag-note"><b>Mensajes por número:</b> se cuentan las conversaciones de los anuncios que mandan a cada número, aunque varios números compartan la misma fan page. La app usa el número que trae Meta en el conjunto o el anuncio; si Meta no lo trae, escribe el <b>código del número en el nombre del conjunto</b> (por ejemplo «VD5 · B3») y se cuenta para ese número. Con «≈» es un cálculo con toda la fan page, porque es su único número.</p>
         <div class="ag-scroll"><table class="ag-table" id="t-numeros" data-source="numeros_uso" data-row-key="codigo"></table></div>
         <p class="ag-empty" id="numeros-vacio" hidden>Todavía no hay números. Agrega el primero abajo.</p>
         <div class="ag-form" id="f-num">
@@ -1167,6 +1172,10 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       return { columns: ['tipo', 'parametro', 'nombre', 'valor', 'rol', 'correo', 'nota', 'fila', 'usuario_cr', 'huella_cr', 'apodo'], rows: filas };
     },
   });
+  dash.loader('fan_pages', {
+    description: 'La pestaña Fan_pages: el país al que está dedicada cada página, aparte de dónde esté pautando.',
+    fn: ({ answer }) => ({ columns: ['fila', 'page_id', 'pagina', 'pais', 'nota'], rows: valores(answer).slice(1).map((r, i) => ({ fila: i + 2, page_id: String(r[0] || '').trim(), pagina: String(r[1] || '').trim(), pais: String(r[2] || '').trim(), nota: String(r[3] || '') })).filter((r) => r.page_id || r.pagina) }),
+  });
   dash.loader('numeros', {
     description: 'La pestaña Numeros como filas: cada número de WhatsApp (bot) con su código, celular, país, portafolio, estado, fecha de inicio y la fan page a la que está vinculado.',
     fn: ({ answer }) => ({
@@ -1446,8 +1455,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   dash.calc('paginas_uso', {
     title: 'Uso de cada fan page',
     description: 'Por página: si tiene anuncios activos ahora (pautando), en qué cuentas publicitarias, con qué campañas, en qué países (por el prefijo de la campaña) y cuántas conversaciones de WhatsApp han iniciado hoy sus anuncios activos.',
-    inputs: ['meta_paginas', 'meta_creativos', 'paises', 'meta_hoy'],
-    fn: (meta_paginas, meta_creativos, paises, meta_hoy) => {
+    inputs: ['meta_paginas', 'meta_creativos', 'paises', 'meta_hoy', 'fan_pages'],
+    fn: (meta_paginas, meta_creativos, paises, meta_hoy, fan_pages) => {
+      const asig = {}; fan_pages.forEach((f) => { if (f.page_id) asig[f.page_id] = f; });
       const convHoy = {}; meta_hoy.forEach((r) => { convHoy[r.ad_id] = (convHoy[r.ad_id] || 0) + r.conversaciones; });
       const prefijos = paises.map((p) => [p.prefijo.toLowerCase(), p.pais]).sort((x, y) => y[0].length - x[0].length);
       const paisDe = (c) => (prefijos.find(([p]) => c.toLowerCase().startsWith(p)) || [null, 'Otro'])[1];
@@ -1459,6 +1469,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       });
       return Object.values(pags).map((p) => ({
         page_id: p.page_id, pagina: p.pagina, pautando: p.anuncios > 0 ? 'Sí' : 'No', anuncios: p.anuncios, conv_hoy: p.conv_hoy || 0,
+        pais_asignado: asig[p.page_id] ? asig[p.page_id].pais : '', fila_asig: asig[p.page_id] ? asig[p.page_id].fila : null,
         cuenta: p.cuentas.size ? [...p.cuentas].join(', ') : p.registrada_en || '—',
         campanas: [...p.campanas].sort().join(', '), paises: [...p.paises].sort().join(', '),
       }));
@@ -1467,8 +1478,21 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   dash.calc('numeros_uso', {
     title: 'Uso de cada número de WhatsApp',
     description: 'Cada número de la pestaña Numeros con su estado automático: ACTIVO si su fan page vinculada tiene anuncios activos; SIN USO si estuvo activo y ya no; si no, el estado de la hoja (CALENTAMIENTO, PAUSADO, BLOQUEADO). Incluye en qué fan page y campañas se está pautando.',
-    inputs: ['numeros', 'paginas_uso'],
-    fn: (numeros, paginas_uso) => {
+    inputs: ['numeros', 'paginas_uso', 'meta_hoy', 'meta_rango', 'meta_conjuntos', 'meta_wa', 'meta_creativos'],
+    fn: (numeros, paginas_uso, meta_hoy, meta_rango, meta_conjuntos, meta_wa, meta_creativos) => {
+      // Mensajes por número: cada anuncio (o su conjunto) dice a qué WhatsApp manda; se suman sus conversaciones
+      const ult = (t) => String(t || '').replace(/\D/g, '').slice(-10);
+      const waAd = {}; meta_wa.forEach((a) => { if (a.whatsapp) waAd[a.ad_id] = ult(a.whatsapp); });
+      const waSet = {}; meta_conjuntos.forEach((c) => { if (c.whatsapp) waSet[c.conjunto_id] = ult(c.whatsapp); });
+      // Si Meta no da el número, sirve el código del número (B1, B2…) escrito en el nombre del conjunto o del anuncio
+      const codigos = new Set(numeros.map((n) => String(n.codigo || '').toUpperCase()).filter(Boolean));
+      const codDe = (r) => { const m = (String(r.conjunto || '') + ' ' + String(r.anuncio || '')).toUpperCase().match(/\bB\d+\b/g); return m ? m.find((x) => codigos.has(x)) : null; };
+      const sumaPor = (filas) => { const o = {}, oc = {}; filas.forEach((r) => { const c = codDe(r); if (c) { oc[c] = (oc[c] || 0) + (r.conversaciones || 0); return; } const w = waAd[r.ad_id] || waSet[r.conjunto_id]; if (w) o[w] = (o[w] || 0) + (r.conversaciones || 0); }); return { o, oc }; };
+      const sH = sumaPor(meta_hoy), sR = sumaPor(meta_rango);
+      const porNumHoy = sH.o, porNumRango = sR.o, porCodHoy = sH.oc, porCodRango = sR.oc;
+      const hayDatoNumero = Object.keys(waAd).length + Object.keys(waSet).length + Object.keys(porCodRango).length + Object.keys(porCodHoy).length > 0;
+      const pagDeAd = {}; meta_creativos.forEach((a) => { if (a.page_id) pagDeAd[a.ad_id] = a.page_id; });
+      const porPagRango = {}; meta_rango.forEach((r) => { const pg = pagDeAd[r.ad_id]; if (pg) porPagRango[pg] = (porPagRango[pg] || 0) + (r.conversaciones || 0); });
       const norm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
       return numeros.map((n) => {
         const p = n.fan_page ? paginas_uso.find((x) => x.page_id === n.fan_page || norm(x.pagina) === norm(n.fan_page)) : null;
@@ -1476,7 +1500,15 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         const manual = n.estado || 'CALENTAMIENTO';
         const estado_auto = ['BLOQUEADO', 'PAUSADO'].includes(manual) ? manual : pautando ? 'ACTIVO' : manual === 'ACTIVO' || manual === 'SIN USO' ? 'SIN USO' : manual;
         const disponible = estado_auto === 'ACTIVO' ? 'No · pautando en ' + p.pagina + ' (' + p.paises + ') · ' + p.conv_hoy + ' conversaciones hoy' : estado_auto === 'CALENTAMIENTO' ? 'En calentamiento' + (n.fan_page ? '' : ' · sin fan page') : estado_auto === 'BLOQUEADO' ? 'Bloqueado' : estado_auto === 'PAUSADO' ? 'Pausado' : !n.fan_page ? 'Sí, sin uso (asígnale fan page)' : !p ? 'Fan page no encontrada' : 'Sí, sin uso · ' + p.pagina + ' sin anuncios activos';
-        return { ...n, estado_hoja: manual, estado: estado_auto, page_id: p ? p.page_id : '', pagina: p ? p.pagina : n.fan_page, campanas: p ? p.campanas : '', paises_pauta: p ? p.paises : '', anuncios: p ? p.anuncios : 0, conv_hoy: p ? p.conv_hoy : 0, pautando, disponible };
+        const claves = [ult(n.numero), ult(n.celular)].filter((x) => x.length >= 8);
+        const cod = String(n.codigo || '').toUpperCase();
+        const directo = claves.some((k) => porNumHoy[k] !== undefined || porNumRango[k] !== undefined) || porCodHoy[cod] !== undefined || porCodRango[cod] !== undefined;
+        const mismosPag = p ? numeros.filter((x) => x.fan_page && (x.fan_page === p.page_id || norm(x.fan_page) === norm(p.pagina))).length : 0;
+        let msg_hoy = null, msg_rango = null, msg_fuente = '';
+        if (directo) { msg_hoy = claves.reduce((s, k) => s + (porNumHoy[k] || 0), 0) + (porCodHoy[cod] || 0); msg_rango = claves.reduce((s, k) => s + (porNumRango[k] || 0), 0) + (porCodRango[cod] || 0); msg_fuente = 'numero'; }
+        else if (p && mismosPag === 1) { msg_hoy = p.conv_hoy || 0; msg_rango = porPagRango[p.page_id] || 0; msg_fuente = 'pagina'; }
+        else if (hayDatoNumero && claves.length) { msg_hoy = 0; msg_rango = 0; msg_fuente = 'numero'; }
+        return { ...n, estado_hoja: manual, estado: estado_auto, page_id: p ? p.page_id : '', pagina: p ? p.pagina : n.fan_page, pais_pagina: p ? p.pais_asignado : '', campanas: p ? p.campanas : '', paises_pauta: p ? p.paises : '', anuncios: p ? p.anuncios : 0, conv_hoy: p ? p.conv_hoy : 0, msg_hoy, msg_rango, msg_fuente, pautando, disponible };
       });
     },
   });
@@ -2274,11 +2306,31 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const P = dash.data('paginas_uso');
     const t = $('t-paginas');
     if (fallaEn(t, ['paginas_uso']) === 'ok' || P.status === 'ok') {
-      tabla(t, [['pagina', 'Página'], ['page_id', 'ID'], ['cuenta', 'Cuenta publicitaria'], ['pautando', 'Pautando ahora'], ['anuncios', 'Anuncios activos', 'num'], ['conv_hoy', 'Conversaciones hoy', 'num'], ['campanas', 'Campañas'], ['paises', 'Países']],
+      tabla(t, [['pagina', 'Página'], ['pais_asignado', 'País de la página'], ['page_id', 'ID'], ['cuenta', 'Cuenta publicitaria'], ['pautando', 'Pautando ahora'], ['anuncios', 'Anuncios activos', 'num'], ['conv_hoy', 'Conversaciones hoy', 'num'], ['campanas', 'Campañas'], ['paises', 'Países']],
         [...P.data].sort((x, y) => (y.pautando === 'Sí') - (x.pautando === 'Sí') || x.pagina.localeCompare(y.pagina)),
         { key: 'page_id', celda: (td, c, f) => {
           if (c === 'pautando') { const sp = document.createElement('span'); sp.className = 'ag-pill ' + (f.pautando === 'Sí' ? 'r-Escalar' : 'r-Sin'); sp.textContent = f.pautando; td.appendChild(sp); return true; }
           if (c === 'campanas') { td.textContent = f.campanas || '—'; td.style.whiteSpace = 'normal'; td.style.minWidth = '220px'; return true; }
+          if (c === 'pais_asignado') {
+            const se = document.createElement('select'); se.className = 'ag-sel fp-pais'; se.setAttribute('aria-label', 'País de ' + f.pagina);
+            const PA = dash.data('paises'); const lista = PA.status === 'ok' ? [...new Set(PA.data.map((x) => x.pais))] : [];
+            se.appendChild(new Option('— Sin asignar —', '')); [...new Set([...lista, ...(f.pais_asignado && !lista.includes(f.pais_asignado) ? [f.pais_asignado] : [])])].forEach((x) => se.appendChild(new Option(x, x)));
+            se.value = f.pais_asignado || '';
+            se.addEventListener('change', async () => {
+              se.disabled = true;
+              try {
+                const fila = [f.page_id, f.pagina, se.value, ''];
+                if (f.fila_asig) await escribir('update_values', { range: 'Fan_pages!A' + f.fila_asig + ':C' + f.fila_asig, values: [fila.slice(0, 3)] });
+                else await escribir('append_values', { range: 'Fan_pages!A1:D1', values: [fila] });
+                avisar('fp-msg', f.pagina + (se.value ? ' quedó dedicada a ' + se.value + '.' : ' quedó sin país asignado.'), true);
+                dash.refresh('fan_pages');
+              } catch (e) { avisar('fp-msg', textoError(e), false); se.disabled = false; se.value = f.pais_asignado || ''; }
+            });
+            td.appendChild(se);
+            const otros = f.paises ? f.paises.split(', ').filter((x) => x && x !== 'Otro' && f.pais_asignado && x !== f.pais_asignado) : [];
+            if (otros.length) { const w = document.createElement('div'); w.className = 'fp-aviso'; w.textContent = 'También pauta en ' + otros.join(', '); td.appendChild(w); }
+            return true;
+          }
           return false;
         } });
     }
@@ -2295,7 +2347,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     if (N.status !== 'ok') { tn.replaceChildren(); return; }
     $('numeros-vacio').hidden = N.data.length > 0;
     if (!enEdicion) { $('n-codigo').value = siguienteCodigo(); if (!$('n-inicio').value) $('n-inicio').value = HOY; }
-    tabla(tn, [['codigo', 'Código'], ['numero', 'Business'], ['celular', 'Celular'], ['pais', 'País'], ['portafolio', 'Portafolio'], ['estado', 'Estado (cámbialo aquí)'], ['inicio', 'Agregado'], ['pagina', 'Fan page'], ['campanas', 'Campañas que lo usan'], ['disponible', '¿Disponible? / dónde se pauta'], ['editar', '']], N.data, {
+    tabla(tn, [['codigo', 'Código'], ['numero', 'Business'], ['celular', 'Celular'], ['pais', 'País'], ['portafolio', 'Portafolio'], ['estado', 'Estado (cámbialo aquí)'], ['inicio', 'Agregado'], ['pagina', 'Fan page'], ['msg_hoy', 'Mensajes hoy', 'num'], ['msg_rango', 'Mensajes del periodo', 'num'], ['campanas', 'Campañas que lo usan'], ['disponible', '¿Disponible? / dónde se pauta'], ['editar', '']], N.data, {
       key: 'codigo',
       celda: (td, c, f) => {
         if (c === 'estado') {
@@ -2305,6 +2357,12 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           se.addEventListener('change', () => cambiarEstado(f, se.value, se)); td.appendChild(se);
           return true;
         }
+        if (c === 'msg_hoy' || c === 'msg_rango') {
+          const v = f[c]; td.textContent = v === null || v === undefined ? '—' : (f.msg_fuente === 'pagina' ? '≈ ' : '') + num.format(v);
+          td.title = f.msg_fuente === 'numero' ? 'Mensajes de los anuncios que mandan a este número' : f.msg_fuente === 'pagina' ? 'Calculado con toda su fan page (es el único número de esa página)' : 'Meta no dice a qué número mandan los anuncios de esta página';
+          return true;
+        }
+        if (c === 'pagina') { td.textContent = f.pagina || '—'; if (f.pais_pagina) { const s2 = document.createElement('div'); s2.className = 'fp-aviso'; s2.textContent = 'Página de ' + f.pais_pagina; td.appendChild(s2); } return true; }
         if (c === 'inicio') { td.textContent = /^\d{4}-\d{2}-\d{2}$/.test(f.inicio) ? fLarga(f.inicio) + ' ' + f.inicio.slice(0, 4) : f.inicio || '—'; return true; }
         if (c === 'campanas') { td.textContent = f.campanas || '—'; td.style.whiteSpace = 'normal'; td.style.minWidth = '200px'; return true; }
         if (c === 'disponible') { td.textContent = f.disponible; td.style.whiteSpace = 'normal'; td.style.minWidth = '220px'; td.className = /^Sí/.test(f.disponible) ? 'ag-pos' : /^No|Bloq/.test(f.disponible) ? 'ag-neg' : 'ag-gold'; return true; }
