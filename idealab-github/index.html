@@ -806,6 +806,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           <div class="ag-chips" id="mc-filtro"><button type="button" class="ag-btn" data-f="act" aria-pressed="true">Activas</button><button type="button" class="ag-btn" data-f="off">Apagadas</button><button type="button" class="ag-btn" data-f="todas">Todas</button></div></div>
         <div class="ag-scroll"><table class="ag-table" id="t-msg-camp" data-source="msg_campanas" data-row-key="campana_id"></table></div>
         <p class="ag-empty" id="mc-vacio" hidden>No hay campañas en este filtro.</p>
+        <p class="ag-msg" id="mc-msg"></p>
         <div class="ag-form" id="f-num">
           <label>Código<input class="ag-in" id="n-codigo" readonly title="Se asigna solo"></label>
           <label>Número business<input class="ag-in" id="n-numero" placeholder="300 000 0000"></label>
@@ -1510,9 +1511,13 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   // A qué número de WhatsApp manda cada fila de Meta (anuncio): lo dice Meta (conjunto, anuncio, botón de la
   // publicación o WhatsApp de la fan page); si no, el código del número (B3) escrito en el conjunto o el anuncio.
   const ult10 = (t) => String(t || '').replace(/\D/g, '').slice(-10);
-  const resolverNumero = (numeros, meta_wa, meta_conjuntos) => {
+  const resolverNumero = (numeros, meta_wa, meta_conjuntos, meta_campanas) => {
+    // nombres actuales (si renombras la campaña o el conjunto con B3, también cuenta para los días anteriores)
+    const nomCamp = {}; (meta_campanas || []).forEach((c) => { nomCamp[c.campana_id] = c.campana; });
+    const nomSet = {}; (meta_conjuntos || []).forEach((c) => { nomSet[c.conjunto_id] = c.conjunto; });
     const porDig = {}; numeros.forEach((n) => [n.numero, n.celular].forEach((t) => { const d = ult10(t); if (d.length >= 8) porDig[d] = n.codigo; }));
     const codigos = new Set(numeros.map((n) => String(n.codigo || '').toUpperCase()).filter(Boolean));
+    const manual = {}; numeros.forEach((n) => (n.campanas_asig || []).forEach((id) => { manual[id] = n.codigo; }));
     const waAd = {}, waSet = {}, waCamp = {};
     meta_wa.forEach((a) => { if (!a.whatsapp) return; waAd[a.ad_id] = a.whatsapp; if (a.conjunto_id && !waSet[a.conjunto_id]) waSet[a.conjunto_id] = a.whatsapp; if (a.campana_id) (waCamp[a.campana_id] = waCamp[a.campana_id] || new Set()).add(a.whatsapp); });
     meta_conjuntos.forEach((c) => { if (c.whatsapp) waSet[c.conjunto_id] = c.whatsapp; });
@@ -1521,9 +1526,15 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     return (r) => {
       const w = waAd[r.ad_id] || waSet[r.conjunto_id] || campUnico[r.campana_id] || '';
       if (w) { const c = porDig[ult10(w)]; return { codigo: c || '', digitos: w, fuente: 'meta' }; }
-      const m = (String(r.conjunto || '') + ' ' + String(r.anuncio || '')).toUpperCase().match(/\bB\d+\b/g);
-      const c = m ? m.find((x) => codigos.has(x)) : null;
-      return c ? { codigo: c, digitos: '', fuente: 'nombre' } : null;
+      // Código del número (B3) en el nombre del anuncio, del conjunto o de la campaña: «CHILE_VD5 QR B3», «VD5_B3»…
+      for (const t of [r.anuncio, r.conjunto, nomSet[r.conjunto_id], r.campana, nomCamp[r.campana_id]]) {
+        const m = String(t || '').toUpperCase().match(/(?:^|[^A-Z0-9])B\d+(?![0-9])/g);
+        const c = m ? m.map((x) => x.replace(/^[^B]/, '')).find((x) => codigos.has(x)) : null;
+        if (c) return { codigo: c, digitos: '', fuente: 'nombre' };
+      }
+      // Asignado a mano en la tabla de campañas (columna J de Numeros)
+      if (manual[r.campana_id]) return { codigo: manual[r.campana_id], digitos: '', fuente: 'manual' };
+      return null;
     };
   };
   const bonito = (d) => { d = String(d || ''); return d ? '+' + d : ''; };
@@ -1531,9 +1542,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   dash.calc('numeros_uso', {
     title: 'Uso de cada número de WhatsApp',
     description: 'Cada número de la pestaña Numeros con su estado automático: ACTIVO si Meta tiene anuncios activos que mandan a ese número; SIN USO si estuvo activo y ya no; si no, el estado de la hoja (CALENTAMIENTO, PAUSADO, BLOQUEADO). La fan page, las campañas y los mensajes de hoy (conversaciones con mensajes iniciadas) salen de los anuncios que mandan a ese número.',
-    inputs: ['numeros', 'paginas_uso', 'meta_hoy', 'meta_rango', 'meta_conjuntos', 'meta_wa', 'meta_creativos'],
-    fn: (numeros, paginas_uso, meta_hoy, meta_rango, meta_conjuntos, meta_wa, meta_creativos) => {
-      const numDe = resolverNumero(numeros, meta_wa, meta_conjuntos);
+    inputs: ['numeros', 'paginas_uso', 'meta_hoy', 'meta_rango', 'meta_conjuntos', 'meta_wa', 'meta_creativos', 'meta_campanas'],
+    fn: (numeros, paginas_uso, meta_hoy, meta_rango, meta_conjuntos, meta_wa, meta_creativos, meta_campanas) => {
+      const numDe = resolverNumero(numeros, meta_wa, meta_conjuntos, meta_campanas);
       const hayDeteccion = meta_wa.some((a) => a.whatsapp) || meta_conjuntos.some((c) => c.whatsapp);
       const nomPag = {}; paginas_uso.forEach((p) => { nomPag[p.page_id] = p; });
       const waDe = {}; meta_wa.forEach((a) => { waDe[a.ad_id] = a; });
@@ -1541,28 +1552,29 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       const act = {};
       meta_creativos.filter((a) => a.estado === 'ACTIVE').forEach((a) => {
         const w = waDe[a.ad_id] || {};
-        const x = numDe({ ad_id: a.ad_id, conjunto_id: a.conjunto_id || w.conjunto_id, campana_id: a.campana_id, anuncio: a.anuncio });
+        const x = numDe({ ad_id: a.ad_id, conjunto_id: a.conjunto_id || w.conjunto_id, campana_id: a.campana_id, campana: a.campana, anuncio: a.anuncio });
         if (!x || !x.codigo) return;
         const o = (act[x.codigo] = act[x.codigo] || { pags: new Set(), camps: new Set(), paises: new Set() });
         const pg = nomPag[a.page_id || w.page_id];
         if (pg) { o.pags.add(pg.pagina); if (pg.pais_asignado) o.paises.add(pg.pais_asignado); } else if (a.page_id) o.pags.add('Página ' + a.page_id);
         o.camps.add(a.campana);
       });
-      const sumar = (filas) => { const porCod = {}; filas.forEach((r) => { const x = numDe(r); if (x && x.codigo) porCod[x.codigo] = (porCod[x.codigo] || 0) + (r.conversaciones || 0); }); return porCod; };
+      const campsMsg = {};
+      const sumar = (filas) => { const porCod = {}; filas.forEach((r) => { const x = numDe(r); if (x && x.codigo) { porCod[x.codigo] = (porCod[x.codigo] || 0) + (r.conversaciones || 0); (campsMsg[x.codigo] = campsMsg[x.codigo] || new Set()).add(r.campana); } }); return porCod; };
       const H = sumar(meta_hoy), R = sumar(meta_rango);
       const norm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
       return numeros.map((n) => {
         const cod = n.codigo, a = act[cod];
         const manual = n.estado || 'CALENTAMIENTO';
         // Sin detección de Meta todavía: se usa la fan page escrita en la hoja (como antes)
-        const pLeg = !hayDeteccion && n.fan_page ? paginas_uso.find((x) => x.page_id === n.fan_page || norm(x.pagina) === norm(n.fan_page)) : null;
+        const pLeg = !a && !hayDeteccion && n.fan_page ? paginas_uso.find((x) => x.page_id === n.fan_page || norm(x.pagina) === norm(n.fan_page)) : null;
         const pautando = a ? true : !!pLeg && pLeg.pautando === 'Sí';
         const estado_auto = ['BLOQUEADO', 'PAUSADO'].includes(manual) ? manual : pautando ? 'ACTIVO' : manual === 'ACTIVO' || manual === 'SIN USO' ? 'SIN USO' : manual;
         const pagina = a ? [...a.pags].join(', ') : pLeg ? pLeg.pagina : '';
         const paises = a ? [...a.paises].join(', ') : pLeg ? pLeg.paises : '';
         const disponible = estado_auto === 'ACTIVO' ? 'No · pautando en ' + (pagina || '—') + (paises ? ' (' + paises + ')' : '') : estado_auto === 'CALENTAMIENTO' ? 'En calentamiento' : estado_auto === 'BLOQUEADO' ? 'Bloqueado' : estado_auto === 'PAUSADO' ? 'Pausado' : 'Sí, sin uso';
         const tieneMsg = H[cod] !== undefined || R[cod] !== undefined;
-        return { ...n, estado_hoja: manual, estado: estado_auto, pagina, pais_pagina: '', campanas: a ? [...a.camps].join(', ') : pLeg ? pLeg.campanas : '', paises_pauta: paises,
+        return { ...n, estado_hoja: manual, estado: estado_auto, pagina, pais_pagina: '', campanas: a ? [...a.camps].join(', ') : campsMsg[cod] ? [...campsMsg[cod]].join(', ') + ' (con mensajes en el periodo)' : '', paises_pauta: paises,
           msg_hoy: tieneMsg ? H[cod] || 0 : a ? 0 : null, msg_rango: tieneMsg ? R[cod] || 0 : null, msg_fuente: tieneMsg || a ? 'numero' : '', pautando, disponible };
       });
     },
@@ -1571,9 +1583,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   dash.calc('msg_dias', {
     title: 'Mensajes por número y día',
     description: 'Conversaciones con mensajes iniciadas de cada número de WhatsApp por día (días cerrados de Meta_diario y hoy en vivo).',
-    inputs: ['meta_dias', 'numeros', 'meta_wa', 'meta_conjuntos'],
-    fn: (meta_dias, numeros, meta_wa, meta_conjuntos) => {
-      const numDe = resolverNumero(numeros, meta_wa, meta_conjuntos);
+    inputs: ['meta_dias', 'numeros', 'meta_wa', 'meta_conjuntos', 'meta_campanas'],
+    fn: (meta_dias, numeros, meta_wa, meta_conjuntos, meta_campanas) => {
+      const numDe = resolverNumero(numeros, meta_wa, meta_conjuntos, meta_campanas);
       const g = {};
       meta_dias.forEach((r) => { if (!r.conversaciones) return; const x = numDe(r); const c = x && x.codigo ? x.codigo : x && x.digitos ? bonito(x.digitos) : 'Sin número detectado'; const k = r.fecha + '|' + c; (g[k] = g[k] || { clave: k, fecha: r.fecha, numero: c, conversaciones: 0 }).conversaciones += r.conversaciones; });
       return Object.values(g);
@@ -1585,16 +1597,18 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     description: 'Cada campaña con sus «conversaciones con mensajes iniciadas» de hoy y del periodo (la misma columna de Meta Ads), su fan page y el número de WhatsApp al que manda según Meta.',
     inputs: ['meta_hoy', 'meta_rango', 'meta_campanas', 'meta_creativos', 'paginas_uso', 'numeros', 'meta_wa', 'meta_conjuntos'],
     fn: (meta_hoy, meta_rango, meta_campanas, meta_creativos, paginas_uso, numeros, meta_wa, meta_conjuntos) => {
-      const numDe = resolverNumero(numeros, meta_wa, meta_conjuntos);
+      const numDe = resolverNumero(numeros, meta_wa, meta_conjuntos, meta_campanas);
       const g = {};
-      const de = (id, nombre) => (g[id] = g[id] || { campana_id: id, campana: nombre || '', estado: '', pagina: '', conv_hoy: 0, conv_rango: 0, nums: new Set(), sin: false });
-      const marcar = (x, r) => { const n = numDe(r); if (n && n.codigo) x.nums.add(n.codigo); else if (n && n.digitos) x.nums.add(bonito(n.digitos) + ' (no está en tu lista)'); else x.sin = true; };
+      const de = (id, nombre) => (g[id] = g[id] || { campana_id: id, campana: nombre || '', estado: '', pagina: '', conv_hoy: 0, conv_rango: 0, nums: new Set(), sin: false, fuentes: new Set() });
+      const marcar = (x, r) => { const n = numDe(r); if (n) x.fuentes.add(n.fuente); if (n && n.codigo) x.nums.add(n.codigo); else if (n && n.digitos) x.nums.add(bonito(n.digitos) + ' (no está en tu lista)'); else x.sin = true; };
       meta_rango.forEach((r) => { if (!r.campana_id) return; const x = de(String(r.campana_id), r.campana); x.conv_rango += r.conversaciones || 0; marcar(x, r); });
       meta_hoy.forEach((r) => { if (!r.campana_id) return; const x = de(String(r.campana_id), r.campana); x.conv_hoy += r.conversaciones || 0; marcar(x, r); });
       meta_campanas.forEach((c) => { const id = String(c.campana_id); if (g[id] || c.estado === 'ACTIVE') { const x = de(id, c.campana); x.estado = c.estado; if (!x.campana) x.campana = c.campana; } });
       const nomPag = {}; paginas_uso.forEach((p) => { nomPag[p.page_id] = p.pagina; });
       const pags = {}; meta_creativos.forEach((a) => { if (a.page_id && a.campana_id) (pags[a.campana_id] = pags[a.campana_id] || new Set()).add(nomPag[a.page_id] || a.page_id); });
-      return Object.values(g).map(({ nums, sin, ...x }) => ({ ...x, pagina: pags[x.campana_id] ? [...pags[x.campana_id]].join(', ') : '', numero: nums.size ? [...nums].join(', ') : 'No detectado', detectado: nums.size > 0 }))
+      // campañas activas sin filas de pauta: también pueden tener número por su nombre o asignado a mano
+      Object.values(g).forEach((x) => { if (!x.nums.size) marcar(x, { campana_id: x.campana_id, campana: x.campana }); });
+      return Object.values(g).map(({ nums, sin, fuentes, ...x }) => ({ ...x, fuente: fuentes.has('manual') && fuentes.size === 1 ? 'manual' : [...fuentes][0] || '', pagina: pags[x.campana_id] ? [...pags[x.campana_id]].join(', ') : '', numero: nums.size ? [...nums].join(', ') : 'No detectado', detectado: nums.size > 0 }))
         .sort((a, b) => b.conv_rango - a.conv_rango || b.conv_hoy - a.conv_hoy || a.campana.localeCompare(b.campana));
     },
   });
@@ -2471,18 +2485,44 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const filas = M.data.filter((x) => mcFiltro === 'todas' || (mcFiltro === 'act') === (x.estado === 'ACTIVE'));
     $('mc-vacio').hidden = filas.length > 0;
     const dg = window.idealabWaDiag, sinDet = M.data.filter((x) => !x.detectado && (x.conv_rango || x.conv_hoy)).length;
-    $('mc-nota').textContent = 'La misma columna de Meta Ads, con el número de WhatsApp al que manda cada campaña (lo detecta la app).' + (sinDet ? ' ' + sinDet + ' campaña' + (sinDet > 1 ? 's' : '') + ' con mensajes sin número detectado' + (dg ? ' (Meta dio el número en ' + dg.con_numero + ' de ' + dg.anuncios + ' anuncios)' : '') + '.' : '');
+    $('mc-nota').textContent = 'La misma columna de Meta Ads. El número sale solo si el nombre de la campaña, del conjunto o del anuncio lleva su código (por ejemplo «CHILE_VD5 QR B3»); si no, elígelo una vez en la lista.' + (sinDet ? ' Faltan ' + sinDet + ' campaña' + (sinDet > 1 ? 's' : '') + ' con mensajes.' : '');
     tabla(t, [['campana', 'Campaña'], ['estado', 'Estado'], ['pagina', 'Fan page'], ['numero', 'Número'], ['conv_hoy', 'Conversaciones hoy', 'num'], ['conv_rango', 'Conversaciones del periodo', 'num']], filas, {
       key: 'campana_id',
       celda: (td, c, f) => {
         if (c === 'estado') { td.textContent = f.estado === 'ACTIVE' ? 'Activa' : f.estado ? 'Apagada' : '—'; td.className = f.estado === 'ACTIVE' ? 'ag-pos' : 'x'; return true; }
         if (c === 'pagina') { td.textContent = f.pagina || '—'; return true; }
-        if (c === 'numero') { td.textContent = f.numero; td.className = f.detectado ? 'ag-gold' : 'x'; td.style.whiteSpace = 'normal'; return true; }
+        if (c === 'numero') {
+          if (f.detectado && f.fuente !== 'manual') { td.textContent = f.numero; td.className = 'ag-gold'; td.style.whiteSpace = 'normal'; return true; }
+          const NN = dash.data('numeros'); if (NN.status !== 'ok') { td.textContent = f.numero; return true; }
+          const se = document.createElement('select'); se.className = 'ag-sel'; se.style.cssText = 'padding:3px 6px;font-size:12px'; se.setAttribute('aria-label', 'Número de ' + f.campana);
+          se.appendChild(new Option('¿A qué número?', ''));
+          NN.data.forEach((n) => se.appendChild(new Option(n.codigo + ' · ' + (n.numero || n.celular), n.codigo)));
+          se.value = f.fuente === 'manual' ? f.numero : '';
+          se.addEventListener('change', () => asignarCampana(f, se.value, se));
+          td.appendChild(se); return true;
+        }
         if (c === 'conv_hoy' || c === 'conv_rango') { td.textContent = num.format(f[c] || 0); return true; }
         return false;
       },
     });
   };
+
+  async function asignarCampana(f, codigo, se) {
+    const N = dash.data('numeros'); if (N.status !== 'ok') return;
+    const id = String(f.campana_id), cambios = [];
+    N.data.forEach((n) => {
+      const l = new Set(n.campanas_asig || []), tenia = l.has(id);
+      if (n.codigo === codigo) l.add(id); else l.delete(id);
+      if (tenia !== l.has(id)) cambios.push({ fila: n.fila, v: [...l].join(', ') });
+    });
+    se.disabled = true; avisar('mc-msg', 'Guardando…', true);
+    try {
+      for (const c of cambios) await escribir('update_values', { range: 'Numeros!J' + c.fila, values: [[c.v]] });
+      avisar('mc-msg', codigo ? f.campana + ' cuenta ahora para ' + codigo + '.' : f.campana + ' quedó sin número.', true);
+      dash.refresh('numeros');
+    } catch (e) { avisar('mc-msg', textoError(e), false); }
+    se.disabled = false;
+  }
 
   // Mensajes en el tiempo: una línea por número
   const sumarDias = (f, n) => new Date(Date.parse(f + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
