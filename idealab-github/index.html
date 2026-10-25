@@ -135,11 +135,14 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
   const leerFacturas = (vals) => vals.slice(1).map((r, i) => ({ fila: i + 2, creada: leerFecha(r[0]) || String(r[0] || ''), concepto: String(r[1] || '').trim(), valor: leerValor(r[2]), pagar_a: String(r[3] || '').trim(), estado: /pagad/i.test(String(r[4] || '')) ? 'Pagado' : 'Pendiente', fecha_pago: leerFecha(r[5]) || String(r[5] || ''), pagado_por: String(r[6] || '').trim(), nota: String(r[7] || '') })).filter((r) => r.concepto || r.valor);
   const cargarFacturas = async (j) => {
     const directo = j && j.hojas && (j.hojas.facturas || j.hojas.Facturas);
-    if (Array.isArray(directo)) { fijar('facturas', { status: 'ok', data: leerFacturas(directo) }); return; }
+    // Para el cierre: facturas pendientes (las pagadas ya pasaron a Gastos)
+    const paraCierre = (fs) => fijar('facturas_cont', { status: 'ok', data: fs.filter((f) => f.estado !== 'Pagado' && f.valor > 0) });
+    if (Array.isArray(directo)) { const fs = leerFacturas(directo); fijar('facturas', { status: 'ok', data: fs }); paraCierre(fs); return; }
+    if (!estado.facturas_cont || estado.facturas_cont.status !== 'ok') paraCierre([]);
     if (!estado.facturas || estado.facturas.status !== 'ok') fijar('facturas', { status: 'loading', data: [] });
     const intentos = [() => enviar({ accion: 'facturas' }), () => enviar({ accion: 'hoja', tool: 'get_values', input: { range: 'Facturas!A1:I1000' } })];
     for (const intento of intentos) {
-      try { const r = await intento(); const vals = buscarValues(r); if (vals) { fijar('facturas', { status: 'ok', data: leerFacturas(vals) }); avisar(); return; } } catch (e) {}
+      try { const r = await intento(); const vals = buscarValues(r); if (vals) { const fs = leerFacturas(vals); fijar('facturas', { status: 'ok', data: fs }); paraCierre(fs); calcular(); return; } } catch (e) {}
     }
     fijar('facturas', { status: 'error', data: [], message: 'sin_servidor' }); avisar();
   };
@@ -865,41 +868,39 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         <div class="ag-recibos" id="recibos" data-source="liquidacion_paises"></div>
       </div>
       <div class="ag-card" style="margin-top:14px">
-        <h2>Gastos del periodo</h2>
-        <p class="ag-note">Gastos aparte de la pauta de Meta (bots, IA, herramientas y otros). Se cargan al país que elijas, o a «General» si son de toda la empresa; entran al cierre según su fecha.</p>
-        <div class="ag-scroll"><table class="ag-table" id="t-gastos" data-source="gastos" data-row-key="fila"></table></div>
-        <p class="ag-empty" id="gastos-vacio" hidden>Sin gastos anotados en este periodo.</p>
+        <h2>Agregar factura</h2>
+        <p class="ag-note">Toda factura o gasto aparte de la pauta de Meta (bots, IA, herramientas y otros) se anota aquí una sola vez. Si se paga ya, va a «Pagos efectuados»; si no, a «Pendiente de pago». Una vez guardada solo se puede marcar como pagada o eliminar.</p>
         <div class="ag-form">
           <label>Fecha<input class="ag-in" type="date" id="g-fecha" min="2020-01-01" max="2099-12-31"></label>
-          <label>Concepto<input class="ag-in" id="g-concepto" placeholder="ManyChat, ChatGPT…"></label>
-          <label>Quién lo pagó<select class="ag-sel" id="g-quien"><option>Empresa</option><option>Anthony Guiñan</option><option>Alejandra Acosta</option></select></label>
-          <label>Valor (COP)<input class="ag-in" type="number" id="g-valor" min="0" step="1"></label>
-          <label>Estado del pago<select class="ag-sel" id="g-estado"><option value="Pagado">Pagado</option><option value="Pendiente">Pendiente de pago</option></select></label>
+          <label>Concepto<input class="ag-in" id="g-concepto" placeholder="ManyChat, ChatGPT, bots…"></label>
+          <label>Quién la paga<select class="ag-sel" id="g-quien"><option>Empresa</option><option>Anthony Guiñan</option><option>Alejandra Acosta</option></select></label>
+          <label>Moneda<select class="ag-sel" id="g-moneda"><option value="COP">Pesos (COP)</option><option value="USD">Dólares (USD)</option></select></label>
+          <label class="g-usd" hidden>Valor en dólares (USD)<input class="ag-in" type="number" id="g-usd" min="0" step="0.01"></label>
+          <label class="g-usd" hidden>Tasa (COP por 1 USD)<input class="ag-in" type="number" id="g-tasa" min="0" step="1"></label>
+          <label>Valor en pesos (COP)<input class="ag-in" type="number" id="g-valor" min="0" step="1"></label>
+          <label>¿Se paga ya?<select class="ag-sel" id="g-estado"><option value="Pagado">Sí, ya se pagó</option><option value="Pendiente">No, queda pendiente de pago</option></select></label>
           <label id="g-fpago-l">Fecha de pago<input class="ag-in" type="date" id="g-fpago" min="2020-01-01" max="2099-12-31"></label>
           <div class="g-reparto">
             <span class="g-lb">Se carga a <em>(elige uno o varios países)</em></span>
             <div class="ag-chips" id="g-paises" data-source="paises"></div>
             <div class="g-pcts" id="g-pcts" hidden></div>
           </div>
-          <button type="button" class="ag-btn pri" id="g-guardar">Agregar gasto</button>
+          <button type="button" class="ag-btn pri" id="g-guardar">Agregar factura</button>
         </div>
         <p class="ag-msg" id="g-msg"></p>
       </div>
       <div class="ag-card" style="margin-top:14px">
-        <div class="ag-top"><div><h2>Facturas por pagar</h2><p class="ag-note">Anota cada factura cuando llegue; márcala como pagada con la fecha y quién la pagó. Se guardan en la pestaña Facturas de la hoja.</p></div>
-          <div class="ag-chips" id="f-filtro"><button type="button" class="ag-btn" data-f="pend" aria-pressed="true">Pendientes</button><button type="button" class="ag-btn" data-f="pag">Pagadas</button><button type="button" class="ag-btn" data-f="todas">Todas</button></div></div>
+        <div class="ag-top"><div><h2>Pendiente de pago</h2><p class="ag-note">Todo lo que falta pagar. Ya se descuenta del cierre de la quincena de su fecha (1 al 15 → 1.ª, 16 al fin de mes → 2.ª). Al marcarla pagada, con su fecha de pago, pasa sola a «Pagos efectuados».</p></div></div>
         <div class="f-res" id="f-res" data-source="facturas"></div>
-        <div class="ag-scroll"><table class="ag-table" id="t-facturas" data-source="facturas" data-row-key="fila"></table></div>
-        <p class="ag-empty" id="facturas-vacio" hidden>No hay facturas en esta lista.</p>
-        <div class="ag-form">
-          <label>Fecha de la factura<input class="ag-in" type="date" id="fa-fecha" min="2020-01-01" max="2099-12-31"></label>
-          <label>Concepto<input class="ag-in" id="fa-concepto" placeholder="Bots de octubre, proveedor Chile…"></label>
-          <label>Valor (COP)<input class="ag-in" type="number" id="fa-valor" min="0" step="1"></label>
-          <label>A quién se le paga<input class="ag-in" id="fa-a" placeholder="Proveedor, persona o empresa"></label>
-          <label>Nota<input class="ag-in" id="fa-nota" placeholder="Opcional"></label>
-          <button type="button" class="ag-btn pri" id="fa-guardar">Agregar factura</button>
-        </div>
+        <div class="ag-scroll"><table class="ag-table" id="t-facturas" data-source="facturas" data-row-key="clave"></table></div>
+        <p class="ag-empty" id="facturas-vacio" hidden>No hay nada pendiente de pago.</p>
         <p class="ag-msg" id="fa-msg"></p>
+      </div>
+      <div class="ag-card" style="margin-top:14px">
+        <h2>Pagos efectuados</h2>
+        <p class="ag-note" id="g-nota">Facturas y gastos ya pagados del periodo elegido.</p>
+        <div class="ag-scroll"><table class="ag-table" id="t-gastos" data-source="gastos" data-row-key="fila"></table></div>
+        <p class="ag-empty" id="gastos-vacio" hidden>No hay pagos en este periodo.</p>
       </div>
       <div class="ag-card" style="margin-top:14px">
         <h2>Bitácora de cierres</h2>
@@ -1616,8 +1617,10 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   dash.calc('liquidacion', {
     title: 'Cierres por quincena y mes',
     description: 'Por periodo (filas total) y por periodo y país (filas pais, también en moneda local con la tasa de Tasas al cierre del periodo): ventas, pauta con IVA, utilidad de países, gastos, utilidad total, comisión de proveedores (% de la utilidad de cada país, si es positiva), nómina (% de la utilidad total; si hay trabajadores en Config, la suma de sus % y una fila trabajador por persona con su pago), empresa (% de la utilidad total) y lo que queda para cada socio, con los porcentajes de la pestaña Config.',
-    inputs: ['meta_dias', 'ventas_cop', 'gastos', 'config', 'paises', 'tasas_aj'],
-    fn: (meta_dias, ventas_cop, gastos, config, paises, tasas) => {
+    inputs: ['meta_dias', 'ventas_cop', 'gastos', 'config', 'paises', 'tasas_aj', 'facturas_cont'],
+    fn: (meta_dias, ventas_cop, gastos0, config, paises, tasas, facturas_cont) => {
+      // Gastos pagados y pendientes + facturas por pagar: todos se descuentan en la quincena de su fecha de creación
+      const gastos = [...gastos0, ...facturas_cont.map((f) => ({ fecha: f.creada, valor: f.valor, pais: 'General' }))];
       const periodosDe = (fechas) => {
         const meses = [...new Set(fechas.map((f) => f.slice(0, 7)))].sort();
         const out = [];
@@ -3026,59 +3029,94 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   window.addEventListener('beforeunload', (e) => { if (crSubiendo) { e.preventDefault(); e.returnValue = ''; } });
 
   // ---------- Facturas por pagar ----------
-  let fFiltro = 'pend', fPagando = null;
+  // Aquí va todo lo que falta pagar: las facturas (pestaña Facturas) y los gastos anotados como pendientes.
+  // Al pagarlo pasa a «Gastos del periodo». Todo se descuenta en el cierre de la quincena de su fecha de creación.
+  let fFiltro = 'per', fPagando = null, perCont = null;
   const QUIENES = ['Empresa', 'Anthony Guiñan', 'Alejandra Acosta'];
+  const pendientesTodos = () => {
+    const F = dash.data('facturas'), G = dash.data('gastos');
+    const out = [];
+    if (F.status === 'ok') F.data.filter((x) => x.estado !== 'Pagado').forEach((x) => out.push({ clave: 'F' + x.fila, tipo: 'factura', fila: x.fila, creada: x.creada, concepto: x.concepto, valor: x.valor || 0, pagar_a: x.pagar_a, nota: x.nota, se_carga: 'General', filas: [x.fila] }));
+    if (G.status === 'ok') {
+      const grupos = {};
+      G.data.filter((g) => g.estado_pago !== 'Pagado').forEach((g) => {
+        const k = /^Repartido de/i.test(g.nota || '') ? [g.fecha, g.concepto, g.pagado_por, g.nota].join('|') : 'fila' + g.fila;
+        if (!grupos[k]) { grupos[k] = { clave: 'G' + g.fila, tipo: 'gasto', fila: g.fila, creada: g.fecha, concepto: g.concepto, valor: 0, pagar_a: g.pagado_por, nota: /^Repartido de/i.test(g.nota || '') ? '' : g.nota === 'desde el dashboard' ? '' : g.nota, paises: [], filas: [], pagado_por: g.pagado_por }; out.push(grupos[k]); }
+        grupos[k].valor += g.valor; grupos[k].filas.push(g.fila); grupos[k].paises.push(g.pais);
+      });
+      Object.values(grupos).forEach((x) => { x.se_carga = x.paises.length > 1 ? num.format(x.paises.length) + ' países' : x.paises[0]; });
+    }
+    return out;
+  };
   function dibujarFacturas() {
-    document.querySelectorAll('#f-filtro [data-f]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.f === fFiltro)));
-    if (!$('fa-fecha').value) $('fa-fecha').value = HOY;
-    const F = dash.data('facturas'), t = $('t-facturas'), res = $('f-res');
+    const F = dash.data('facturas'), G = dash.data('gastos'), t = $('t-facturas'), res = $('f-res');
     res.replaceChildren();
-    if (F.status === 'error') { t.replaceChildren(); $('facturas-vacio').hidden = true; const e = document.createElement('p'); e.className = 'ag-note f-aviso'; e.textContent = 'Las facturas que agregues se guardan en la pestaña Facturas, pero para verlas aquí falta un paso en el servidor (archivo servidor-idealab.gs). Mientras tanto puedes verlas en la hoja.'; res.appendChild(e); return; }
-    if (F.status !== 'ok') { t.replaceChildren(); const e = document.createElement('span'); e.className = 'dash-skeleton'; e.textContent = 'Cargando…'; res.appendChild(e); return; }
-    const pend = F.data.filter((x) => x.estado !== 'Pagado'), pag = F.data.filter((x) => x.estado === 'Pagado');
+    if (F.status !== 'ok' && F.status !== 'error' || G.status !== 'ok') { t.replaceChildren(); const e = document.createElement('span'); e.className = 'dash-skeleton'; e.textContent = 'Cargando…'; res.appendChild(e); return; }
+    const per = perCont || { desde: HOY.slice(0, 8) + '01', hasta: HOY, nombre: 'este mes' };
+    const enPer = (f) => f && f >= per.desde && f <= per.hasta;
+    const pend = pendientesTodos(), pendPer = pend.filter((x) => enPer(x.creada));
+    const suma = (l) => l.reduce((s, x) => s + (x.valor || 0), 0);
+    const pagPer = G.data.filter((g) => g.estado_pago === 'Pagado' && enPer(g.fecha));
     const kpi = (lb, v, sub, cls) => { const d = document.createElement('div'); const a = document.createElement('span'); a.textContent = lb; const b = document.createElement('b'); b.textContent = v; if (cls) b.className = cls; const c = document.createElement('em'); c.textContent = sub; d.append(a, b, c); res.appendChild(d); };
-    kpi('Pendiente por pagar', cop.format(pend.reduce((s, x) => s + (x.valor || 0), 0)), num.format(pend.length) + (pend.length === 1 ? ' factura' : ' facturas'), pend.length ? 'ag-gold' : '');
-    const mes = HOY.slice(0, 7), pagMes = pag.filter((x) => String(x.fecha_pago).slice(0, 7) === mes);
-    kpi('Pagado este mes', cop.format(pagMes.reduce((s, x) => s + (x.valor || 0), 0)), num.format(pagMes.length) + (pagMes.length === 1 ? ' factura' : ' facturas'), 'ag-pos');
+    kpi('Pendiente de pago', cop.format(suma(pend)), num.format(pend.length) + (pend.length === 1 ? ' factura' : ' facturas') + (pendPer.length !== pend.length ? ' · ' + cop.format(suma(pendPer)) + ' de este periodo' : ''), pend.length ? 'ag-gold' : '');
+    kpi('Pagado', cop.format(suma(pagPer)), 'facturas y gastos pagados · ' + per.nombre, 'ag-pos');
     const vencida = pend.filter((x) => x.creada && x.creada <= sumar(HOY, -15));
     if (vencida.length) kpi('Con más de 15 días', num.format(vencida.length), 'pendientes hace tiempo', 'ag-neg');
-    const lista = (fFiltro === 'pend' ? pend : fFiltro === 'pag' ? pag : F.data).slice().sort((a, b) => (a.estado === b.estado ? 0 : a.estado === 'Pendiente' ? -1 : 1) || String(b.creada).localeCompare(String(a.creada)));
+    if (F.status === 'error') { const e = document.createElement('p'); e.className = 'ag-note f-aviso'; e.textContent = 'No se pudo leer la pestaña Facturas; se muestran solo los gastos pendientes.'; res.appendChild(e); }
+    const lista = pend.slice().sort((a, b) => String(b.creada).localeCompare(String(a.creada)));
     $('facturas-vacio').hidden = lista.length > 0;
-    tabla(t, [['creada', 'Fecha'], ['concepto', 'Concepto'], ['pagar_a', 'Se le paga a'], ['valor', 'Valor', 'num'], ['estado', 'Estado'], ['pago', 'Pago'], ['acc', '']], lista, {
-      key: 'fila',
+    tabla(t, [['creada', 'Fecha'], ['concepto', 'Concepto'], ['pagar_a', 'Quién la paga'], ['se_carga', 'Se carga a'], ['valor', 'Valor', 'num'], ['quincena', 'Se descuenta en'], ['acc', '']], lista, {
+      key: 'clave',
       celda: (td, c, f) => {
         if (c === 'creada') { td.textContent = f.creada ? fCorta(f.creada) + ' ' + String(f.creada).slice(0, 4) : '—'; return true; }
         if (c === 'concepto') { td.textContent = f.concepto; if (f.nota) { const n = document.createElement('div'); n.className = 'f-nota'; n.textContent = f.nota; td.appendChild(n); } return true; }
         if (c === 'pagar_a') { td.textContent = f.pagar_a || '—'; return true; }
-        if (c === 'estado') { const sp = document.createElement('span'); sp.className = 'ag-pill ' + (f.estado === 'Pagado' ? 'r-Escalar' : 'r-Bajar'); sp.textContent = f.estado === 'Pagado' ? 'Pagado' : 'Pendiente por pagar'; td.appendChild(sp); return true; }
-        if (c === 'pago') { td.textContent = f.estado === 'Pagado' ? (f.fecha_pago ? fCorta(f.fecha_pago) : '') + (f.pagado_por ? ' · ' + f.pagado_por : '') : '—'; return true; }
+        if (c === 'quincena') { const d = Number(String(f.creada).slice(8, 10)); td.textContent = f.creada ? (d <= 15 ? '1.ª' : '2.ª') + ' quincena de ' + MESES_L[Number(f.creada.slice(5, 7)) - 1] : '—'; return true; }
         if (c === 'acc') {
           const w = document.createElement('div'); w.className = 'f-acc';
-          if (f.estado !== 'Pagado') { const b = document.createElement('button'); b.type = 'button'; b.className = 'ag-btn'; b.textContent = fPagando === f.fila ? 'Cancelar' : 'Marcar pagada'; b.addEventListener('click', () => { fPagando = fPagando === f.fila ? null : f.fila; dibujar(); }); w.appendChild(b); }
-          else { const b = document.createElement('button'); b.type = 'button'; b.className = 'ag-x'; b.textContent = 'Volver a pendiente'; b.addEventListener('click', async () => { b.disabled = true; try { await escribir('update_values', { range: 'Facturas!E' + f.fila + ':G' + f.fila, values: [['Pendiente', '', '']] }); avisar('fa-msg', f.concepto + ' quedó pendiente otra vez.', true); dash.refresh('facturas'); } catch (e) { avisar('fa-msg', textoError(e), false); b.disabled = false; } }); w.appendChild(b); }
+          const b = document.createElement('button'); b.type = 'button'; b.className = 'ag-btn'; b.textContent = fPagando === f.clave ? 'Cancelar' : 'Marcar pagada'; b.addEventListener('click', () => { fPagando = fPagando === f.clave ? null : f.clave; dibujar(); }); w.appendChild(b);
           const del = document.createElement('button'); del.type = 'button'; del.className = 'ag-x'; del.textContent = 'Eliminar';
           del.addEventListener('click', async () => {
             if (del.dataset.seguro !== '1') { del.dataset.seguro = '1'; del.textContent = '¿Seguro?'; del.style.color = 'var(--ag-bad)'; setTimeout(() => { del.dataset.seguro = ''; del.textContent = 'Eliminar'; del.style.color = ''; }, 4000); return; }
-            del.disabled = true; try { await escribir('batch_clear_values', { ranges: ['Facturas!A' + f.fila + ':I' + f.fila] }); avisar('fa-msg', 'Factura eliminada: ' + f.concepto + '.', true); dash.refresh('facturas'); } catch (e) { avisar('fa-msg', textoError(e), false); del.disabled = false; }
+            del.disabled = true;
+            try {
+              if (f.tipo === 'factura') await escribir('batch_clear_values', { ranges: ['Facturas!A' + f.fila + ':I' + f.fila] });
+              else await escribir('batch_clear_values', { ranges: f.filas.map((n) => 'Gastos!A' + n + ':I' + n) });
+              avisar('fa-msg', 'Eliminada: ' + f.concepto + '.', true); dash.refresh(f.tipo === 'factura' ? 'facturas' : 'gastos');
+            } catch (e) { avisar('fa-msg', textoError(e), false); del.disabled = false; }
           });
           w.appendChild(del); td.appendChild(w); return true;
         }
         return false;
       },
       despues: (tr, f, tb) => {
-        if (fPagando !== f.fila) return;
+        if (fPagando !== f.clave) return;
         const r = tb.insertRow(); r.className = 'sub'; const td = r.insertCell(); td.colSpan = 7;
         const fm = document.createElement('div'); fm.className = 'f-pago';
         const l1 = document.createElement('label'); l1.textContent = 'Fecha de pago'; const i1 = document.createElement('input'); i1.type = 'date'; i1.className = 'ag-in'; i1.value = HOY; l1.appendChild(i1);
-        const l2 = document.createElement('label'); l2.textContent = 'Quién lo pagó'; const i2 = document.createElement('select'); i2.className = 'ag-sel'; QUIENES.forEach((q) => i2.appendChild(new Option(q, q))); l2.appendChild(i2);
+        // Quién paga ya quedó al crearla; solo se pregunta en facturas viejas que no lo tienen
+        const l2 = document.createElement('label'); l2.textContent = 'Quién lo pagó'; const i2 = document.createElement('select'); i2.className = 'ag-sel'; QUIENES.forEach((q) => i2.appendChild(new Option(q, q))); if (f.pagado_por && QUIENES.includes(f.pagado_por)) i2.value = f.pagado_por; l2.appendChild(i2);
+        if (f.tipo !== 'factura') l2.hidden = true;
         const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'ag-btn pri'; ok.textContent = 'Guardar pago de ' + cop.format(f.valor || 0);
         ok.addEventListener('click', async () => {
           if (!i1.value) { avisar('fa-msg', 'Elige la fecha de pago.', false); return; }
           ok.disabled = true; ok.textContent = 'Guardando…';
-          try { await escribir('update_values', { range: 'Facturas!E' + f.fila + ':G' + f.fila, values: [['Pagado', i1.value, i2.value]] }); avisar('fa-msg', 'Pagada: ' + f.concepto + ' · ' + cop.format(f.valor || 0) + ' a ' + (f.pagar_a || '—') + ', por ' + i2.value + ' el ' + fLarga(i1.value) + '.', true); fPagando = null; dash.refresh('facturas'); }
-          catch (e) { avisar('fa-msg', textoError(e), false); ok.disabled = false; ok.textContent = 'Guardar pago'; }
+          try {
+            if (f.tipo === 'factura') {
+              // Pasa a Gastos (con su fecha de creación, para que siga en la misma quincena) y la factura queda marcada
+              await escribir('append_values', { range: 'Gastos!A1:I1', values: [[f.creada || i1.value, f.concepto, '', f.valor, i2.value, 'Factura pagada' + (f.pagar_a ? ' a ' + f.pagar_a : '') + (f.nota ? ' · ' + f.nota : ''), 'General', 'Pagado', i1.value]] });
+              await escribir('update_values', { range: 'Facturas!E' + f.fila + ':G' + f.fila, values: [['Pagado', i1.value, i2.value]] });
+              dash.refresh('facturas');
+            } else {
+              for (const n of f.filas) await escribir('update_values', { range: 'Gastos!H' + n + ':I' + n, values: [['Pagado', i1.value]] });
+            }
+            avisar('fa-msg', 'Pagada: ' + f.concepto + ' · ' + cop.format(f.valor || 0) + ' el ' + fLarga(i1.value) + '. Ya está en «Pagos efectuados».', true);
+            fPagando = null; dash.refresh('gastos');
+          } catch (e) { avisar('fa-msg', textoError(e), false); ok.disabled = false; ok.textContent = 'Guardar pago'; }
         });
-        fm.append(l1, l2, ok); td.appendChild(fm);
+        const no = document.createElement('button'); no.type = 'button'; no.className = 'ag-x'; no.textContent = 'Cancelar'; no.addEventListener('click', () => { fPagando = null; dibujar(); });
+        const av = document.createElement('span'); av.className = 'f-nota'; av.textContent = 'Una vez pagada no se puede volver a pendiente.';
+        fm.append(l1, l2, ok, no, av); td.appendChild(fm);
       },
     });
   }
@@ -3178,7 +3216,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     // Gastos del periodo
     if (gPaisesLista.join('|') !== ORD.join('|')) { gPaisesLista = ORD; gSel = gSel.filter((x) => ORD.includes(x)); pintarRepartoGasto(); }
     const G = dash.data('gastos');
-    const gs0 = G.status === 'ok' ? G.data.filter((g) => g.fecha >= tg.desde && g.fecha <= tg.hasta && (!paisCierre || g.pais === paisCierre)) : [];
+    perCont = { desde: tg.desde, hasta: tg.hasta, nombre: etq(tg) };
+    const gs0 = G.status === 'ok' ? G.data.filter((g) => g.estado_pago === 'Pagado' && g.fecha >= tg.desde && g.fecha <= tg.hasta && (!paisCierre || g.pais === paisCierre)) : [];
     // Un gasto repartido entre países se ve como una sola factura; tocando el valor se ve cuánto se cargó a cada país
     const gs = [];
     if (paisCierre) gs0.forEach((g) => gs.push({ ...g, filas: [g.fila], partes: null }));
@@ -3201,14 +3240,13 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     }
     gs.sort((a, b) => b.fecha.localeCompare(a.fecha) || b.filas[0] - a.filas[0]);
     $('gastos-vacio').hidden = gs.length > 0 || G.status !== 'ok';
+    $('g-nota').textContent = 'Facturas y gastos ya pagados de ' + perCont.nombre.replace(/^Mes de/, 'el mes de').replace(/^(\d)/, 'la $1') + (paisCierre ? ' cargados a ' + paisCierre : '') + ': ' + num.format(gs.length) + ' · ' + cop.format(gs.reduce((a, x) => a + x.valor, 0)) + '.';
     tabla($('t-gastos'), [['fecha', 'Fecha'], ['concepto', 'Concepto'], ['pagado_por', 'Pagado por'], ['pais', 'Se carga a'], ['pago', 'Pago'], ['valor', 'Valor', 'num'], ['borrar', '']], gs, {
       key: 'fila',
       celda: (td, c, f) => {
         if (c === 'pago') {
-          const b = document.createElement('button'); b.type = 'button'; b.className = 'g-pago ' + (f.estado_pago === 'Pagado' ? 'ok' : 'pend');
-          b.textContent = f.estado_pago === 'Pagado' ? '✓ Pagado' + (f.fecha_pago ? ' · ' + fCorta(f.fecha_pago) + ' ' + f.fecha_pago.slice(0, 4) : '') : '● Pendiente de pago';
-          b.title = 'Cambiar el estado del pago';
-          b.addEventListener('click', () => { gPagoEd = gPagoEd === (f.clave_g || f.fila) ? null : (f.clave_g || f.fila); dibujar(); });
+          const b = document.createElement('span'); b.className = 'g-pago ok';
+          b.textContent = '✓ Pagado' + (f.fecha_pago ? ' · ' + fCorta(f.fecha_pago) + ' ' + f.fecha_pago.slice(0, 4) : '');
           td.appendChild(b); return true;
         }
         if (c === 'pais' && f.partes) { const sp = document.createElement('span'); sp.className = 'g-multi'; sp.textContent = f.pais; sp.title = f.partes.map((x) => x.pais).join(', '); td.appendChild(sp); return true; }
@@ -3229,26 +3267,6 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         td.appendChild(bt); return true;
       },
       despues: (tr, f, tb) => {
-        if (gPagoEd === (f.clave_g || f.fila)) {
-          const r = tb.insertRow(); r.className = 'sub'; const td = r.insertCell(); td.colSpan = 7;
-          const fm = document.createElement('div'); fm.className = 'f-pago';
-          const l1 = document.createElement('label'); l1.textContent = 'Estado del pago'; const est = document.createElement('select'); est.className = 'ag-sel'; est.appendChild(new Option('Pagado', 'Pagado')); est.appendChild(new Option('Pendiente de pago', 'Pendiente')); est.value = f.estado_pago === 'Pagado' ? 'Pagado' : 'Pendiente'; l1.appendChild(est);
-          const l2 = document.createElement('label'); l2.textContent = 'Fecha de pago'; const fe = document.createElement('input'); fe.type = 'date'; fe.className = 'ag-in'; fe.value = f.fecha_pago || HOY; l2.appendChild(fe);
-          const sync = () => { l2.style.opacity = est.value === 'Pagado' ? '1' : '.4'; fe.disabled = est.value !== 'Pagado'; }; est.addEventListener('change', sync); sync();
-          const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'ag-btn pri'; ok.textContent = 'Guardar';
-          const no = document.createElement('button'); no.type = 'button'; no.className = 'ag-x'; no.textContent = 'Cancelar'; no.addEventListener('click', () => { gPagoEd = null; dibujar(); });
-          ok.addEventListener('click', async () => {
-            const pagado = est.value === 'Pagado';
-            if (pagado && !fe.value) { avisar('g-msg', 'Elige la fecha de pago.', false); return; }
-            ok.disabled = true; ok.textContent = 'Guardando…';
-            try {
-              for (const n of f.filas) await escribir('update_values', { range: 'Gastos!H' + n + ':I' + n, values: [[pagado ? 'Pagado' : 'Pendiente', pagado ? fe.value : '']] });
-              avisar('g-msg', f.concepto + ': ' + (pagado ? 'pagado el ' + fLarga(fe.value) + '.' : 'quedó pendiente de pago.'), true);
-              gPagoEd = null; dash.refresh('gastos');
-            } catch (e) { avisar('g-msg', textoError(e), false); ok.disabled = false; ok.textContent = 'Guardar'; }
-          });
-          fm.append(l1, l2, ok, no); td.appendChild(fm);
-        }
         if (!f.partes || gExp !== f.clave_g) return;
         f.partes.forEach((x) => {
           const r = tb.insertRow(); r.className = 'sub g-sub';
@@ -3432,45 +3450,52 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const fecha = $('g-fecha').value, concepto = $('g-concepto').value.trim(), valor = Math.round(Number($('g-valor').value));
     if (!fecha || !concepto || !(valor > 0)) { avisar('g-msg', 'Completa fecha, concepto, quién lo pagó y un valor mayor a 0.', false); return; }
     const quien = $('g-quien').value;
-    const pagado = $('g-estado').value === 'Pagado', fpago = pagado ? $('g-fpago').value || fecha : '';
+    const pagado = $('g-estado').value === 'Pagado', fpago = pagado ? $('g-fpago').value || HOY : '';
+    if (pagado && fpago < fecha) { avisar('g-msg', 'La fecha de pago no puede ser antes de la fecha de la factura.', false); return; }
+    const usd = $('g-moneda').value === 'USD' ? Number($('g-usd').value) : 0, tasaU = Number($('g-tasa').value);
+    if ($('g-moneda').value === 'USD' && !(usd > 0 && tasaU > 0)) { avisar('g-msg', 'Pon el valor en dólares y la tasa del dólar.', false); return; }
+    const notaUsd = usd ? 'USD ' + dec.format(usd) + ' × ' + num.format(tasaU) : '';
     let filasG;
-    if (!gSel.length) filasG = [[fecha, concepto, '', valor, quien, 'desde el dashboard', 'General', pagado ? 'Pagado' : 'Pendiente', fpago]];
+    if (!gSel.length) filasG = [[fecha, concepto, '', valor, quien, notaUsd || 'desde el dashboard', 'General', pagado ? 'Pagado' : 'Pendiente', fpago]];
     else {
       const pc = pctsDe();
       const total = gSel.reduce((s, x) => s + (Number.isFinite(pc[x]) ? pc[x] : NaN), 0);
       if (!Number.isFinite(total) || gSel.some((x) => !(pc[x] > 0))) { avisar('g-msg', 'Pon un porcentaje mayor a 0 para cada país elegido.', false); return; }
       if (Math.abs(total - 100) > 0.01) { avisar('g-msg', 'Los porcentajes suman ' + dec.format(total) + '%: deben sumar 100%.', false); return; }
       const partes = repartir(valor, gSel.map((x) => pc[x]));
-      const nota = gSel.length > 1 ? 'Repartido de ' + cop.format(valor) + ': ' + gSel.map((x) => x + ' ' + num.format(pc[x]) + '%').join(' · ') : 'desde el dashboard';
+      const nota = (gSel.length > 1 ? 'Repartido de ' + cop.format(valor) + ': ' + gSel.map((x) => x + ' ' + num.format(pc[x]) + '%').join(' · ') : 'desde el dashboard') + (notaUsd ? ' · ' + notaUsd : '');
       filasG = gSel.map((x, i) => [fecha, concepto, '', partes[i], quien, nota, x, pagado ? 'Pagado' : 'Pendiente', fpago]);
     }
     ocupado(ev.target, true); avisar('g-msg', 'Guardando…', true);
     try {
       await escribir('append_values', { range: 'Gastos!A1:I1', values: filasG });
-      avisar('g-msg', 'Gasto agregado: ' + concepto + ' · ' + cop.format(valor) + ' · ' + (filasG.length > 1 ? filasG.map((f) => f[6] + ' ' + cop.format(f[3])).join(' · ') : 'cargado a ' + filasG[0][6]) + '.', true);
-      $('g-concepto').value = ''; $('g-valor').value = ''; gSel = []; gPct = {}; pintarRepartoGasto();
+      avisar('g-msg', (pagado ? 'Pagada y guardada en «Pagos efectuados»: ' : 'Guardada en «Pendiente de pago»: ') + concepto + ' · ' + cop.format(valor) + ' · ' + (filasG.length > 1 ? filasG.map((f) => f[6] + ' ' + cop.format(f[3])).join(' · ') : 'cargado a ' + filasG[0][6]) + '.', true);
+      $('g-concepto').value = ''; $('g-valor').value = ''; $('g-usd').value = ''; gSel = []; gPct = {}; pintarRepartoGasto();
       dash.refresh('gastos');
     } catch (e) { avisar('g-msg', textoError(e), false); }
     ocupado(ev.target, false);
   });
   $('g-valor').addEventListener('input', () => pintarRepartoGasto(true));
-  const syncPagoG = () => { const p = $('g-estado').value === 'Pagado'; $('g-fpago').disabled = !p; $('g-fpago-l').style.opacity = p ? '1' : '.4'; if (p && !$('g-fpago').value) $('g-fpago').value = HOY; };
-  $('g-estado').addEventListener('change', syncPagoG); syncPagoG();
+  if (!$('g-fpago').value) $('g-fpago').value = HOY;
 
-  // Facturas
-  $('f-filtro').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (b) { fFiltro = b.dataset.f; fPagando = null; dibujar(); } });
-  $('fa-guardar').addEventListener('click', async (ev) => {
-    const fecha = $('fa-fecha').value, concepto = $('fa-concepto').value.trim(), valor = Math.round(Number($('fa-valor').value)), a = $('fa-a').value.trim(), nota = $('fa-nota').value.trim();
-    if (!fecha || !concepto || !(valor > 0) || !a) { avisar('fa-msg', 'Completa fecha, concepto, valor mayor a 0 y a quién se le paga.', false); return; }
-    ocupado(ev.target, true); avisar('fa-msg', 'Guardando…', true);
-    try {
-      await escribir('append_values', { range: 'Facturas!A1:I1', values: [[fecha, concepto, valor, a, 'Pendiente', '', '', nota, 'desde la app ' + new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date())]] });
-      avisar('fa-msg', 'Factura agregada: ' + concepto + ' · ' + cop.format(valor) + ' para ' + a + ' · pendiente por pagar.', true);
-      ['fa-concepto', 'fa-valor', 'fa-a', 'fa-nota'].forEach((id) => { $(id).value = ''; });
-      fFiltro = 'pend'; dash.refresh('facturas');
-    } catch (e) { avisar('fa-msg', textoError(e), false); }
-    ocupado(ev.target, false);
-  });
+  // Estado del pago y moneda del formulario
+  const syncPagoG = () => { const p = $('g-estado').value === 'Pagado'; $('g-fpago-l').hidden = !p; if (p && !$('g-fpago').value) $('g-fpago').value = HOY; };
+  $('g-estado').addEventListener('change', syncPagoG); syncPagoG();
+  const calcUsd = () => { if ($('g-moneda').value !== 'USD') return; const u = Number($('g-usd').value), t = Number($('g-tasa').value); $('g-valor').value = u > 0 && t > 0 ? Math.round(u * t) : ''; pintarRepartoGasto(true); };
+  let tasaPedida = false;
+  const syncMoneda = () => {
+    const usd = $('g-moneda').value === 'USD';
+    document.querySelectorAll('.g-usd').forEach((l) => { l.hidden = !usd; });
+    $('g-valor').readOnly = usd; $('g-valor').title = usd ? 'Se calcula con los dólares y la tasa' : '';
+    if (usd && !$('g-tasa').value) {
+      try { const v = localStorage.getItem('idealab_tasa_usd'); if (v) $('g-tasa').value = v; } catch (e) {}
+      if (!tasaPedida) { tasaPedida = true; fetch('https://open.er-api.com/v6/latest/USD').then((r) => r.json()).then((j) => { const t = j && j.rates && j.rates.COP; if (t && !$('g-tasa').dataset.sucio) { $('g-tasa').value = Math.round(t); calcUsd(); } }).catch(() => {}); }
+    }
+    calcUsd();
+  };
+  $('g-moneda').addEventListener('change', syncMoneda);
+  $('g-usd').addEventListener('input', calcUsd);
+  $('g-tasa').addEventListener('input', () => { $('g-tasa').dataset.sucio = '1'; try { localStorage.setItem('idealab_tasa_usd', $('g-tasa').value); } catch (e) {} calcUsd(); });
 
   // Porcentajes
   ['c-prov', 'c-trab', 'c-emp', 'c-s1', 'c-s2'].forEach((id) => $(id).addEventListener('input', () => { $(id).dataset.sucio = '1'; }));
