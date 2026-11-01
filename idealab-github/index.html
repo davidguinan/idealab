@@ -715,6 +715,31 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 .ony-fab .ony-bot.es3d { width: 96px; height: 104px; }
 .ony-bot.sm.es3d { width: 46px; height: 50px; }
 @media (max-width: 600px) { .ony-fab .ony-bot.es3d { width: 78px; height: 86px; } }
+/* ONY con vida: se mueve por toda la pantalla y habla con burbujas */
+.ony-vivo { position: fixed; right: 18px; bottom: 18px; z-index: 60; touch-action: none; user-select: none; -webkit-user-select: none; }
+.ony-abierto .ony-vivo { display: none; }
+.ony-vivo .ony-fab { position: static; cursor: grab; touch-action: none; }
+.ony-vivo.arrastrando .ony-fab { cursor: grabbing; }
+.ony-vivo.arrastrando { filter: drop-shadow(0 18px 18px rgba(0,0,0,.35)); }
+.ony-dice { position: absolute; bottom: calc(100% - 6px); right: 40%; max-width: 230px; width: max-content; padding: 8px 12px; border-radius: 16px 16px 4px 16px; background: var(--ag-panel); color: var(--ag-fg); border: 1px solid rgba(155,212,58,.55); box-shadow: 0 10px 26px rgba(0,0,0,.3); font: 600 13px/1.35 var(--font-anthropic-sans); opacity: 0; transform: translateY(6px) scale(.92); transform-origin: bottom right; transition: opacity .2s, transform .25s cubic-bezier(.2,1.4,.4,1); pointer-events: none; }
+.ony-dice.on { opacity: 1; transform: none; }
+.ony-vivo.der .ony-dice { right: auto; left: 40%; border-radius: 16px 16px 16px 4px; transform-origin: bottom left; }
+.ony-vivo.abajo .ony-dice { bottom: auto; top: calc(100% - 6px); }
+.ony-h b { font-size: 15px; letter-spacing: .02em; }
+
+/* Palabra del día */
+.palabra { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px; background: rgba(5,9,18,.6); backdrop-filter: blur(3px); opacity: 0; transition: opacity .25s; }
+.palabra.on { opacity: 1; }
+.palabra[hidden] { display: none; }
+.pl-box { width: min(520px, 100%); background: linear-gradient(160deg, rgba(245,184,0,.12), transparent 55%), var(--ag-panel); color: var(--ag-fg); border: 1px solid rgba(245,184,0,.45); border-radius: 22px; padding: 26px 24px 18px; text-align: center; box-shadow: 0 30px 70px rgba(0,0,0,.45); transform: translateY(10px) scale(.97); transition: transform .3s cubic-bezier(.2,1.3,.4,1); font-family: var(--font-anthropic-sans); }
+.palabra.on .pl-box { transform: none; }
+.pl-k { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--ag-gold); }
+.pl-texto { font: 400 clamp(19px, 3.2vw, 24px)/1.45 var(--font-anthropic-serif); margin: 14px 0 8px; }
+.pl-ref { margin: 0 0 14px; font-weight: 600; color: var(--ag-gold); font-size: 14px; }
+.pl-hoy { margin: 0 auto 18px; max-width: 420px; font-size: 13.5px; line-height: 1.5; color: var(--ag-muted); }
+.pl-amen { all: unset; cursor: pointer; padding: 10px 26px; border-radius: 999px; background: var(--ag-gold); color: #1A1300; font-weight: 600; font-size: 14px; }
+.pl-amen:focus-visible { outline: 2px solid var(--ag-gold); outline-offset: 3px; }
+.pl-cr { margin: 16px 0 0; font-size: 10px; color: var(--ag-muted); opacity: .75; }
 /* ---------- Tema claro / oscuro ---------- */
 .tema-btn { all: unset; cursor: pointer; margin-left: auto; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; border: 1px solid var(--ag-line); color: var(--ag-gold); flex: none; }
 .tema-btn:hover { border-color: var(--ag-gold); }
@@ -3889,9 +3914,21 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 })();
 </script>
 
+
+  <!-- Palabra del día -->
+  <div class="palabra ony-scope" id="palabra" hidden role="dialog" aria-modal="true" aria-labelledby="pl-tit">
+    <div class="pl-box">
+      <span class="pl-k" id="pl-tit">📖 Palabra del día</span>
+      <p class="pl-texto" id="pl-texto"></p>
+      <p class="pl-ref" id="pl-ref"></p>
+      <p class="pl-hoy" id="pl-hoy"></p>
+      <button type="button" class="pl-amen" id="pl-amen">Amén 🙏</button>
+      <p class="pl-cr">Reina-Valera 1960 © Sociedades Bíblicas en América Latina, 1960; renovado © Sociedades Bíblicas Unidas, 1988.</p>
+    </div>
+  </div>
   <!-- ONY · asistente de IA -->
   <div class="ony-scope">
-  <button type="button" class="ony-fab" id="ony-fab" aria-expanded="false" aria-controls="ony-panel" title="Hablar con ONY"><span class="ony-bot" aria-hidden="true"><svg viewBox="0 0 120 132">
+  <div class="ony-vivo" id="ony-vivo"><div class="ony-dice" id="ony-dice" role="status" aria-live="polite" hidden></div><button type="button" class="ony-fab" id="ony-fab" aria-expanded="false" aria-controls="ony-panel" title="Hablar con ONY"><span class="ony-bot" aria-hidden="true"><svg viewBox="0 0 120 132">
   <defs>
     <radialGradient id="cuerpoA" cx="40%" cy="35%" r="75%"><stop offset="0" stop-color="#C8F06A"/><stop offset=".6" stop-color="#9BD43A"/><stop offset="1" stop-color="#77B02A"/></radialGradient>
     <radialGradient id="copaA" cx="40%" cy="30%" r="80%"><stop offset="0" stop-color="#7DBA3A"/><stop offset=".7" stop-color="#5A9227"/><stop offset="1" stop-color="#3F6E1C"/></radialGradient>
@@ -3920,7 +3957,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     </g>
   </g>
   <text class="ob-jaja" x="94" y="16">¡jaja!</text>
-</svg></span><b>ONY</b></button>
+</svg></span></button></div>
   <section class="ony-panel" id="ony-panel" hidden aria-label="ONY, asistente de IA">
     <header class="ony-h">
       <span class="ony-bot sm" id="ony-bot-h" aria-hidden="true"><svg viewBox="0 0 120 132">
@@ -3953,7 +3990,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   </g>
   <text class="ob-jaja" x="94" y="16">¡jaja!</text>
 </svg></span>
-      <div><b>ONY</b><span>Tu asistente de IdeaLab · criterio de Eduardo</span></div>
+      <div><b>¡Hola, soy ONY!</b></div>
       <button type="button" class="ony-x" id="ony-cerrar" aria-label="Cerrar">×</button>
     </header>
     <div class="ony-msgs" id="ony-msgs" aria-live="polite"></div>
@@ -3961,6 +3998,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       <button type="button" class="solo-socios" data-q="¿Cómo nos fue ayer por país? Dame ROAS, qué escalar, qué mantener y qué apagar según Eduardo.">Resumen de ayer</button>
       <button type="button" class="solo-socios" data-q="¿Qué conjuntos o campañas cumplen hoy el criterio de Eduardo para escalar? Propón los cambios.">¿Qué escalo hoy?</button>
       <button type="button" class="solo-socios" data-q="¿Qué debería apagar o bajar hoy según el criterio de Eduardo? Propón los cambios.">¿Qué apago?</button>
+      <button type="button" id="ony-palabra-chip">📖 Palabra del día</button>
       <button type="button" data-q="Dame 3 ideas de creativos nuevos para testear (gancho, guion corto y público) a partir de lo que mejor está funcionando.">Ideas de creativos</button>
     </div>
     <div class="ony-adj" id="ony-adj" hidden></div>
@@ -4157,6 +4195,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   const ajustarAlto = () => { entrada.style.height = 'auto'; entrada.style.height = Math.min(140, entrada.scrollHeight) + 'px'; };
   entrada.addEventListener('input', ajustarAlto);
   $('ony-chips').addEventListener('click', (e) => { const b = e.target.closest('button[data-q]'); if (b) preguntar(b.dataset.q); });
+  $('ony-palabra-chip').addEventListener('click', () => { if (!window.idealabPalabra) return; const p = window.idealabPalabra.delDia(); burbuja('ony', '📖 **Palabra del día**\n*«' + p.texto + '»*\n**' + p.ref + '** · RVR1960\n' + p.hoy); });
 
   // ---------- Adjuntos: imágenes y cuadros clave de videos ----------
   const aJpeg = (fuente, w0, h0, max) => { const k = Math.min(1, (max || 1280) / Math.max(w0, h0)); const c = document.createElement('canvas'); c.width = Math.round(w0 * k); c.height = Math.round(h0 * k); c.getContext('2d').drawImage(fuente, 0, 0, c.width, c.height); const url = c.toDataURL('image/jpeg', 0.8); return { url, media_type: 'image/jpeg', data: url.split(',')[1] }; };
@@ -4236,7 +4275,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 </script>
 
 <script>
-/* ONY en 3D: brócoli de peluche con Three.js (tela aterciopelada, copa de lana, flota, parpadea, se ríe y se sonroja).
+/* ONY en 3D: brócoli de peluche con vida propia (Three.js). Expone window.onyBot3D para que el «cerebro» le pida acciones.
    Si el equipo no tiene WebGL, se queda el dibujo animado. */
 (function () {
   const hayWebGL = () => { try { const c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); } catch (e) { return false; } };
@@ -4248,6 +4287,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     probar(0);
   });
   const quieto = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const suave = (a, b, k) => a + (b - a) * k;
+  const campana = (u) => Math.sin(Math.PI * Math.min(1, Math.max(0, u)));
 
   cargarThree().then((THREE) => {
     if (THREE.ColorManagement) THREE.ColorManagement.legacyMode = false;
@@ -4257,15 +4298,13 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     renderer.setClearColor(0x000000, 0);
     const cv = renderer.domElement; cv.className = 'ob3d';
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(26, 1, 0.1, 50); camera.position.set(0, 0.35, 6.2); camera.lookAt(0, 0.12, 0);
+    const camera = new THREE.PerspectiveCamera(26, 1, 0.1, 50); camera.position.set(0, 0.35, 6.4); camera.lookAt(0, 0.12, 0);
 
-    // Luz de estudio: principal cálida, relleno frío, contraluz que marca la pelusa, y rebote desde abajo
     scene.add(new THREE.HemisphereLight(0xf4fff0, 0x3a2a10, 0.75));
     const key = new THREE.DirectionalLight(0xfff3dc, 1.55); key.position.set(-2.5, 3.2, 3.5); scene.add(key);
     const fill = new THREE.DirectionalLight(0xcfe6ff, 0.45); fill.position.set(3, 1, 2.5); scene.add(fill);
     const rim = new THREE.DirectionalLight(0xffffff, 1.2); rim.position.set(0.5, 2.5, -3.5); scene.add(rim);
 
-    // Texturas generadas: grano de felpa y rizo de lana
     const lienzo = (w, h, pintar) => { const c = document.createElement('canvas'); c.width = w; c.height = h; pintar(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; };
     const grano = lienzo(256, 256, (x, w, h) => { const im = x.createImageData(w, h); for (let i = 0; i < im.data.length; i += 4) { const v = 120 + Math.random() * 70; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; } x.putImageData(im, 0, 0); });
     grano.repeat.set(5, 5);
@@ -4275,105 +4314,169 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const ONY = new THREE.Group(); scene.add(ONY);
     const cuerpoG = new THREE.Group(); ONY.add(cuerpoG);
 
-    // Cuerpo: forma de gota ancha (torno) en felpa verde lima, con brillo aterciopelado
     const perfil = new THREE.SplineCurve([new THREE.Vector2(0.0, -0.62), new THREE.Vector2(0.5, -0.6), new THREE.Vector2(0.7, -0.5), new THREE.Vector2(0.78, -0.25), new THREE.Vector2(0.74, 0.05), new THREE.Vector2(0.62, 0.32), new THREE.Vector2(0.42, 0.5), new THREE.Vector2(0.0, 0.56)]).getPoints(48);
     const radioEn = (y) => { for (let i = 1; i < perfil.length; i++) { const a = perfil[i - 1], b = perfil[i]; if ((y - a.y) * (y - b.y) <= 0) { const k = (y - a.y) / (b.y - a.y || 1); return a.x + (b.x - a.x) * k; } } return 0.6; };
+    const VERDE = new THREE.Color(0x8fd12a);
     const felpa = new THREE.MeshPhysicalMaterial({ color: 0x8fd12a, roughness: 0.85, sheen: 0.35, sheenRoughness: 0.4, sheenColor: new THREE.Color(0xb6ec5a), bumpMap: grano, bumpScale: 0.003 });
-    const cuerpo = new THREE.Mesh(new THREE.LatheGeometry(perfil, 72), felpa); cuerpoG.add(cuerpo);
-    // Costura de abajo
-    const costura = new THREE.Mesh(new THREE.TorusGeometry(0.705, 0.022, 10, 80), new THREE.MeshPhysicalMaterial({ color: 0x8cc432, roughness: 1, sheen: 1, sheenColor: new THREE.Color(0xd8f7a0) }));
+    cuerpoG.add(new THREE.Mesh(new THREE.LatheGeometry(perfil, 72), felpa));
+    const costura = new THREE.Mesh(new THREE.TorusGeometry(0.705, 0.022, 10, 80), new THREE.MeshPhysicalMaterial({ color: 0x86c428, roughness: 1, sheen: 1, sheenColor: new THREE.Color(0xd8f7a0) }));
     costura.rotation.x = Math.PI / 2; costura.position.y = -0.47; cuerpoG.add(costura);
 
-    // Copa de brócoli: bolas de lana con rizos y miles de motitas
+    // Copa: cada bola de lana es un grupo con sus rizos, para que se muevan por separado
     const lana = new THREE.MeshStandardMaterial({ color: 0x4f8a22, roughness: 1, bumpMap: rizo, bumpScale: 0.035 });
     const copa = new THREE.Group(); copa.position.y = 0.5; cuerpoG.add(copa);
     const bolas = [[0, 0.32, 0, 0.5], [-0.42, 0.18, 0.12, 0.4], [0.42, 0.18, 0.12, 0.4], [-0.25, 0.42, -0.1, 0.38], [0.27, 0.43, -0.08, 0.38], [0, 0.1, 0.35, 0.42], [-0.5, 0.0, -0.1, 0.33], [0.5, 0.0, -0.1, 0.33], [0, 0.15, -0.38, 0.4], [-0.3, 0.05, 0.38, 0.3], [0.3, 0.05, 0.38, 0.3], [0, 0.58, 0.05, 0.3]];
     const geoBola = new THREE.IcosahedronGeometry(1, 4);
     { const p = geoBola.attributes.position, v = new THREE.Vector3(); for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const n = 1 + 0.06 * Math.sin(v.x * 9) * Math.sin(v.y * 11) * Math.sin(v.z * 7) + (Math.random() - 0.5) * 0.03; v.multiplyScalar(n); p.setXYZ(i, v.x, v.y, v.z); } geoBola.computeVertexNormals(); }
-    bolas.forEach(([x, y, z, r]) => { const m = new THREE.Mesh(geoBola, lana); m.position.set(x, y, z); m.scale.setScalar(r); copa.add(m); });
-    // Motitas de lana (instancias) sobre la superficie de las bolas
-    const N = 5200, mota = new THREE.TorusGeometry(1, 0.42, 5, 10, Math.PI * 1.4);
-    const motas = new THREE.InstancedMesh(mota, new THREE.MeshStandardMaterial({ roughness: 1 }), N);
+    const mota = new THREE.TorusGeometry(1, 0.42, 5, 10, Math.PI * 1.4), motaMat = new THREE.MeshStandardMaterial({ roughness: 1 });
     const M = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), pos = new THREE.Vector3(), col = new THREE.Color();
-    for (let i = 0; i < N; i++) {
-      const [bx, by, bz, br] = bolas[Math.floor(Math.random() * bolas.length)];
-      const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.35, Math.random() - 0.5).normalize();
-      pos.set(bx, by, bz).addScaledVector(dir, br * (0.98 + Math.random() * 0.06));
-      e.set(Math.random() * 6, Math.random() * 6, Math.random() * 6); q.setFromEuler(e);
-      const t = 0.018 + Math.random() * 0.016; s.set(t, t, t);
-      M.compose(pos, q, s); motas.setMatrixAt(i, M);
-      col.setHSL(0.25 + Math.random() * 0.03, 0.6 + Math.random() * 0.2, 0.2 + Math.random() * 0.13); motas.setColorAt(i, col);
-    }
-    copa.add(motas);
+    const rizos = bolas.map(([x, y, z, r], k) => {
+      const g = new THREE.Group(); g.position.set(x, y * 0.6, z); copa.add(g);
+      const inner = new THREE.Group(); inner.position.set(0, y * 0.4, 0); g.add(inner);
+      const m = new THREE.Mesh(geoBola, lana); m.scale.setScalar(r); inner.add(m);
+      const n = Math.round(5200 * (r * r) / 1.75), im = new THREE.InstancedMesh(mota, motaMat, n);
+      for (let i = 0; i < n; i++) {
+        const dir = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.35, Math.random() - 0.5).normalize();
+        pos.copy(dir).multiplyScalar(r * (0.98 + Math.random() * 0.06));
+        e.set(Math.random() * 6, Math.random() * 6, Math.random() * 6); q.setFromEuler(e);
+        const t = 0.018 + Math.random() * 0.016; s.set(t, t, t); M.compose(pos, q, s); im.setMatrixAt(i, M);
+        col.setHSL(0.25 + Math.random() * 0.03, 0.6 + Math.random() * 0.2, 0.2 + Math.random() * 0.13); im.setColorAt(i, col);
+      }
+      inner.add(im);
+      return { g, fase: k * 1.7, frec: 2.2 + Math.random() * 1.6 };
+    });
 
-    // Bracitos y patitas de felpa
     const geoCapsula = new THREE.SphereGeometry(1, 28, 20);
     const brazo = (lado) => { const g = new THREE.Group(); const m = new THREE.Mesh(geoCapsula, felpa); m.scale.set(0.2, 0.13, 0.13); m.position.x = lado * 0.16; g.add(m); g.position.set(lado * 0.72, -0.05, 0.08); g.rotation.z = lado * -0.35; cuerpoG.add(g); return g; };
     const brazoI = brazo(-1), brazoD = brazo(1);
     const pierna = (lado) => { const g = new THREE.Group(); const m = new THREE.Mesh(geoCapsula, felpa); m.scale.set(0.12, 0.12, 0.26); m.position.z = 0.2; g.add(m); g.position.set(lado * 0.3, -0.55, 0.42); g.rotation.x = 0.35; g.rotation.y = lado * 0.25; cuerpoG.add(g); return g; };
     const piernaI = pierna(-1), piernaD = pierna(1);
 
-    // Cara bordada (sobre la superficie del frente)
+    // Cara
     const cara = new THREE.Group(); cuerpoG.add(cara);
     const enSuperficie = (obj, x, y, salida) => { const r = radioEn(y); const z = Math.sqrt(Math.max(0.0001, r * r - x * x)); obj.position.set(x, y, z + (salida || 0)); obj.lookAt(x * 2.2, y * 0.6, z * 3); return obj; };
     const ojoMat = new THREE.MeshPhysicalMaterial({ color: 0x3b2112, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.15 });
-    const ojos = [-0.2, 0.2].map((x) => { const g = new THREE.Group(); const o = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), ojoMat); o.scale.set(0.072, 0.088, 0.034); g.add(o); const b = new THREE.Mesh(new THREE.SphereGeometry(0.016, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffffff })); b.position.set(0.022, 0.03, 0.03); g.add(b); enSuperficie(g, x, 0.02, 0.005); cara.add(g); return g; });
+    const ojos = [-0.2, 0.2].map((x) => { const g = new THREE.Group(); const o = new THREE.Group(); g.add(o); const b0 = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), ojoMat); b0.scale.set(0.072, 0.088, 0.034); o.add(b0); const b = new THREE.Mesh(new THREE.SphereGeometry(0.016, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffffff })); b.position.set(0.022, 0.03, 0.03); o.add(b); enSuperficie(g, x, 0.02, 0.005); cara.add(g); return o; });
     const hiloMat = new THREE.MeshStandardMaterial({ color: 0x3b2112, roughness: 0.7 });
     const felices = [-0.2, 0.2].map((x) => { const t = new THREE.Mesh(new THREE.TorusGeometry(0.068, 0.016, 8, 24, Math.PI), hiloMat); const g = new THREE.Group(); g.add(t); t.position.y = -0.02; enSuperficie(g, x, 0.02, 0.008); g.visible = false; cara.add(g); return g; });
-    // Boca abierta con lengua
     const bocaG = new THREE.Group();
     const forma = new THREE.Shape(); forma.moveTo(-0.1, 0); forma.quadraticCurveTo(0, -0.17, 0.1, 0); forma.lineTo(-0.1, 0);
-    const boca = new THREE.Mesh(new THREE.ShapeGeometry(forma, 20), new THREE.MeshStandardMaterial({ color: 0x3a1a12, roughness: 0.6, side: THREE.DoubleSide })); bocaG.add(boca);
+    const bocaMat = new THREE.MeshStandardMaterial({ color: 0x3a1a12, roughness: 0.6, side: THREE.DoubleSide });
+    bocaG.add(new THREE.Mesh(new THREE.ShapeGeometry(forma, 20), bocaMat));
     const lengua = new THREE.Mesh(new THREE.CircleGeometry(0.052, 20), new THREE.MeshStandardMaterial({ color: 0xf07c8c, roughness: 0.6 })); lengua.scale.set(1, 0.55, 1); lengua.position.set(0, -0.09, 0.002); bocaG.add(lengua);
     const dientes = new THREE.Mesh(new THREE.PlaneGeometry(0.13, 0.026), new THREE.MeshStandardMaterial({ color: 0xfff6ea, roughness: 0.5 })); dientes.position.set(0, -0.012, 0.002); bocaG.add(dientes);
     enSuperficie(bocaG, 0, -0.12, 0.006); cara.add(bocaG);
-    // Cachetes
+    // Boca en «O» (bostezo, cansancio, sorpresa)
+    const bocaO = new THREE.Group(); const o1 = new THREE.Mesh(new THREE.CircleGeometry(0.07, 28), bocaMat); bocaO.add(o1); const o2 = new THREE.Mesh(new THREE.CircleGeometry(0.035, 20), new THREE.MeshStandardMaterial({ color: 0xf07c8c, roughness: 0.6 })); o2.position.set(0, -0.03, 0.002); o2.scale.y = 0.6; bocaO.add(o2);
+    enSuperficie(bocaO, 0, -0.14, 0.006); bocaO.visible = false; cara.add(bocaO);
     const cacheteMat = new THREE.MeshBasicMaterial({ color: 0xff7f9a, transparent: true, opacity: 0.85, toneMapped: false });
     const cachetes = [-0.33, 0.33].map((x) => { const c = new THREE.Mesh(new THREE.CircleGeometry(0.09, 24), cacheteMat); c.scale.y = 0.62; enSuperficie(c, x, -0.07, 0.004); cara.add(c); return c; });
 
-    // Sombra difusa en el piso
+    // Accesorios: gotas de sudor, vaso de agua, burbujas, vaho de frío
+    const aguaMat = new THREE.MeshPhysicalMaterial({ color: 0xbfe8ff, roughness: 0.05, transmission: 0.6, transparent: true, opacity: 0.85, clearcoat: 1 });
+    const gota = () => { const g = new THREE.Mesh(new THREE.SphereGeometry(0.05, 14, 10), aguaMat); g.scale.set(0.8, 1.25, 0.8); g.visible = false; ONY.add(g); return g; };
+    const gotas = [gota(), gota(), gota()];
+    const vaso = new THREE.Group();
+    const vidrio = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.09, 0.3, 24, 1, true), new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.05, transparent: true, opacity: 0.35, side: THREE.DoubleSide, clearcoat: 1 }));
+    const agua = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.085, 0.2, 24), new THREE.MeshPhysicalMaterial({ color: 0x5fc3ff, roughness: 0.1, transparent: true, opacity: 0.8 })); agua.position.y = -0.04;
+    vaso.add(vidrio, agua); vaso.visible = false; brazoD.add(vaso); vaso.position.set(0.3, 0.12, 0.12);
+    const burbujaMat = new THREE.MeshPhysicalMaterial({ color: 0xd9f3ff, roughness: 0, transparent: true, opacity: 0.45, clearcoat: 1 });
+    const burbujas = Array.from({ length: 7 }, () => { const b = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 10), burbujaMat); b.visible = false; scene.add(b); return { b, f: Math.random() }; });
+    const vahoMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false });
+    const vaho = Array.from({ length: 4 }, () => { const v = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 10), vahoMat); v.visible = false; ONY.add(v); return v; });
+    // Agua para nadar
+    const olaMat = new THREE.MeshPhysicalMaterial({ color: 0x3fb4ff, roughness: 0.15, transparent: true, opacity: 0.55, clearcoat: 1 });
+    const ola = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.05, 0.05, 48), olaMat); ola.position.y = -0.45; ola.visible = false; scene.add(ola);
+
     const sombraTex = lienzo(128, 128, (x) => { const g = x.createRadialGradient(64, 64, 4, 64, 64, 62); g.addColorStop(0, 'rgba(0,0,0,.55)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(0, 0, 128, 128); });
     const sombra = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.8), new THREE.MeshBasicMaterial({ map: sombraTex, transparent: true, depthWrite: false }));
     sombra.rotation.x = -Math.PI / 2; sombra.position.y = -0.95; scene.add(sombra);
-    ONY.position.y = -0.12;
 
-    // ---- Estados y animación ----
-    const rojoCuerpo = new THREE.Color(0xffa070);
-    let rie = 0, rojo = 0, piensa = false, finRie = 0, finRojo = 0, sigParpadeo = 2, t0 = performance.now(), ultimo = 0;
+    // ---- Estado ----
+    const t0 = performance.now();
+    const ahoraS = () => (performance.now() - t0) / 1000;
+    let accion = null; // { nombre, ini, dur }
+    let finRie = 0, finRojo = 0, piensa = false, arrastre = 0, arrastrando = false, vel = 0, mirar = { x: 0, y: 0 }, mirarSuave = { x: 0, y: 0 }, sigParpadeo = 2, rie = 0, rojo = 0, ultimo = 0;
+    const ACCIONES = { saludar: 2.6, caminar: 3.6, correr: 2.8, nadar: 4.2, tomar: 3.6, agotado: 3.4, calor: 3.6, frio: 3.6, bostezar: 3.2, estirarse: 2.6, saltar: 1.6, bailar: 3.4 };
     const api = {
-      reaccion: (tipo) => { const ahora = (performance.now() - t0) / 1000; if (tipo === 'rie') finRie = ahora + 1.4; if (tipo === 'rojo') finRojo = ahora + 1.8; arrancar(); },
+      reaccion: (tipo) => { const a = ahoraS(); if (tipo === 'rie') finRie = a + 1.4; if (tipo === 'rojo') finRojo = a + 1.8; arrancar(); },
       pensar: (si) => { piensa = !!si; },
-      estado: () => ({ rie, rojo, finRie, finRojo, corriendo }),
+      accion: (nombre) => { if (!ACCIONES[nombre]) return 0; accion = { nombre, ini: ahoraS(), dur: ACCIONES[nombre] }; arrancar(); return ACCIONES[nombre]; },
+      ocupado: () => !!accion,
+      _probar: (nombre, u) => { const ahora = performance.now(); accion = { nombre, ini: (ahora - t0) / 1000 - ACCIONES[nombre] * u, dur: ACCIONES[nombre] }; cuadro.tAnt = 0; for (let i = 0; i < 4; i++) cuadro(ahora + i); return cv.toDataURL('image/png'); },
+      mirar: (x, y) => { mirar.x = Math.max(-1, Math.min(1, x)); mirar.y = Math.max(-1, Math.min(1, y)); },
+      arrastrar: (si) => { arrastrando = !!si; },
+      mover: (v) => { vel = v; },
       montar: (host) => { if (!host) return; host.classList.add('es3d'); host.appendChild(cv); ajustar(); arrancar(); },
     };
     window.onyBot3D = api;
     const ajustar = () => { const p = cv.parentElement; if (!p) return; const w = p.clientWidth || 90, h = p.clientHeight || 100; renderer.setSize(w, h, false); cv.style.width = w + 'px'; cv.style.height = h + 'px'; camera.aspect = w / h; camera.updateProjectionMatrix(); };
     window.addEventListener('resize', ajustar);
+
     const cuadro = (ahora) => {
       const t = (ahora - t0) / 1000;
-      const vel = piensa ? 2.6 : 1;
-      const r = t > finRie ? 0 : 1, b = t > finRojo ? 0 : 1;
       const dt = Math.min(0.25, Math.max(0.001, t - (cuadro.tAnt || t))); cuadro.tAnt = t;
-      rie += (r - rie) * (1 - Math.exp(-dt * 14)); rojo += (b - rojo) * (1 - Math.exp(-dt * 7));
-      // Flotar, mecerse y girar un poco para que se vea el volumen
-      const fl = quieto ? 0 : Math.sin(t * 1.9 * vel);
-      ONY.position.y = -0.12 + fl * 0.09 + rie * Math.abs(Math.sin(t * 22)) * 0.06;
-      ONY.rotation.y = quieto ? 0 : Math.sin(t * 0.7) * 0.38 + rie * Math.sin(t * 25) * 0.12;
-      ONY.rotation.z = quieto ? 0 : Math.sin(t * 1.9 * vel + 1) * 0.05 + rie * Math.sin(t * 25) * 0.08;
-      sombra.scale.setScalar(1 - fl * 0.12); sombra.material.opacity = 0.85 - fl * 0.2;
-      brazoI.rotation.z = 0.35 + Math.sin(t * 2.4) * 0.18 + rie * Math.sin(t * 20) * 0.5;
-      brazoD.rotation.z = -0.35 - Math.sin(t * 2.4 + 1.5) * 0.18 - rie * Math.sin(t * 20) * 0.5;
-      piernaI.rotation.x = 0.35 + Math.sin(t * 1.9) * 0.15; piernaD.rotation.x = 0.35 - Math.sin(t * 1.9) * 0.15;
-      copa.rotation.z = Math.sin(t * 1.3) * 0.03 - rojo * 0.07; copa.rotation.x = rojo * 0.06;
-      // Parpadeo
-      let ab = 1; if (t > sigParpadeo) { const k = (t - sigParpadeo) / 0.16; ab = k < 1 ? Math.abs(1 - 2 * k) : 1; if (k >= 1) sigParpadeo = t + 2.5 + Math.random() * 3; }
+      const k = (v) => 1 - Math.exp(-dt * v);
+      rie = suave(rie, t > finRie ? 0 : 1, k(14)); rojo = suave(rojo, t > finRojo ? 0 : 1, k(7));
+      arrastre = suave(arrastre, arrastrando ? 1 : 0, k(10));
+      mirarSuave.x = suave(mirarSuave.x, mirar.x, k(6)); mirarSuave.y = suave(mirarSuave.y, mirar.y, k(6));
+      let A = accion && t - accion.ini < accion.dur ? accion : null; if (accion && !A) accion = null;
+      const n = A ? A.nombre : '', u = A ? (t - A.ini) / A.dur : 0, env = A ? campana(u) : 0;
+      const ve = piensa ? 2.6 : 1;
+
+      // Pose base: flotar, mecerse, mirar al puntero
+      const fl = quieto ? 0 : Math.sin(t * 1.9 * ve);
+      let py = -0.12 + fl * 0.09, ry = Math.sin(t * 0.7) * 0.3 * (1 - arrastre) + mirarSuave.x * 0.55, rz = Math.sin(t * 1.9 * ve + 1) * 0.05, rx = -mirarSuave.y * 0.18;
+      let bI = 0.35 + Math.sin(t * 2.4) * 0.18, bD = -0.35 - Math.sin(t * 2.4 + 1.5) * 0.18, bIx = 0, bDx = 0, pI = 0.35 + Math.sin(t * 1.9) * 0.15, pD = 0.35 - Math.sin(t * 1.9) * 0.15;
+      let ojoAb = 1, feliz = false, bocaModo = 'sonrisa', bocaEsc = 1, tinte = null, tinteK = 0, rizoAmp = 0.04, sudor = 0, temblor = 0;
+      vaso.visible = false; ola.visible = false; burbujas.forEach((x) => { x.b.visible = false; }); vaho.forEach((v) => { v.visible = false; });
+
+      // Colgando mientras lo arrastran
+      if (arrastre > 0.01) { py += arrastre * 0.1; pI = suave(pI, 0.9 + Math.sin(t * 9) * 0.35, arrastre); pD = suave(pD, 0.9 - Math.sin(t * 9) * 0.35, arrastre); bI = suave(bI, -1.1, arrastre); bD = suave(bD, 1.1, arrastre); rz += Math.sin(t * 6) * 0.12 * arrastre; feliz = arrastre > 0.5; bocaEsc = 1 + arrastre * 0.5; rizoAmp += 0.12 * arrastre; }
+      // Cuando se desplaza por la pantalla
+      if (Math.abs(vel) > 0.01) { ry += Math.sign(vel) * 0.6; rizoAmp += Math.min(0.12, Math.abs(vel) * 0.1); }
+
+      if (n === 'saludar') { bD = -0.35 + env * 2.3 + Math.sin(t * 14) * 0.35 * env; feliz = u > 0.15 && u < 0.85; bocaEsc = 1 + env * 0.3; ry *= 1 - env; }
+      if (n === 'caminar' || n === 'correr') { const f = n === 'correr' ? 15 : 8, a = n === 'correr' ? 0.75 : 0.45; pI = 0.35 + Math.sin(t * f) * a; pD = 0.35 - Math.sin(t * f) * a; bI = 0.35 + Math.sin(t * f) * a * 0.8; bD = -0.35 + Math.sin(t * f) * a * 0.8; py = -0.2 + Math.abs(Math.sin(t * f)) * (n === 'correr' ? 0.16 : 0.08); rx = n === 'correr' ? 0.22 : 0.06; rizoAmp = n === 'correr' ? 0.22 : 0.12; if (n === 'correr') { sudor = env; bocaModo = 'O'; bocaEsc = 0.8; } }
+      if (n === 'nadar') { ola.visible = true; ola.material.opacity = 0.55 * Math.min(1, env * 3); py = -0.35 + Math.sin(t * 3) * 0.04; rx = 0.55 * Math.min(1, env * 3); bI = 0.35 + Math.sin(t * 6) * 1.3; bD = -0.35 + Math.sin(t * 6 + Math.PI) * 1.3; bIx = Math.cos(t * 6) * 0.8; bDx = Math.cos(t * 6 + Math.PI) * 0.8; pI = 0.8 + Math.sin(t * 10) * 0.5; pD = 0.8 - Math.sin(t * 10) * 0.5; feliz = true; rizoAmp = 0.15; burbujas.forEach((x, i) => { const v = ((t * 0.5 + x.f) % 1); x.b.visible = true; x.b.position.set(Math.sin(i * 2.3 + t) * 0.7, -0.4 + v * 1.6, 0.4 + Math.cos(i) * 0.3); x.b.scale.setScalar((0.4 + i % 3 * 0.3) * (1 - v * 0.5)); }); }
+      if (n === 'tomar') { vaso.visible = true; const sub = campana(Math.min(1, u * 1.3)); bD = -0.35 + sub * 1.9; bDx = -sub * 0.6; vaso.rotation.z = sub * 1.1; agua.scale.y = Math.max(0.2, 1 - Math.max(0, u - 0.35) * 1.5); bocaModo = sub > 0.6 ? 'O' : 'sonrisa'; bocaEsc = 0.6; ojoAb = sub > 0.6 ? 0.1 : 1; rx = -sub * 0.25; }
+      if (n === 'agotado') { py = -0.28 + Math.sin(t * 5) * 0.025; rx = 0.25 * env; bI = 0.9; bD = -0.9; ojoAb = 0.4; bocaModo = 'O'; bocaEsc = 0.7 + Math.abs(Math.sin(t * 6)) * 0.3; sudor = env; rizoAmp = 0.02; tinte = 0xc8d06a; tinteK = 0.25 * env; }
+      if (n === 'calor') { tinte = 0xff4a2a; tinteK = 0.5 * env; sudor = env; ojoAb = 0.55; bocaModo = 'O'; bocaEsc = 0.7; bD = -0.35 + env * 1.6 + Math.sin(t * 16) * 0.5 * env; rojo = Math.max(rojo, env); }
+      if (n === 'frio') { tinte = 0x7ec8ff; tinteK = 0.45 * env; temblor = env; ojoAb = 0.6; bocaModo = 'temblor'; bI = 0.9 * env + 0.35 * (1 - env); bD = -0.9 * env - 0.35 * (1 - env); bIx = 0.9 * env; bDx = 0.9 * env; vaho.forEach((v, i) => { const w = ((t * 0.6 + i / 4) % 1); v.visible = env > 0.3; v.position.set(Math.sin(i * 3) * 0.08, -0.15 + w * 0.3, 0.85 + w * 0.5); v.scale.setScalar(0.5 + w * 1.4); v.material.opacity = 0.45 * (1 - w) * env; }); }
+      if (n === 'bostezar') { const b = campana(Math.min(1, u * 1.15)); bocaModo = b > 0.15 ? 'O' : 'sonrisa'; bocaEsc = 0.6 + b * 1.4; ojoAb = 1 - b * 0.95; bI = 0.35 - b * 2.2; bD = -0.35 + b * 2.2; rx = -b * 0.25; py += b * 0.05; }
+      if (n === 'estirarse') { const b = campana(u); bI = 0.35 - b * 2.6; bD = -0.35 + b * 2.6; py += b * 0.12; feliz = b > 0.5; }
+      if (n === 'saltar') { const b = campana(u); py += b * 0.5; pI = 0.35 + b * 0.8; pD = 0.35 + b * 0.8; bI = 0.35 - b * 1.5; bD = -0.35 + b * 1.5; feliz = true; rizoAmp = 0.25 * b + 0.04; }
+      if (n === 'bailar') { ry += Math.sin(t * 8) * 0.6 * env; rz += Math.sin(t * 8) * 0.18 * env; py += Math.abs(Math.sin(t * 8)) * 0.1 * env; bI = 0.35 + Math.sin(t * 8) * 1.4 * env; bD = -0.35 + Math.sin(t * 8) * 1.4 * env; feliz = true; rizoAmp = 0.18; }
+      if (temblor) { ONY.position.x = Math.sin(t * 60) * 0.025 * temblor; } else ONY.position.x = 0;
+
+      // Risa y rubor por toque
+      if (rie > 0.05) { py += rie * Math.abs(Math.sin(t * 22)) * 0.06; ry += rie * Math.sin(t * 25) * 0.12; rz += rie * Math.sin(t * 25) * 0.08; bI += rie * Math.sin(t * 20) * 0.5; bD -= rie * Math.sin(t * 20) * 0.5; if (rie > 0.5) { feliz = true; bocaModo = 'sonrisa'; bocaEsc = 1.45; } rizoAmp += 0.1 * rie; }
+      ONY.position.y = py; ONY.rotation.set(rx, ry, rz);
+      sombra.scale.setScalar(1 - (py + 0.12) * 1.2); sombra.material.opacity = Math.max(0.2, 0.85 - (py + 0.12) * 1.8);
+      brazoI.rotation.set(bIx, 0, bI); brazoD.rotation.set(bDx, 0, bD);
+      piernaI.rotation.x = pI; piernaD.rotation.x = pD;
+
+      // Rizos: cada bola se mece a su ritmo; más cuando se mueve, corre o lo arrastran
+      rizos.forEach((r) => { r.g.rotation.z = Math.sin(t * r.frec + r.fase) * rizoAmp; r.g.rotation.x = Math.cos(t * r.frec * 0.8 + r.fase) * rizoAmp * 0.8; });
+      copa.rotation.z = -rojo * 0.07; copa.rotation.x = rojo * 0.06;
+
+      // Ojos: parpadeo, mirada, felicidad, sueño
+      let ab = 1; if (t > sigParpadeo) { const kk = (t - sigParpadeo) / 0.16; ab = kk < 1 ? Math.abs(1 - 2 * kk) : 1; if (kk >= 1) sigParpadeo = t + 2.5 + Math.random() * 3; }
       const tim = 1 - rojo * 0.45;
-      ojos.forEach((o) => { o.visible = rie < 0.5; o.scale.y = Math.max(0.08, ab * tim); });
-      felices.forEach((f) => { f.visible = rie >= 0.5; });
-      bocaG.scale.set(1 + rie * 0.45, 1 + rie * 0.9, 1);
+      ojos.forEach((o) => { o.parent.visible = !feliz; o.scale.y = Math.max(0.08, ab * tim * ojoAb); o.position.x = mirarSuave.x * 0.02; o.position.y = mirarSuave.y * 0.02; });
+      felices.forEach((f) => { f.visible = feliz; });
+      bocaG.visible = bocaModo === 'sonrisa'; bocaO.visible = bocaModo === 'O' || bocaModo === 'temblor';
+      if (bocaModo === 'sonrisa') bocaG.scale.set(bocaEsc, Math.max(0.6, bocaEsc + (bocaEsc - 1) * 1.2), 1);
+      if (bocaModo === 'O') bocaO.scale.set(0.8 + bocaEsc * 0.25, bocaEsc, 1);
+      if (bocaModo === 'temblor') bocaO.scale.set(1.1, 0.25 + Math.abs(Math.sin(t * 40)) * 0.25, 1);
+
+      // Sudor
+      gotas.forEach((g, i) => { if (sudor < 0.1) { g.visible = false; return; } const w = (t * 0.7 + i / 3) % 1; g.visible = true; g.position.set((i === 1 ? -0.55 : 0.55) + Math.sin(i) * 0.05, 0.35 - w * 0.6, 0.45); g.scale.set(0.8, 1.25, 0.8).multiplyScalar(sudor * (1 - w * 0.4)); });
+
+      // Color: calor, frío, rubor
+      felpa.color.copy(VERDE); if (tinte) felpa.color.lerp(new THREE.Color(tinte), tinteK);
       cacheteMat.color.setRGB(1, 0.5 - rojo * 0.33, 0.6 - rojo * 0.38); cacheteMat.opacity = 0.85 + rojo * 0.15;
       cachetes.forEach((c) => { c.scale.x = 1 + rojo * 0.25; c.scale.y = 0.62 + rojo * 0.15; });
-      felpa.color.setHex(0x8fd12a).lerp(rojoCuerpo, rojo * 0.12);
       renderer.render(scene, camera);
     };
     let corriendo = false;
@@ -4388,6 +4491,220 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     setInterval(() => { if (!corriendo && cv.offsetParent) arrancar(); }, 1500);
     window.dispatchEvent(new Event('ony3d-listo'));
   }).catch(() => {});
+})();
+</script>
+<script>
+/* ONY con vida propia: se arrastra a cualquier parte, sigue el puntero, habla con burbujas y hace cosas solo
+   (saludar, caminar, correr, nadar, tomar agua, cansarse, sentir calor o frío y bostezar de noche). */
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const vivo = $('ony-vivo'), fab = $('ony-fab'), dice = $('ony-dice');
+  if (!vivo || !fab) return;
+  const LS = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+  const SS = { get: (k) => { try { return sessionStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { sessionStorage.setItem(k, v); } catch (e) {} } };
+  const bot = () => window.onyBot3D || null;
+  const azar = (l) => l[Math.floor(Math.random() * l.length)];
+  const horaBog = () => Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Bogota', hour: 'numeric', hour12: false }).format(new Date())) % 24;
+  const esTrab = () => window.idealabRol === 'creativos';
+  const nombre = () => ((window.idealabPersona && (window.idealabPersona.apodo || window.idealabPersona.nombre)) || '').split(' ')[0];
+  const abierto = () => document.documentElement.classList.contains('ony-abierto');
+  const enLogin = () => { const l = $('ag-login'); return l && !l.hidden; };
+
+  // ---------- Posición (se recuerda) y arrastre ----------
+  let pos = null; try { pos = JSON.parse(LS.get('ony_pos') || 'null'); } catch (e) {}
+  const tam = () => ({ w: vivo.offsetWidth || 96, h: vivo.offsetHeight || 104 });
+  const limitar = (x, y) => { const { w, h } = tam(); return { x: Math.max(4, Math.min(window.innerWidth - w - 4, x)), y: Math.max(4, Math.min(window.innerHeight - h - 4, y)) }; };
+  const colocar = (x, y, guardar) => { const p = limitar(x, y); vivo.style.left = p.x + 'px'; vivo.style.top = p.y + 'px'; vivo.style.right = 'auto'; vivo.style.bottom = 'auto'; if (guardar) LS.set('ony_pos', JSON.stringify({ fx: p.x / window.innerWidth, fy: p.y / window.innerHeight })); ladoBurbuja(); };
+  const actual = () => { const r = vivo.getBoundingClientRect(); return { x: r.left, y: r.top }; };
+  const inicial = () => { const { w, h } = tam(); if (pos && Number.isFinite(pos.fx)) colocar(pos.fx * window.innerWidth, pos.fy * window.innerHeight); else colocar(window.innerWidth - w - 18, window.innerHeight - h - 18); };
+  window.addEventListener('resize', () => { const a = actual(); colocar(a.x, a.y); });
+
+  let arr = null, arrastrado = false;
+  fab.addEventListener('pointerdown', (e) => { if (e.button !== undefined && e.button !== 0) return; const a = actual(); arr = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: a.x, oy: a.y, moviendo: false }; arrastrado = false; });
+  window.addEventListener('pointermove', (e) => {
+    // Sigue el puntero con la mirada
+    const r = vivo.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height * 0.45;
+    if (bot()) bot().mirar((e.clientX - cx) / 380, -(e.clientY - cy) / 300);
+    if (!arr || e.pointerId !== arr.id) return;
+    const dx = e.clientX - arr.sx, dy = e.clientY - arr.sy;
+    if (!arr.moviendo && Math.hypot(dx, dy) > 6) { arr.moviendo = true; arrastrado = true; try { fab.setPointerCapture(e.pointerId); } catch (x) {} vivo.classList.add('arrastrando'); if (bot()) bot().arrastrar(true); hablar(azar(['¡Wiii! 🎢', '¡Uy, me llevas! 😄', '¡Más despacio! 😆']), 1600); cancelarPaseo(); }
+    if (arr.moviendo) { colocar(arr.ox + dx, arr.oy + dy); if (bot()) bot().mover(dx > 0 ? 0.5 : -0.5); }
+  });
+  const soltar = (e) => { if (!arr || (e && e.pointerId !== arr.id)) return; if (arr.moviendo) { const a = actual(); colocar(a.x, a.y, true); vivo.classList.remove('arrastrando'); if (bot()) { bot().arrastrar(false); bot().mover(0); } } arr = null; };
+  window.addEventListener('pointerup', soltar); window.addEventListener('pointercancel', soltar);
+  // Si lo arrastraste, el toque no abre el chat
+  fab.addEventListener('click', (e) => { if (arrastrado) { e.stopImmediatePropagation(); e.preventDefault(); arrastrado = false; } }, true);
+
+  // Al pasar el puntero encima
+  let saludoHover = 0;
+  fab.addEventListener('pointerenter', () => { if (Date.now() - saludoHover > 60000 && !arr) { saludoHover = Date.now(); hablar(azar(esTrab() ? ['¿Vemos los creativos? 🎬', '¡Hola! 🥦'] : ['¿Me buscabas? 🙂', '¿Te cuento cómo vamos? 📊', '¡Hola! 🥦']), 2200); } });
+
+  // ---------- Burbuja de diálogo ----------
+  let finHabla = null;
+  const ladoBurbuja = () => { const r = vivo.getBoundingClientRect(); vivo.classList.toggle('der', r.left < 230); vivo.classList.toggle('abajo', r.top < 90); };
+  const hablar = (txt, ms) => { if (!dice) return; dice.textContent = txt; dice.hidden = false; ladoBurbuja(); requestAnimationFrame(() => dice.classList.add('on')); clearTimeout(finHabla); finHabla = setTimeout(() => { dice.classList.remove('on'); setTimeout(() => { dice.hidden = true; }, 250); }, ms || 3000); };
+
+  // ---------- Clima (Bogotá, cada hora) ----------
+  let temp = null;
+  const leerClima = async () => {
+    try { const c = JSON.parse(LS.get('ony_clima') || 'null'); if (c && Date.now() - c.t < 3600e3) { temp = c.v; return; } } catch (e) {}
+    try { const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=4.71&longitude=-74.07&current=temperature_2m'); const j = await r.json(); const v = j && j.current && j.current.temperature_2m; if (Number.isFinite(v)) { temp = Math.round(v); LS.set('ony_clima', JSON.stringify({ t: Date.now(), v: temp })); } } catch (e) {}
+  };
+  leerClima(); setInterval(leerClima, 3600e3);
+
+  // ---------- Paseos por la pantalla ----------
+  let paseo = null;
+  const cancelarPaseo = () => { if (paseo) { cancelAnimationFrame(paseo.raf); paseo = null; if (bot()) bot().mover(0); } };
+  const pasear = (dist, dur) => {
+    cancelarPaseo();
+    const a = actual(), { w } = tam(), espacioDer = window.innerWidth - a.x - w, dir = espacioDer > a.x ? 1 : -1;
+    const destino = a.x + dir * Math.min(dist, dir > 0 ? espacioDer - 10 : a.x - 10);
+    const ini = performance.now();
+    if (bot()) bot().mover(dir);
+    const paso = (ahora) => { const k = Math.min(1, (ahora - ini) / (dur * 1000)); const ease = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; colocar(a.x + (destino - a.x) * ease, a.y); if (k < 1) paseo.raf = requestAnimationFrame(paso); else { const b = actual(); colocar(b.x, b.y, true); cancelarPaseo(); } };
+    paseo = { raf: requestAnimationFrame(paso) };
+  };
+
+  // ---------- Qué hace solo ----------
+  const FRASES = {
+    socios: { saludar: ['¡Hola, {n}! Soy ONY 👋', '¿Te cuento cómo van las ventas hoy? 📊', 'Aquí estoy si me necesitas 🥦', '¿Revisamos qué escalar hoy? 🚀'] },
+    creativos: { saludar: ['¡Hola, {n}! Soy ONY 👋', '¿Revisamos los creativos? 🎬', '¿Subimos un video nuevo hoy? 🎥', 'Si quieres, analizo tu último creativo ✨'] },
+    caminar: ['Dando una vueltica 🚶', 'Estirando las patitas 🦶'], correr: ['¡A toda! 🏃💨', '¡Carrerita! 💨'], agotado: ['Uf… estoy agotado 😮‍💨', 'Necesito un respiro… 🥵'],
+    nadar: ['¡Al agua! 🏊', 'Nadando entre datos 🌊'], tomar: ['Hidratándome 💧', 'Un vasito de agua 🥤'],
+    calor: ['¡Uf, qué calor! 🥵 {t}', 'Me estoy derritiendo… ☀️ {t}'], frio: ['Brrr… ¡qué frío! 🥶 {t}', '¿Alguien tiene una cobijita? 🧣 {t}'],
+    bostezar: ['¡Aaah… qué sueño! 😴', 'Ya es tarde… ¿descansamos? 🌙', 'Mmm… cinco minuticos más 💤'], estirarse: ['Estiradita 🙆', '¡Ahh, qué rico!'], saltar: ['¡Hop! 🐸'], bailar: ['🎶 ¡A bailar!', '💃 ¡Eso!'],
+  };
+  const decir = (accion) => { const l = FRASES[accion] || (FRASES[esTrab() ? 'creativos' : 'socios'][accion]); if (!l) return; hablar(azar(l).replace('{n}', nombre() || (esTrab() ? 'equipo' : 'socio')).replace('{t}', temp !== null ? '(' + temp + '°)' : '').trim(), 3200); };
+  const hacer = (accion) => {
+    const b = bot();
+    const dur = b ? b.accion(accion) : 2.5;
+    decir(accion);
+    if (accion === 'caminar') pasear(130, dur);
+    if (accion === 'correr') { pasear(240, dur); setTimeout(() => { if (!abierto() && !arr) hacer('agotado'); }, dur * 1000 + 150); }
+    if (accion === 'nadar') pasear(150, dur);
+    if (!b) { fab.querySelector('.ony-bot').classList.add('rie'); setTimeout(() => fab.querySelector('.ony-bot').classList.remove('rie'), 1200); }
+    return dur;
+  };
+  const elegir = () => {
+    const h = horaBog(), noche = h >= 20 || h < 6;
+    const w = { saludar: 2, caminar: 3, correr: 1, nadar: 1.5, tomar: 1.5, estirarse: 1, saltar: 1, bailar: 0.8 };
+    if (noche) { w.bostezar = 5; w.correr = 0.3; w.bailar = 0.3; }
+    if (temp !== null && temp >= 26) { w.calor = 3; w.tomar += 1.5; w.nadar += 1; }
+    if (temp !== null && temp <= 14) w.frio = 3;
+    if (temp !== null && temp > 14 && temp < 26 && Math.random() < 0.15) w[temp >= 21 ? 'calor' : 'frio'] = 1;
+    const tot = Object.values(w).reduce((a, b) => a + b, 0); let r = Math.random() * tot;
+    for (const [k, v] of Object.entries(w)) { r -= v; if (r <= 0) return k; }
+    return 'saludar';
+  };
+  let ultimoAcc = '';
+  const ciclo = () => {
+    const espera = 11000 + Math.random() * 12000;
+    setTimeout(() => {
+      if (!document.hidden && !abierto() && !enLogin() && !arr && !paseo && !(bot() && bot().ocupado())) { let a = elegir(); if (a === ultimoAcc) a = elegir(); ultimoAcc = a; hacer(a); }
+      ciclo();
+    }, espera);
+  };
+
+  // ---------- Arranque: saludo según quién entra ----------
+  const empezar = () => {
+    inicial();
+    if (!SS.get('ony_hola')) {
+      const espera = () => { if (enLogin()) { setTimeout(espera, 1500); return; } SS.set('ony_hola', '1'); setTimeout(() => { if (!abierto()) hacer('saludar'); }, 900); };
+      setTimeout(espera, 1200);
+    }
+    ciclo();
+  };
+  if (document.readyState === 'complete') empezar(); else window.addEventListener('load', empezar);
+  window.idealabOnyVida = { hacer, hablar };
+})();
+</script>
+<script>
+/* Palabra del día: un versículo de la Reina-Valera 1960 para todo el equipo (el mismo para todos cada día). */
+(function () {
+  const V = [
+    ['Proverbios 16:3', 'Encomienda a Jehová tus obras, Y tus pensamientos serán afirmados.', 'trabajo'],
+    ['Mateo 11:28', 'Venid a mí todos los que estáis trabajados y cargados, y yo os haré descansar.', 'descanso'],
+    ['Proverbios 3:5-6', 'Fíate de Jehová de todo tu corazón, Y no te apoyes en tu propia prudencia. Reconócelo en todos tus caminos, Y él enderezará tus veredas.', 'confianza'],
+    ['Mateo 22:37-39', 'Amarás al Señor tu Dios con todo tu corazón, y con toda tu alma, y con toda tu mente. Este es el primero y grande mandamiento. Y el segundo es semejante: Amarás a tu prójimo como a ti mismo.', 'amor'],
+    ['Colosenses 3:23', 'Y todo lo que hagáis, hacedlo de corazón, como para el Señor y no para los hombres;', 'trabajo'],
+    ['Salmos 37:5', 'Encomienda a Jehová tu camino, Y confía en él; y él hará.', 'confianza'],
+    ['Hebreos 11:6', 'Pero sin fe es imposible agradar a Dios; porque es necesario que el que se acerca a Dios crea que le hay, y que es galardonador de los que le buscan.', 'fe'],
+    ['Juan 13:34', 'Un mandamiento nuevo os doy: Que os améis unos a otros; como yo os he amado, que también os améis unos a otros.', 'amor'],
+    ['Éxodo 33:14', 'Y él dijo: Mi presencia irá contigo, y te daré descanso.', 'descanso'],
+    ['Deuteronomio 8:18', 'Sino acuérdate de Jehová tu Dios, porque él te da el poder para hacer las riquezas, a fin de confirmar su pacto que juró a tus padres, como en este día.', 'trabajo'],
+    ['Josué 1:9', 'Mira que te mando que te esfuerces y seas valiente; no temas ni desmayes, porque Jehová tu Dios estará contigo en dondequiera que vayas.', 'fe'],
+    ['Filipenses 4:13', 'Todo lo puedo en Cristo que me fortalece.', 'fe'],
+    ['1 Pedro 5:7', 'echando toda vuestra ansiedad sobre él, porque él tiene cuidado de vosotros.', 'descanso'],
+    ['Eclesiastés 4:9', 'Mejores son dos que uno; porque tienen mejor paga de su trabajo.', 'amor'],
+    ['Proverbios 16:9', 'El corazón del hombre piensa su camino; Mas Jehová endereza sus pasos.', 'confianza'],
+    ['Mateo 6:33', 'Mas buscad primeramente el reino de Dios y su justicia, y todas estas cosas os serán añadidas.', 'fe'],
+    ['Salmos 127:1', 'Si Jehová no edificare la casa, En vano trabajan los que la edifican;', 'trabajo'],
+    ['Isaías 41:10', 'No temas, porque yo estoy contigo; no desmayes, porque yo soy tu Dios que te esfuerzo; siempre te ayudaré, siempre te sustentaré con la diestra de mi justicia.', 'confianza'],
+    ['Romanos 12:10', 'Amaos los unos a los otros con amor fraternal; en cuanto a honra, prefiriéndoos los unos a los otros.', 'amor'],
+    ['Salmos 55:22', 'Echa sobre Jehová tu carga, y él te sustentará; No dejará para siempre caído al justo.', 'descanso'],
+    ['Proverbios 10:4', 'La mano negligente empobrece; Mas la mano de los diligentes enriquece.', 'trabajo'],
+    ['Jeremías 29:11', 'Porque yo sé los pensamientos que tengo acerca de vosotros, dice Jehová, pensamientos de paz, y no de mal, para daros el fin que esperáis.', 'confianza'],
+    ['1 Juan 4:19', 'Nosotros le amamos a él, porque él nos amó primero.', 'amor'],
+    ['Gálatas 6:9', 'No nos cansemos, pues, de hacer bien; porque a su tiempo segaremos, si no desmayamos.', 'trabajo'],
+    ['Isaías 40:31', 'pero los que esperan a Jehová tendrán nuevas fuerzas; levantarán alas como las águilas; correrán, y no se cansarán; caminarán, y no se fatigarán.', 'fe'],
+    ['Salmos 23:1', 'Jehová es mi pastor; nada me faltará.', 'descanso'],
+    ['Santiago 1:5', 'Y si alguno de vosotros tiene falta de sabiduría, pídala a Dios, el cual da a todos abundantemente y sin reproche, y le será dada.', 'confianza'],
+    ['Proverbios 11:25', 'El alma generosa será prosperada; Y el que saciare, él también será saciado.', 'amor'],
+    ['Romanos 8:28', 'Y sabemos que a los que aman a Dios, todas las cosas les ayudan a bien, esto es, a los que conforme a su propósito son llamados.', 'fe'],
+    ['Isaías 26:3', 'Tú guardarás en completa paz a aquel cuyo pensamiento en ti persevera; porque en ti ha confiado.', 'descanso'],
+    ['Proverbios 22:29', '¿Has visto hombre solícito en su trabajo? Delante de los reyes estará; No estará delante de los de baja condición.', 'trabajo'],
+    ['Filipenses 4:19', 'Mi Dios, pues, suplirá todo lo que os falta conforme a sus riquezas en gloria en Cristo Jesús.', 'confianza'],
+    ['Mateo 7:12', 'Así que, todas las cosas que queráis que los hombres hagan con vosotros, así también haced vosotros con ellos; porque esto es la ley y los profetas.', 'amor'],
+    ['Lamentaciones 3:22-23', 'Por la misericordia de Jehová no hemos sido consumidos, porque nunca decayeron sus misericordias. Nuevas son cada mañana; grande es tu fidelidad.', 'fe'],
+    ['Salmos 4:8', 'En paz me acostaré, y asimismo dormiré; Porque solo tú, Jehová, me haces vivir confiado.', 'descanso'],
+    ['Proverbios 21:5', 'Los pensamientos del diligente ciertamente tienden a la abundancia; Mas todo el que se apresura alocadamente, de cierto va a la pobreza.', 'trabajo'],
+    ['Salmos 1:3', 'Será como árbol plantado junto a corrientes de aguas, Que da su fruto en su tiempo, Y su hoja no cae; Y todo lo que hace, prosperará.', 'confianza'],
+    ['1 Corintios 13:4', 'El amor es sufrido, es benigno; el amor no tiene envidia, el amor no es jactancioso, no se envanece;', 'amor'],
+    ['Filipenses 4:6-7', 'Por nada estéis afanosos, sino sean conocidas vuestras peticiones delante de Dios en toda oración y ruego, con acción de gracias. Y la paz de Dios, que sobrepasa todo entendimiento, guardará vuestros corazones y vuestros pensamientos en Cristo Jesús.', 'descanso'],
+    ['Proverbios 15:22', 'Los pensamientos son frustrados donde no hay consejo; Mas en la multitud de consejeros se afirman.', 'trabajo'],
+    ['Romanos 15:13', 'Y el Dios de esperanza os llene de todo gozo y paz en el creer, para que abundéis en esperanza por el poder del Espíritu Santo.', 'fe'],
+    ['Lucas 6:38', 'Dad, y se os dará; medida buena, apretada, remecida y rebosando darán en vuestro regazo; porque con la misma medida con que medís, os volverán a medir.', 'amor'],
+    ['Salmos 46:10', 'Estad quietos, y conoced que yo soy Dios;', 'descanso'],
+    ['Josué 1:8', 'Nunca se apartará de tu boca este libro de la ley, sino que de día y de noche meditarás en él, para que guardes y hagas conforme a todo lo que en él está escrito; porque entonces harás prosperar tu camino, y todo te saldrá bien.', 'trabajo'],
+    ['Juan 14:27', 'La paz os dejo, mi paz os doy; yo no os la doy como el mundo la da. No se turbe vuestro corazón, ni tenga miedo.', 'confianza'],
+    ['Salmos 118:24', 'Este es el día que hizo Jehová; Nos gozaremos y alegraremos en él.', 'fe'],
+    ['2 Corintios 9:8', 'Y poderoso es Dios para hacer que abunde en vosotros toda gracia, a fin de que, teniendo siempre en todas las cosas todo lo suficiente, abundéis para toda buena obra;', 'trabajo'],
+    ['Salmos 62:1', 'En Dios solamente está acallada mi alma; De él viene mi salvación.', 'descanso'],
+    ['Proverbios 3:9-10', 'Honra a Jehová con tus bienes, Y con las primicias de todos tus frutos; Y serán llenos tus graneros con abundancia, Y tus lagares rebosarán de mosto.', 'trabajo'],
+    ['Salmos 90:17', 'Sea la luz de Jehová nuestro Dios sobre nosotros, Y la obra de nuestras manos confirma sobre nosotros; Sí, la obra de nuestras manos confirma.', 'confianza'],
+  ];
+  const PARA_HOY = {
+    trabajo: ['Pongamos hoy cada creativo, cada campaña y cada venta en manos de Dios y hagámoslo con excelencia.', 'Trabajemos con diligencia y de corazón: el crecimiento de IdeaLab viene de Él.'],
+    confianza: ['Si una campaña no sale como esperamos, confiemos: Él endereza el camino.', 'Hoy decidimos confiar en Dios antes que en los números.'],
+    fe: ['Con fe damos el siguiente paso: testear, mejorar y crecer.', 'Lo que hoy parece difícil, con Dios es posible.'],
+    amor: ['Tratemos hoy a cada cliente y a cada compañero como queremos ser tratados.', 'El amor a Dios se nota en cómo servimos a los demás.'],
+    descanso: ['Hagamos nuestra parte y descansemos en Él: Dios tiene cuidado de nosotros.', 'Respira: no todo depende de ti. Él sostiene a IdeaLab.'],
+  };
+  const hoy = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+  const delDia = () => { const d = Math.floor(Date.parse(hoy() + 'T12:00:00Z') / 864e5); const v = V[(d * 7) % V.length]; const r = PARA_HOY[v[2]]; return { ref: v[0], texto: v[1], tema: v[2], hoy: r[d % r.length] }; };
+  const LS = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+  const caja = document.getElementById('palabra');
+  if (!caja) return;
+  const mostrar = () => {
+    const p = delDia();
+    document.getElementById('pl-texto').textContent = '«' + p.texto + '»';
+    document.getElementById('pl-ref').textContent = p.ref + ' · RVR1960';
+    document.getElementById('pl-hoy').textContent = p.hoy;
+    caja.hidden = false; requestAnimationFrame(() => caja.classList.add('on'));
+    if (window.onyBot3D) window.onyBot3D.accion('saludar');
+  };
+  const cerrar = () => { caja.classList.remove('on'); setTimeout(() => { caja.hidden = true; }, 250); LS.set('ony_palabra', hoy()); if (window.idealabOnyVida) window.idealabOnyVida.hablar('¡Amén! Que Dios bendiga tu día 🙏', 2600); };
+  document.getElementById('pl-amen').addEventListener('click', cerrar);
+  caja.addEventListener('click', (e) => { if (e.target === caja) cerrar(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !caja.hidden) cerrar(); });
+  // Una vez al día por dispositivo, cuando ya entró a la app
+  const intentar = () => {
+    const l = document.getElementById('ag-login');
+    if (l && !l.hidden) { setTimeout(intentar, 2000); return; }
+    if (LS.get('ony_palabra') !== hoy()) setTimeout(mostrar, 1800);
+  };
+  if (document.readyState === 'complete') intentar(); else window.addEventListener('load', intentar);
+  window.idealabPalabra = { mostrar, delDia };
 })();
 </script>
 <script>
