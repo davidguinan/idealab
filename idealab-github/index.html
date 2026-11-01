@@ -66,7 +66,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 
   const loaders = {}, calcs = {}, estado = {}, oyentes = [];
   let params = {};
-  const HOJAS = { meta_diario: 'meta_diario', paises: 'productos', tasas: 'tasas', config: 'config', gastos: 'gastos', cierres: 'cierres', cambios: 'cambios', numeros: 'numeros', fan_pages: 'fan_pages' };
+  const HOJAS = { meta_diario: 'meta_diario', paises: 'productos', tasas: 'tasas', config: 'config', gastos: 'gastos', cierres: 'cierres', cambios: 'cambios', numeros: 'numeros', fan_pages: 'fan_pages', tasas_cierre: 'tasas_cierre' };
 
   const fijar = (id, st) => { estado[id] = st; };
   const avisar = () => { clearTimeout(avisar.t); avisar.t = setTimeout(() => oyentes.forEach((fn) => { try { fn(); } catch (e) { console.error(e); } }), 10); };
@@ -749,6 +749,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 .ony-msgs { background-color: var(--wa-fondo); background-image: radial-gradient(rgba(255,255,255,.035) 1.2px, transparent 1.3px), radial-gradient(rgba(255,255,255,.025) 1px, transparent 1.1px); background-size: 22px 22px, 31px 31px; background-position: 0 0, 11px 15px; gap: 3px; padding: 12px 12px 14px; }
 [data-tema="claro"] .ony-msgs { background-image: radial-gradient(rgba(0,0,0,.05) 1.2px, transparent 1.3px), radial-gradient(rgba(0,0,0,.035) 1px, transparent 1.1px); }
 .ony-msgs { overflow-x: hidden; }
+.rc-tasa-ed { padding: 0 16px 10px; border-bottom: 1px dashed rgba(var(--tinta),.06); } .rc-tasa-ed > .ag-btn { font-size: 12px; padding: 5px 10px; }
+.rc-tasa-f { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; } .rc-tasa-f .ag-in { flex: 1 1 110px; min-width: 0; padding: 7px 9px; }
+.rc-tasa-msg { flex-basis: 100%; color: var(--ag-muted); font-size: 11.5px; }
 .ony-m, .ony-m * { min-width: 0; max-width: 100%; box-sizing: border-box; overflow-wrap: anywhere; word-break: normal; }
 .ony-m pre, .ony-m code { white-space: pre-wrap; }
 .ony-filas { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 6px; }
@@ -810,7 +813,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       <button type="button" data-v="contabilidad"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"/></svg>Contabilidad</button>
       <button type="button" data-v="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Configuración</button>
     </nav>
-    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 33 · ONY vivo</span></div>
+    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 34 · ONY vivo</span></div>
   </aside>
 
   <main class="ag-main">
@@ -1382,6 +1385,10 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       return { columns: ['tipo', 'parametro', 'nombre', 'valor', 'rol', 'correo', 'nota', 'fila', 'usuario_cr', 'huella_cr', 'apodo'], rows: filas };
     },
   });
+  dash.loader('tasas_cierre', {
+    description: 'La pestaña Tasas_cierre: la tasa de cambio puesta a mano para el cierre de un país en un periodo (reemplaza la automática).',
+    fn: ({ answer }) => ({ columns: ['periodo', 'pais', 'moneda', 'tasa', 'quien', 'fecha'], rows: valores(answer).slice(1).map((r) => ({ periodo: String(r[0] || '').trim(), pais: String(r[1] || '').trim(), moneda: String(r[2] || '').trim(), tasa: leerNumeroComa(r[3]), quien: String(r[4] || ''), fecha: String(r[5] || '') })).filter((r) => r.periodo && r.pais && r.tasa) }),
+  });
   dash.loader('fan_pages', {
     description: 'La pestaña Fan_pages: el país al que está dedicada cada página, aparte de dónde esté pautando.',
     fn: ({ answer }) => ({ columns: ['fila', 'page_id', 'pagina', 'pais', 'nota'], rows: valores(answer).slice(1).map((r, i) => ({ fila: i + 2, page_id: String(r[0] || '').trim(), pagina: String(r[1] || '').trim(), pais: String(r[2] || '').trim(), nota: String(r[3] || '') })).filter((r) => r.page_id || r.pagina) }),
@@ -1795,8 +1802,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   dash.calc('liquidacion', {
     title: 'Cierres por quincena y mes',
     description: 'Por periodo (filas total) y por periodo y país (filas pais, también en moneda local con la tasa de Tasas al cierre del periodo): ventas, pauta con IVA, utilidad de países, gastos, utilidad total, comisión de proveedores (% de la utilidad de cada país, si es positiva), nómina (% de la utilidad total; si hay trabajadores en Config, la suma de sus % y una fila trabajador por persona con su pago), empresa (% de la utilidad total) y lo que queda para cada socio, con los porcentajes de la pestaña Config.',
-    inputs: ['meta_dias', 'ventas', 'gastos', 'config', 'paises', 'tasas_aj', 'facturas_cont'],
-    fn: (meta_dias, ventas_raw, gastos0, config, paises, tasas, facturas_cont) => {
+    inputs: ['meta_dias', 'ventas', 'gastos', 'config', 'paises', 'tasas_aj', 'facturas_cont', 'tasas_cierre'],
+    fn: (meta_dias, ventas_raw, gastos0, config, paises, tasas, facturas_cont, tasas_cierre) => {
       // Gastos pagados y pendientes + facturas por pagar: todos se descuentan en la quincena de su fecha de creación
       const gastos = [...gastos0, ...facturas_cont.map((f) => ({ fecha: f.creada, valor: f.valor, pais: 'General' }))];
       const periodosDe = (fechas) => {
@@ -1846,7 +1853,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           Object.values(porPais).forEach((x) => {
             const moneda = monedaDe[x.pais] || 'COP';
             const fCierre = p.hasta < hoy ? p.hasta : hoy;
-            const tasa = tasaAl(moneda, fCierre), tasa_real = tasaAl(moneda, fCierre, true);
+            const manual = moneda !== 'COP' ? (tasas_cierre || []).find((t) => t.periodo === p.periodo && t.pais === x.pais) : null;
+            const tasa_auto = tasaAl(moneda, fCierre), tasa_real = tasaAl(moneda, fCierre, true);
+            const tasa = manual ? manual.tasa : tasa_auto;
             const ventas_local = r2(x.ventas_local);
             const ventasCop = tasa ? Math.round(ventas_local * tasa) : 0;
             const pauta_iva = Math.round(x.gasto * IVA);
@@ -1866,7 +1875,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
             if (x.gasto || x.ventas_n || g_p) pai.push({ clave: p.periodo + '|' + x.pais, periodo: p.periodo, tipo: p.tipo, pais: x.pais, desde: p.desde, hasta: p.hasta, completo: p.hasta < hoy, ventas: ventasCop, ventas_n: x.ventas_n, pauta_iva, utilidad: util, pct_prov: P_PROV, comision: com, conversaciones: x.conversaciones,
               gastos: g_p, utilidad_total: util, utilidad_final: ut_fin, proveedores: com, pct_trab: P_TRAB, nomina: nom_p, pct_emp: P_EMP, empresa: emp_p, pct_s1: S1, pct_s2: S2, socio1: Math.round((resto_p * S1) / 100), socio2: Math.round((resto_p * S2) / 100),
               rentabilidad: pauta_iva > 0 ? Math.round((util / pauta_iva) * 1000) / 10 : null, roas: x.gasto > 0 ? Math.round((ventasCop / (x.gasto * IVA)) * 100) / 100 : null,
-              moneda, tasa, tasa_real, fecha_tasa: fCierre, colchon_tasa: colchonTasa(), ventas_local, pauta_local, gastos_local, utilidad_local, comision_local, utilidad_final_local: utilidad_local === null ? null : r2(utilidad_local - comision_local) });
+              moneda, tasa, tasa_real, tasa_auto, tasa_manual: !!manual, tasa_quien: manual ? manual.quien : '', fecha_tasa: fCierre, colchon_tasa: colchonTasa(), ventas_local, pauta_local, gastos_local, utilidad_local, comision_local, utilidad_final_local: utilidad_local === null ? null : r2(utilidad_local - comision_local) });
           });
           const gasto_total = Math.round(gs.reduce((s, g) => s + g.valor, 0));
           const util_total = util_p - gasto_total;
@@ -3384,7 +3393,30 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       // Mismo orden que el cierre a mano: ventas exactas del Excel → tasa → gastos del país → pauta con IVA → utilidad → proveedor → utilidad final
       const lineaTxt = (lb, v1, v2) => { const l = document.createElement('div'); l.className = 'rc-ln'; const a = document.createElement('span'); a.className = 'rc-lb'; a.textContent = lb; const b = document.createElement('span'); b.className = 'rc-v'; const x1 = document.createElement('b'); x1.textContent = v1; b.appendChild(x1); if (v2) { const x2 = document.createElement('em'); x2.textContent = v2; b.appendChild(x2); } l.append(a, b); d.appendChild(l); return l; };
       lineaDoble('Ventas del periodo · ' + num.format(r.ventas_n || 0) + (r.ventas_n === 1 ? ' venta' : ' ventas'), cop.format(r.ventas), fLocal(r.ventas_local, r.moneda), 'ventas');
-      if (local) lineaTxt('Tasa de cambio', r.tasa ? '1 ' + r.moneda + ' = ' + fTasa(r.tasa) + ' COP' : '—', r.tasa_real ? 'tasa real ' + fTasa(r.tasa_real) + ' − colchón ' + num.format(r.colchon_tasa) + '%' : '');
+      if (local) {
+        const lt = lineaTxt('Tasa de cambio', r.tasa ? '1 ' + r.moneda + ' = ' + fTasa(r.tasa) + ' COP' : '—', r.tasa_manual ? 'puesta a mano' + (r.tasa_quien ? ' por ' + r.tasa_quien : '') + ' · automática ' + fTasa(r.tasa_auto) : r.tasa_real ? 'tasa real ' + fTasa(r.tasa_real) + ' − colchón ' + num.format(r.colchon_tasa) + '%' : '');
+        // Cambiar la tasa de este cierre (queda guardada en la pestaña Tasas_cierre)
+        const ed = document.createElement('div'); ed.className = 'rc-tasa-ed';
+        const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'ag-btn'; btn.textContent = '✏️ Cambiar tasa';
+        const form = document.createElement('div'); form.className = 'rc-tasa-f'; form.hidden = true;
+        const inp = document.createElement('input'); inp.type = 'text'; inp.inputMode = 'decimal'; inp.className = 'ag-in'; inp.placeholder = 'COP por 1 ' + r.moneda; inp.value = r.tasa ? String(r.tasa).replace('.', ',') : '';
+        const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'ag-btn pri'; ok.textContent = 'Guardar';
+        const auto = document.createElement('button'); auto.type = 'button'; auto.className = 'ag-btn'; auto.textContent = 'Usar automática'; auto.hidden = !r.tasa_manual;
+        const msg = document.createElement('small'); msg.className = 'rc-tasa-msg';
+        const prev = document.createElement('small'); prev.className = 'rc-tasa-msg';
+        const leer = () => { const n = Number(String(inp.value).trim().replace(/\s/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')); return Number.isFinite(n) && n > 0 ? n : null; };
+        inp.addEventListener('input', () => { const n = leer(); prev.textContent = n ? 'Con ' + fTasa(n) + ': ventas ' + cop.format(Math.round(r.ventas_local * n)) + ' · a pagar ' + fLocal(Math.max(0, Math.round(((r.ventas_local - r.pauta_iva / n - (r.gastos || 0) / n) * r.pct_prov)) / 100), r.moneda) : ''; });
+        const guardar = async (tasa) => {
+          ok.disabled = auto.disabled = true; msg.textContent = 'Guardando…';
+          try { await window.idealabEnviar({ accion: 'tasa_cierre_guardar', periodo: r.periodo, pais: r.pais, moneda: r.moneda, tasa: tasa || 0, quien: (() => { try { return localStorage.getItem('idealab_nombre') || ''; } catch (e) { return ''; } })() }); msg.textContent = tasa ? 'Tasa guardada. Recalculando…' : 'Vuelve a la tasa automática. Recalculando…'; dash.refresh('tasas_cierre'); }
+          catch (e) { msg.textContent = 'No se pudo guardar: ' + (e.message || e); ok.disabled = auto.disabled = false; }
+        };
+        btn.addEventListener('click', () => { form.hidden = !form.hidden; if (!form.hidden) inp.focus(); });
+        ok.addEventListener('click', () => { const n = leer(); if (!n) { msg.textContent = 'Escribe una tasa válida, por ejemplo 3,05.'; return; } guardar(n); });
+        auto.addEventListener('click', () => guardar(0));
+        form.append(inp, ok, auto, prev, msg); ed.append(btn, form); d.appendChild(ed);
+        if (r.tasa_manual) lt.querySelector('.rc-v b').insertAdjacentText('beforeend', ' ✏️');
+      }
       lineaDoble('− Gastos del país', cop.format(r.gastos || 0), fLocal(r.gastos_local || 0, r.moneda), 'gastos');
       lineaDoble('− Pauta Meta con IVA', cop.format(r.pauta_iva), fLocal(r.pauta_local, r.moneda), 'pauta_iva');
       lineaDoble('= Utilidad del país', cop.format(r.utilidad), fLocal(r.utilidad_local, r.moneda), 'utilidad');
