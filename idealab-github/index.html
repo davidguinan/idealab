@@ -777,7 +777,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       <button type="button" data-v="contabilidad"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"/></svg>Contabilidad</button>
       <button type="button" data-v="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Configuración</button>
     </nav>
-    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 27 · ONY vivo</span></div>
+    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 28 · ONY vivo</span></div>
   </aside>
 
   <main class="ag-main">
@@ -4051,7 +4051,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     D('ventas_cop').forEach((v) => { const j = adConj[v.ad_id]; if (j && v.fecha >= desde7 && conjAct.has(j) && v.valor_cop) { const k = j + '|' + v.fecha; (gc[k] = gc[k] || { j, f: v.fecha, g: 0, v: 0, c: 0 }); gc[k].v += v.valor_cop; } });
     const dias_conjunto = {}; Object.values(gc).sort((a, b) => a.f.localeCompare(b.f)).forEach((x) => { const k = nomConj[x.j] + ' (' + x.j + ')'; (dias_conjunto[k] = dias_conjunto[k] || []).push([x.f, Math.round(x.g * 1.19), Math.round(x.v), x.g > 0 ? r2(x.v / (x.g * 1.19)) : null, x.c]); });
     const bots = D('numeros_uso').map((n) => ({ codigo: n.codigo, estado: n.estado, mensajes_hoy: n.msg_hoy, campanas: n.campanas, pagina: n.pagina }));
-    return { periodo: { desde: P.desde, hasta: P.hasta }, paises, campanas, conjuntos_activos: conjuntos, anuncios, dias_columnas: ['fecha', 'gasto_con_iva', 'ventas', 'roas', 'conversaciones'], dias_pais, dias_campana, dias_conjunto, bots, creativos: crs.slice(0, 40) };
+    const estadoDatos = {}; ['meta_rango', 'meta_hoy', 'meta_campanas', 'ventas', 'resumen', 'diario', 'meta_dias'].forEach((id) => { const x = window.dash.data(id); estadoDatos[id] = x ? x.status + (x.status === 'ok' ? ' (' + (x.data || []).length + ' filas)' : x.message ? ': ' + x.message : '') : 'sin cargar'; });
+    return { estado_de_los_datos: estadoDatos, periodo: { desde: P.desde, hasta: P.hasta }, paises, campanas, conjuntos_activos: conjuntos, anuncios, dias_columnas: ['fecha', 'gasto_con_iva', 'ventas', 'roas', 'conversaciones'], dias_pais, dias_campana, dias_conjunto, bots, creativos: crs.slice(0, 40) };
   };
   const contextoTxt = () => { let c = contexto(); let t = JSON.stringify(c); if (t.length > 55000 && c.anuncios) { c.anuncios = c.anuncios.slice(0, 20); c.creativos = c.creativos.slice(0, 15); t = JSON.stringify(c); } return t.slice(0, 58000); };
 
@@ -4177,6 +4178,10 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const imgs = adjuntos.map((a) => a.url);
     if (!o.saludo) burbuja('yo', texto || 'Analiza esto', { imgs });
     const p = pensando(o.saludo ? 'ONY está preparando tu resumen de la mañana…' : adjuntos.length ? 'ONY está mirando los archivos…' : 'ONY está pensando…');
+    // Si la app todavía está trayendo los datos (por ejemplo, recién abierta), espera hasta 40 s antes de preguntar
+    const fuentes = esTrab() ? ['creativos'] : ['resumen', 'diario', 'meta_campanas', 'meta_conjuntos'];
+    const listos = () => fuentes.every((id) => { const x = window.dash && window.dash.data(id); return x && x.status !== 'loading' && !x.refreshing; });
+    if (!listos()) { p.lastChild.textContent = ' ONY espera a que carguen los datos de la app…'; for (let i = 0; i < 80 && !listos(); i++) await new Promise((r) => setTimeout(r, 500)); p.lastChild.textContent = ' ONY está pensando…'; }
     const body = { accion: o.saludo ? 'ony_saludo' : 'ony_chat', texto, contexto: contextoTxt(), pantalla: NOMBRES_VISTA[window.idealabVista ? window.idealabVista() : ''] || '', adjuntos: adjuntos.map((a) => ({ media_type: a.media_type, data: a.data })), nota_adjuntos: notaAdj };
     adjuntos = []; notaAdj = ''; pintarAdj();
     try {
