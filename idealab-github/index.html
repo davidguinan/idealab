@@ -748,6 +748,15 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 [data-tema="claro"] .ony-panel { --wa-fondo: #EFEAE2; --wa-yo: #D9FDD3; --wa-ony: #FFFFFF; --wa-txt: #111B21; --wa-hora: #667781; --wa-check: #53BDEB; }
 .ony-msgs { background-color: var(--wa-fondo); background-image: radial-gradient(rgba(255,255,255,.035) 1.2px, transparent 1.3px), radial-gradient(rgba(255,255,255,.025) 1px, transparent 1.1px); background-size: 22px 22px, 31px 31px; background-position: 0 0, 11px 15px; gap: 3px; padding: 12px 12px 14px; }
 [data-tema="claro"] .ony-msgs { background-image: radial-gradient(rgba(0,0,0,.05) 1.2px, transparent 1.3px), radial-gradient(rgba(0,0,0,.035) 1px, transparent 1.1px); }
+.ony-msgs { overflow-x: hidden; }
+.ony-m, .ony-m * { min-width: 0; max-width: 100%; box-sizing: border-box; overflow-wrap: anywhere; word-break: normal; }
+.ony-m pre, .ony-m code { white-space: pre-wrap; }
+.ony-filas { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 6px; }
+.ony-fila { display: flex; flex-direction: column; gap: 1px; padding: 6px 8px; border-radius: 6px; background: rgba(var(--tinta),.06); }
+.ony-fila > b { font-size: 14px; }
+.ony-fila > span { font-size: 13px; line-height: 1.45; }
+.ony-fila > span i { font-style: normal; opacity: .7; }
+.ony-fila.tot { background: rgba(245,184,0,.14); }
 .ony-m { flex-shrink: 0; position: relative; max-width: 82%; padding: 6px 9px 7px; border-radius: 8px; font-size: 14.2px; line-height: 1.38; color: var(--wa-txt); border: 0 !important; box-shadow: 0 1px .5px rgba(0,0,0,.13); }
 .ony-m.yo { background: var(--wa-yo); border-top-right-radius: 0; margin-top: 6px; }
 .ony-m.ony { background: var(--wa-ony); border-top-left-radius: 0; margin-top: 6px; }
@@ -801,7 +810,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       <button type="button" data-v="contabilidad"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"/></svg>Contabilidad</button>
       <button type="button" data-v="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Configuración</button>
     </nav>
-    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 31 · ONY vivo</span></div>
+    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 32 · ONY vivo</span></div>
   </aside>
 
   <main class="ag-main">
@@ -4084,15 +4093,15 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   // ---------- Texto con formato sencillo (negritas, listas, títulos) ----------
   const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const md = (t) => {
-    const lineas = esc(t).split('\n'); let html = '', lista = null;
-    const cerrar = () => { if (lista) { html += '</' + lista + '>'; lista = null; } };
+    const lineas = esc(t).split('\n'); let html = '', lista = null, cab = [];
+    const cerrar = () => { if (lista) { html += lista === 'tabla' ? '</div>' : '</' + lista + '>'; lista = null; } };
     const inl = (s) => s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|[\s(])\*(?!\s)(.+?)\*(?=[\s).,;:!?]|$)/g, '$1<b>$2</b>').replace(/(^|[\s(])_(?!\s)(.+?)_(?=[\s).,;:!?]|$)/g, '$1<i>$2</i>').replace(/`([^`]+)`/g, '<code>$1</code>');
     lineas.forEach((l) => {
-      if (/^\s*\|.*\|\s*$/.test(l)) { if (/^\s*\|[\s:|-]+\|\s*$/.test(l)) return; const cel = l.trim().slice(1, -1).split('|').map((c) => inl(c.trim())); if (lista !== 'table') { cerrar(); html += '<table class="ony-tb">'; lista = 'table'; html += '<tr>' + cel.map((c) => '<th>' + c + '</th>').join('') + '</tr>'; } else html += '<tr>' + cel.map((c) => '<td>' + c + '</td>').join('') + '</tr>'; return; }
+      if (/^\s*\|.*\|\s*$/.test(l)) { if (/^\s*\|[\s:|-]+\|\s*$/.test(l)) return; const cel = l.trim().slice(1, -1).split('|').map((c) => inl(c.trim())); if (lista !== 'tabla') { cerrar(); lista = 'tabla'; cab = cel; html += '<div class="ony-filas">'; return; } const quita = (x) => x.replace(/<[^>]+>/g, ''); const tot = /^total/i.test(quita(cel[0] || '')); html += '<div class="ony-fila' + (tot ? ' tot' : '') + '"><b>' + (cel[0] || '') + '</b><span>' + cel.slice(1).map((c, i) => (cab[i + 1] ? '<i>' + quita(cab[i + 1]) + '</i> ' : '') + '<b>' + c + '</b>').join('<br>') + '</span></div>'; return; }
       const m1 = l.match(/^\s*[-•*]\s+(.*)/), m2 = l.match(/^\s*\d+[.)]\s+(.*)/), h = l.match(/^#{1,4}\s+(.*)/);
       if (m1) { if (lista !== 'ul') { cerrar(); html += '<ul>'; lista = 'ul'; } html += '<li>' + inl(m1[1]) + '</li>'; }
       else if (m2) { if (lista !== 'ol') { cerrar(); html += '<ol>'; lista = 'ol'; } html += '<li>' + inl(m2[1]) + '</li>'; }
-      else { cerrar(); if (h) html += '<h4>' + inl(h[1]) + '</h4>'; else if (l.trim()) html += '<p>' + inl(l) + '</p>'; }
+      else { cerrar(); if (h) html += '<p><b>' + inl(h[1]).replace(/<\/?b>/g, '') + '</b></p>'; else if (l.trim()) html += '<p>' + inl(l) + '</p>'; }
     });
     cerrar(); return html;
   };
