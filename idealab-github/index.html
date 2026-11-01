@@ -740,6 +740,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 .pl-amen { all: unset; cursor: pointer; padding: 10px 26px; border-radius: 999px; background: var(--ag-gold); color: #1A1300; font-weight: 600; font-size: 14px; }
 .pl-amen:focus-visible { outline: 2px solid var(--ag-gold); outline-offset: 3px; }
 .pl-cr { margin: 16px 0 0; font-size: 10px; color: var(--ag-muted); opacity: .75; }
+/* Tablas en las respuestas de ONY */
+.ony-tb { border-collapse: collapse; margin: 6px 0 10px; font-size: 12.5px; width: 100%; } .ony-tb th, .ony-tb td { padding: 4px 6px; border-bottom: 1px solid var(--ag-line); text-align: right; white-space: nowrap; } .ony-tb th:first-child, .ony-tb td:first-child { text-align: left; } .ony-tb th { color: var(--ag-muted); font-weight: 600; font-size: 11.5px; }
+.ony-m.ony { overflow-x: auto; }
 /* ---------- Tema claro / oscuro ---------- */
 .tema-btn { all: unset; cursor: pointer; margin-left: auto; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; border: 1px solid var(--ag-line); color: var(--ag-gold); flex: none; }
 .tema-btn:hover { border-color: var(--ag-gold); }
@@ -777,7 +780,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       <button type="button" data-v="contabilidad"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"/></svg>Contabilidad</button>
       <button type="button" data-v="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Configuración</button>
     </nav>
-    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 28 · ONY vivo</span></div>
+    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 30 · ONY vivo</span></div>
   </aside>
 
   <main class="ag-main">
@@ -4041,7 +4044,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     // Últimos 7 días: por país, por campaña activa y por conjunto activo (para la regla de los 3 días)
     const hoy = hoyBog(), desde7 = sumar(hoy, -6);
     const DI = D('diario').filter((r) => r.fecha >= desde7);
-    const fila = (r) => [r.fecha, r.gasto_iva, Math.round(r.ventas_cop), r.roas, r.conversaciones];
+    const fila = (r) => [r.fecha, r.ventas_n, Math.round(r.ventas_cop), r.gasto_iva, r.ganancia, r.roas, r.conversaciones];
+    const resDia = (f) => { const tot = DI.find((r) => r.fecha === f && r.nivel === 'total'); const pa = DI.filter((r) => r.fecha === f && r.nivel === 'pais' && (r.gasto || r.ventas_cop)); const x = (r) => ({ ventas: r.ventas_n, facturacion: Math.round(r.ventas_cop), gasto_ads_con_iva: r.gasto_iva, utilidad: r.ganancia, roas: r.roas, conversaciones: r.conversaciones }); return tot ? { fecha: f, global: x(tot), por_pais: Object.fromEntries(pa.map((r) => [r.id, x(r)])) } : { fecha: f, sin_datos: true }; };
     const dias_pais = {}; DI.filter((r) => r.nivel === 'pais' && (r.gasto || r.ventas_cop)).sort((a, b) => a.fecha.localeCompare(b.fecha)).forEach((r) => { (dias_pais[r.id] = dias_pais[r.id] || []).push(fila(r)); });
     const activas = new Set(MC.filter((c) => c.estado === 'ACTIVE').map((c) => c.campana_id));
     const dias_campana = {}; DI.filter((r) => r.nivel === 'campana' && activas.has(r.id) && r.gasto).sort((a, b) => a.fecha.localeCompare(b.fecha)).forEach((r) => { (dias_campana[r.nombre + ' (' + r.id + ')'] = dias_campana[r.nombre + ' (' + r.id + ')'] || []).push(fila(r)); });
@@ -4049,10 +4053,10 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const adConj = {}, gc = {};
     D('meta_dias').forEach((r) => { if (r.conjunto_id) adConj[r.ad_id] = r.conjunto_id; if (r.fecha >= desde7 && conjAct.has(r.conjunto_id)) { const k = r.conjunto_id + '|' + r.fecha; (gc[k] = gc[k] || { j: r.conjunto_id, f: r.fecha, g: 0, v: 0, c: 0 }); gc[k].g += r.gasto; gc[k].c += r.conversaciones || 0; } });
     D('ventas_cop').forEach((v) => { const j = adConj[v.ad_id]; if (j && v.fecha >= desde7 && conjAct.has(j) && v.valor_cop) { const k = j + '|' + v.fecha; (gc[k] = gc[k] || { j, f: v.fecha, g: 0, v: 0, c: 0 }); gc[k].v += v.valor_cop; } });
-    const dias_conjunto = {}; Object.values(gc).sort((a, b) => a.f.localeCompare(b.f)).forEach((x) => { const k = nomConj[x.j] + ' (' + x.j + ')'; (dias_conjunto[k] = dias_conjunto[k] || []).push([x.f, Math.round(x.g * 1.19), Math.round(x.v), x.g > 0 ? r2(x.v / (x.g * 1.19)) : null, x.c]); });
+    const dias_conjunto = {}; Object.values(gc).sort((a, b) => a.f.localeCompare(b.f)).forEach((x) => { const k = nomConj[x.j] + ' (' + x.j + ')'; (dias_conjunto[k] = dias_conjunto[k] || []).push([x.f, null, Math.round(x.v), Math.round(x.g * 1.19), Math.round(x.v - x.g * 1.19), x.g > 0 ? r2(x.v / (x.g * 1.19)) : null, x.c]); });
     const bots = D('numeros_uso').map((n) => ({ codigo: n.codigo, estado: n.estado, mensajes_hoy: n.msg_hoy, campanas: n.campanas, pagina: n.pagina }));
     const estadoDatos = {}; ['meta_rango', 'meta_hoy', 'meta_campanas', 'ventas', 'resumen', 'diario', 'meta_dias'].forEach((id) => { const x = window.dash.data(id); estadoDatos[id] = x ? x.status + (x.status === 'ok' ? ' (' + (x.data || []).length + ' filas)' : x.message ? ': ' + x.message : '') : 'sin cargar'; });
-    return { estado_de_los_datos: estadoDatos, periodo: { desde: P.desde, hasta: P.hasta }, paises, campanas, conjuntos_activos: conjuntos, anuncios, dias_columnas: ['fecha', 'gasto_con_iva', 'ventas', 'roas', 'conversaciones'], dias_pais, dias_campana, dias_conjunto, bots, creativos: crs.slice(0, 40) };
+    return { estado_de_los_datos: estadoDatos, hoy: resDia(hoy), ayer: resDia(sumar(hoy, -1)), periodo: { desde: P.desde, hasta: P.hasta }, paises_del_periodo: paises, campanas, conjuntos_activos: conjuntos, anuncios, dias_columnas: ['fecha', 'n_ventas', 'facturacion', 'gasto_ads_con_iva', 'utilidad', 'roas', 'conversaciones'], dias_pais, dias_campana, dias_conjunto, bots, creativos: crs.slice(0, 40) };
   };
   const contextoTxt = () => { let c = contexto(); let t = JSON.stringify(c); if (t.length > 55000 && c.anuncios) { c.anuncios = c.anuncios.slice(0, 20); c.creativos = c.creativos.slice(0, 15); t = JSON.stringify(c); } return t.slice(0, 58000); };
 
@@ -4063,6 +4067,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const cerrar = () => { if (lista) { html += '</' + lista + '>'; lista = null; } };
     const inl = (s) => s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|[\s(])\*(?!\s)(.+?)\*(?=[\s).,;:!?]|$)/g, '$1<i>$2</i>').replace(/`([^`]+)`/g, '<code>$1</code>');
     lineas.forEach((l) => {
+      if (/^\s*\|.*\|\s*$/.test(l)) { if (/^\s*\|[\s:|-]+\|\s*$/.test(l)) return; const cel = l.trim().slice(1, -1).split('|').map((c) => inl(c.trim())); if (lista !== 'table') { cerrar(); html += '<table class="ony-tb">'; lista = 'table'; html += '<tr>' + cel.map((c) => '<th>' + c + '</th>').join('') + '</tr>'; } else html += '<tr>' + cel.map((c) => '<td>' + c + '</td>').join('') + '</tr>'; return; }
       const m1 = l.match(/^\s*[-•*]\s+(.*)/), m2 = l.match(/^\s*\d+[.)]\s+(.*)/), h = l.match(/^#{1,4}\s+(.*)/);
       if (m1) { if (lista !== 'ul') { cerrar(); html += '<ul>'; lista = 'ul'; } html += '<li>' + inl(m1[1]) + '</li>'; }
       else if (m2) { if (lista !== 'ol') { cerrar(); html += '<ol>'; lista = 'ol'; } html += '<li>' + inl(m2[1]) + '</li>'; }
@@ -4401,6 +4406,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const t0 = performance.now();
     const ahoraS = () => (performance.now() - t0) / 1000;
     let accion = null; // { nombre, ini, dur }
+    let caricia = 0, cariciaS = 0, finMareo = 0, giro = 0, giroS = 0;
     let finRie = 0, finRojo = 0, piensa = false, arrastre = 0, arrastrando = false, vel = 0, mirar = { x: 0, y: 0 }, mirarSuave = { x: 0, y: 0 }, sigParpadeo = 2, rie = 0, rojo = 0, ultimo = 0;
     const ACCIONES = { saludar: 2.6, caminar: 3.6, correr: 2.8, nadar: 4.2, tomar: 3.6, agotado: 3.4, calor: 3.6, frio: 3.6, bostezar: 3.2, estirarse: 2.6, saltar: 1.6, bailar: 3.4 };
     const api = {
@@ -4411,6 +4417,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       _probar: (nombre, u) => { const ahora = performance.now(); accion = { nombre, ini: (ahora - t0) / 1000 - ACCIONES[nombre] * u, dur: ACCIONES[nombre] }; cuadro.tAnt = 0; for (let i = 0; i < 4; i++) cuadro(ahora + i); return cv.toDataURL('image/png'); },
       mirar: (x, y) => { mirar.x = Math.max(-1, Math.min(1, x)); mirar.y = Math.max(-1, Math.min(1, y)); },
       arrastrar: (si) => { arrastrando = !!si; },
+      sobar: (v) => { caricia = Math.max(0, Math.min(1, v)); arrancar(); },
+      marear: (seg) => { finMareo = ahoraS() + (seg || 2.5); arrancar(); },
+      girar: (v) => { giro = v; },
       mover: (v) => { vel = v; },
       montar: (host) => { if (!host) return; host.classList.add('es3d'); host.appendChild(cv); ajustar(); arrancar(); },
     };
@@ -4454,6 +4463,14 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       if (n === 'bailar') { ry += Math.sin(t * 8) * 0.6 * env; rz += Math.sin(t * 8) * 0.18 * env; py += Math.abs(Math.sin(t * 8)) * 0.1 * env; bI = 0.35 + Math.sin(t * 8) * 1.4 * env; bD = -0.35 + Math.sin(t * 8) * 1.4 * env; feliz = true; rizoAmp = 0.18; }
       if (temblor) { ONY.position.x = Math.sin(t * 60) * 0.025 * temblor; } else ONY.position.x = 0;
 
+      // Le soban el cabello: cierra los ojos feliz, se sonroja y la copa se aplasta y rebota
+      cariciaS = suave(cariciaS, caricia, k(8));
+      if (cariciaS > 0.03) { const c = cariciaS; feliz = feliz || c > 0.25; rojo = Math.max(rojo, c * 0.85); rz += Math.sin(t * 5) * 0.07 * c; py -= 0.04 * c; rx -= 0.08 * c; rizoAmp += 0.18 * c; bI = suave(bI, -0.2, c * 0.6); bD = suave(bD, 0.2, c * 0.6); bocaEsc = Math.max(bocaEsc, 1 + c * 0.25); }
+      const squish = cariciaS * Math.abs(Math.sin(t * 9)); copa.scale.set(1 + squish * 0.07, 1 - squish * 0.1, 1 + squish * 0.07);
+      // Mareado después de que lo tiran
+      if (t < finMareo) { const m = Math.min(1, (finMareo - t) / 0.8); ry += Math.sin(t * 7) * 0.6 * m; rz += Math.sin(t * 5) * 0.18 * m; ojoAb = Math.min(ojoAb, 1 - 0.55 * m); bocaModo = 'O'; bocaEsc = 0.55; }
+      // Girando en el aire
+      giroS = suave(giroS, giro, k(6)); rz += giroS;
       // Risa y rubor por toque
       if (rie > 0.05) { py += rie * Math.abs(Math.sin(t * 22)) * 0.06; ry += rie * Math.sin(t * 25) * 0.12; rz += rie * Math.sin(t * 25) * 0.08; bI += rie * Math.sin(t * 20) * 0.5; bD -= rie * Math.sin(t * 20) * 0.5; if (rie > 0.5) { feliz = true; bocaModo = 'sonrisa'; bocaEsc = 1.45; } rizoAmp += 0.1 * rie; }
       ONY.position.y = py; ONY.rotation.set(rx, ry, rz);
@@ -4524,21 +4541,88 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   const inicial = () => { const { w, h } = tam(); if (pos && Number.isFinite(pos.fx)) colocar(pos.fx * window.innerWidth, pos.fy * window.innerHeight); else colocar(window.innerWidth - w - 18, window.innerHeight - h - 18); };
   window.addEventListener('resize', () => { const a = actual(); colocar(a.x, a.y); });
 
-  let arr = null, arrastrado = false;
-  fab.addEventListener('pointerdown', (e) => { if (e.button !== undefined && e.button !== 0) return; const a = actual(); arr = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: a.x, oy: a.y, moviendo: false }; arrastrado = false; });
+  let arr = null, arrastrado = false, vuelo = null;
+  const enCopa = (e) => { const r = vivo.getBoundingClientRect(); return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.top + r.height * 0.44; };
+  // Agarrar del cuerpo = arrastrar o tirar; tocar y mover sobre la copa = sobarle el cabello
+  fab.addEventListener('pointerdown', (e) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    pararVuelo();
+    const a = actual();
+    arr = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: a.x, oy: a.y, moviendo: false, sobando: enCopa(e), hist: [{ x: e.clientX, y: e.clientY, t: performance.now() }] };
+    arrastrado = false;
+  });
+  // Cariño en la cabeza: se suma el movimiento sobre la copa y se va apagando solo
+  let sobado = 0, ultimoSobo = 0, dijoSobo = 0;
+  const sobar = (dist) => {
+    sobado = Math.min(1, sobado + dist / 260); ultimoSobo = performance.now();
+    if (bot()) bot().sobar(sobado);
+    if (sobado > 0.45 && Date.now() - dijoSobo > 7000) { dijoSobo = Date.now(); hablar(azar(['Ay, qué rico 🥰', 'Jiji, ¡cosquillas! 😆', 'Mmm… sigue, sigue 😌', '¡Me encanta! 💚']), 2200); }
+  };
+  setInterval(() => { if (sobado > 0 && performance.now() - ultimoSobo > 180) { sobado = Math.max(0, sobado - 0.06); if (bot()) bot().sobar(sobado); } }, 60);
+
+  let ultimoMov = null;
   window.addEventListener('pointermove', (e) => {
-    // Sigue el puntero con la mirada
+    // Sigue el puntero con la mirada (y se inclina si estás cerca)
     const r = vivo.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height * 0.45;
-    if (bot()) bot().mirar((e.clientX - cx) / 380, -(e.clientY - cy) / 300);
+    const d = Math.hypot(e.clientX - cx, e.clientY - cy), cerca = d < 220 ? 1.6 : 1;
+    if (bot()) bot().mirar(((e.clientX - cx) / 380) * cerca, (-(e.clientY - cy) / 300) * cerca);
+    // Pasar el mouse por encima de la copa (sin hacer clic) también lo soba
+    if (!arr && enCopa(e) && ultimoMov) sobar(Math.abs(e.clientX - ultimoMov.x) + Math.abs(e.clientY - ultimoMov.y) * 0.5);
+    ultimoMov = { x: e.clientX, y: e.clientY };
     if (!arr || e.pointerId !== arr.id) return;
     const dx = e.clientX - arr.sx, dy = e.clientY - arr.sy;
+    arr.hist.push({ x: e.clientX, y: e.clientY, t: performance.now() }); if (arr.hist.length > 6) arr.hist.shift();
+    if (arr.sobando) { const p = arr.hist[arr.hist.length - 2]; if (p) sobar(Math.abs(e.clientX - p.x) + Math.abs(e.clientY - p.y)); if (Math.hypot(dx, dy) > 6) arrastrado = true; return; }
     if (!arr.moviendo && Math.hypot(dx, dy) > 6) { arr.moviendo = true; arrastrado = true; try { fab.setPointerCapture(e.pointerId); } catch (x) {} vivo.classList.add('arrastrando'); if (bot()) bot().arrastrar(true); hablar(azar(['¡Wiii! 🎢', '¡Uy, me llevas! 😄', '¡Más despacio! 😆']), 1600); cancelarPaseo(); }
     if (arr.moviendo) { colocar(arr.ox + dx, arr.oy + dy); if (bot()) bot().mover(dx > 0 ? 0.5 : -0.5); }
   });
-  const soltar = (e) => { if (!arr || (e && e.pointerId !== arr.id)) return; if (arr.moviendo) { const a = actual(); colocar(a.x, a.y, true); vivo.classList.remove('arrastrando'); if (bot()) { bot().arrastrar(false); bot().mover(0); } } arr = null; };
+  const soltar = (e) => {
+    if (!arr || (e && e.pointerId !== arr.id)) return;
+    if (arr.moviendo) {
+      vivo.classList.remove('arrastrando');
+      // Velocidad con la que lo soltaste: si es rápida, sale volando
+      const h = arr.hist, p0 = h[0], p1 = h[h.length - 1], dt = Math.max(16, p1.t - p0.t);
+      const vx = (p1.x - p0.x) / dt, vy = (p1.y - p0.y) / dt;
+      if (Math.hypot(vx, vy) > 0.35 && performance.now() - p1.t < 300) lanzar(vx, vy);
+      else { const a = actual(); colocar(a.x, a.y, true); if (bot()) { bot().arrastrar(false); bot().mover(0); } }
+    }
+    arr = null;
+  };
   window.addEventListener('pointerup', soltar); window.addEventListener('pointercancel', soltar);
-  // Si lo arrastraste, el toque no abre el chat
+  // Si lo arrastraste, lo tiraste o le sobaste la cabeza, el toque no abre el chat
   fab.addEventListener('click', (e) => { if (arrastrado) { e.stopImmediatePropagation(); e.preventDefault(); arrastrado = false; } }, true);
+
+  // ---------- Tirarlo: vuela, rebota en los bordes, cae y se marea ----------
+  const pararVuelo = () => { if (vuelo) { cancelAnimationFrame(vuelo.raf); vuelo = null; if (bot()) { bot().girar(0); bot().arrastrar(false); bot().mover(0); } } };
+  const lanzar = (vx0, vy0) => {
+    const MAX = 3.2; let vx = Math.max(-MAX, Math.min(MAX, vx0)), vy = Math.max(-MAX, Math.min(MAX, vy0));
+    const fuerza = Math.hypot(vx, vy);
+    hablar(azar(['¡Aaaah! 😱', '¡Voy volandooo! 🚀', '¡Wiiiiii! 🎢']), 1400);
+    let { x, y } = actual(), ant = performance.now(), golpes = 0, quieto = 0;
+    const G = 0.0032, REB = 0.55, ROCE = 0.985;
+    if (bot()) bot().arrastrar(true);
+    const paso = (ahora) => {
+      const dt = Math.min(32, ahora - ant); ant = ahora;
+      vy += G * dt; x += vx * dt; y += vy * dt;
+      const { w, h } = tam(), maxX = window.innerWidth - w - 4, maxY = window.innerHeight - h - 4;
+      if (x < 4) { x = 4; vx = -vx * REB; golpes++; } if (x > maxX) { x = maxX; vx = -vx * REB; golpes++; }
+      if (y < 4) { y = 4; vy = -vy * REB; golpes++; }
+      if (y > maxY) { y = maxY; if (Math.abs(vy) > 0.25) golpes++; vy = -vy * REB; vx *= 0.8; if (Math.abs(vy) < 0.12) vy = 0; }
+      vx *= ROCE;
+      colocar(x, y);
+      if (bot()) { bot().girar(Math.max(-1.2, Math.min(1.2, -vx * 0.6))); bot().mover(vx > 0.05 ? 1 : vx < -0.05 ? -1 : 0); }
+      quieto = y >= maxY - 0.5 && Math.abs(vx) < 0.03 && vy === 0 ? quieto + dt : 0;
+      if (quieto > 220) {
+        pararVuelo(); colocar(x, y, true);
+        if (fuerza > 1.6 || golpes > 3) { if (bot()) bot().marear(2.6); setTimeout(() => hablar(azar(['Uy… me mareé 😵‍💫', '¿Dónde estoy? 🌀', 'Todo me da vueltas… 😵']), 2600), 150); }
+        else { if (bot()) bot().accion('saltar'); hablar(azar(['¡Otra vez! 😄', '¡Aterricé! 🛬', 'Jaja, ¡qué divertido!']), 2000); }
+        return;
+      }
+      vuelo.raf = requestAnimationFrame(paso);
+    };
+    vuelo = { raf: requestAnimationFrame(paso) };
+    cancelarPaseo();
+  };
 
   // Al pasar el puntero encima
   let saludoHover = 0;
@@ -4605,7 +4689,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   const ciclo = () => {
     const espera = 11000 + Math.random() * 12000;
     setTimeout(() => {
-      if (!document.hidden && !abierto() && !enLogin() && !arr && !paseo && !(bot() && bot().ocupado())) { let a = elegir(); if (a === ultimoAcc) a = elegir(); ultimoAcc = a; hacer(a); }
+      if (!document.hidden && !abierto() && !enLogin() && !arr && !paseo && !vuelo && sobado < 0.1 && !(bot() && bot().ocupado())) { let a = elegir(); if (a === ultimoAcc) a = elegir(); ultimoAcc = a; hacer(a); }
       ciclo();
     }, espera);
   };
@@ -4620,7 +4704,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     ciclo();
   };
   if (document.readyState === 'complete') empezar(); else window.addEventListener('load', empezar);
-  window.idealabOnyVida = { hacer, hablar };
+  window.idealabOnyVida = { hacer, hablar, lanzar };
 })();
 </script>
 <script>
