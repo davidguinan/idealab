@@ -742,7 +742,28 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 .pl-cr { margin: 16px 0 0; font-size: 10px; color: var(--ag-muted); opacity: .75; }
 /* Tablas en las respuestas de ONY */
 .ony-tb { border-collapse: collapse; margin: 6px 0 10px; font-size: 12.5px; width: 100%; } .ony-tb th, .ony-tb td { padding: 4px 6px; border-bottom: 1px solid var(--ag-line); text-align: right; white-space: nowrap; } .ony-tb th:first-child, .ony-tb td:first-child { text-align: left; } .ony-tb th { color: var(--ag-muted); font-weight: 600; font-size: 11.5px; }
-.ony-m.ony { overflow-x: auto; }
+
+/* Chat de ONY con estilo de WhatsApp */
+.ony-panel { --wa-fondo: #0B141A; --wa-yo: #005C4B; --wa-ony: #202C33; --wa-txt: #E9EDEF; --wa-hora: rgba(233,237,239,.6); --wa-check: #53BDEB; }
+[data-tema="claro"] .ony-panel { --wa-fondo: #EFEAE2; --wa-yo: #D9FDD3; --wa-ony: #FFFFFF; --wa-txt: #111B21; --wa-hora: #667781; --wa-check: #53BDEB; }
+.ony-msgs { background-color: var(--wa-fondo); background-image: radial-gradient(rgba(255,255,255,.035) 1.2px, transparent 1.3px), radial-gradient(rgba(255,255,255,.025) 1px, transparent 1.1px); background-size: 22px 22px, 31px 31px; background-position: 0 0, 11px 15px; gap: 3px; padding: 12px 12px 14px; }
+[data-tema="claro"] .ony-msgs { background-image: radial-gradient(rgba(0,0,0,.05) 1.2px, transparent 1.3px), radial-gradient(rgba(0,0,0,.035) 1px, transparent 1.1px); }
+.ony-m { flex-shrink: 0; position: relative; max-width: 82%; padding: 6px 9px 7px; border-radius: 8px; font-size: 14.2px; line-height: 1.38; color: var(--wa-txt); border: 0 !important; box-shadow: 0 1px .5px rgba(0,0,0,.13); }
+.ony-m.yo { background: var(--wa-yo); border-top-right-radius: 0; margin-top: 6px; }
+.ony-m.ony { background: var(--wa-ony); border-top-left-radius: 0; margin-top: 6px; }
+.ony-m.sigue { border-radius: 8px; margin-top: 0; }
+.ony-m.yo:not(.sigue)::before, .ony-m.ony:not(.sigue)::before { content: ""; position: absolute; top: 0; width: 8px; height: 13px; }
+.ony-m.yo:not(.sigue)::before { right: -8px; background: var(--wa-yo); clip-path: polygon(0 0, 100% 0, 0 100%); }
+.ony-m.ony:not(.sigue)::before { left: -8px; background: var(--wa-ony); clip-path: polygon(0 0, 100% 0, 100% 100%); }
+.ony-m p { margin: 0 0 4px; } .ony-m ul, .ony-m ol { margin: 2px 0 4px; padding-left: 18px; }
+.ony-m h4 { color: inherit; font-size: 14px; }
+.ony-f { display: inline-flex; float: right; align-items: center; gap: 3px; margin: 8px 0 -4px 10px; font-size: 11px; line-height: 1; color: var(--wa-hora); }
+.ony-f .chk { color: var(--wa-check); font-size: 12px; letter-spacing: -3px; padding-right: 3px; }
+.ony-m::after { content: ""; display: block; clear: both; }
+.ony-sep { align-self: center; margin: 8px 0 4px; padding: 5px 12px; border-radius: 8px; background: var(--wa-ony); color: var(--wa-hora); font-size: 12px; letter-spacing: .02em; text-transform: none; box-shadow: 0 1px .5px rgba(0,0,0,.13); }
+.ony-pensando { font-size: 13px; color: var(--wa-hora); }
+.ony-acc { background: rgba(var(--tinta),.04); }
+.ony-thumbs img { width: 120px; height: 120px; border-radius: 6px; }
 /* ---------- Tema claro / oscuro ---------- */
 .tema-btn { all: unset; cursor: pointer; margin-left: auto; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; border: 1px solid var(--ag-line); color: var(--ag-gold); flex: none; }
 .tema-btn:hover { border-color: var(--ag-gold); }
@@ -780,7 +801,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       <button type="button" data-v="contabilidad"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"/></svg>Contabilidad</button>
       <button type="button" data-v="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Configuración</button>
     </nav>
-    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 30 · ONY vivo</span></div>
+    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 31 · ONY vivo</span></div>
   </aside>
 
   <main class="ag-main">
@@ -4065,7 +4086,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   const md = (t) => {
     const lineas = esc(t).split('\n'); let html = '', lista = null;
     const cerrar = () => { if (lista) { html += '</' + lista + '>'; lista = null; } };
-    const inl = (s) => s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|[\s(])\*(?!\s)(.+?)\*(?=[\s).,;:!?]|$)/g, '$1<i>$2</i>').replace(/`([^`]+)`/g, '<code>$1</code>');
+    const inl = (s) => s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|[\s(])\*(?!\s)(.+?)\*(?=[\s).,;:!?]|$)/g, '$1<b>$2</b>').replace(/(^|[\s(])_(?!\s)(.+?)_(?=[\s).,;:!?]|$)/g, '$1<i>$2</i>').replace(/`([^`]+)`/g, '<code>$1</code>');
     lineas.forEach((l) => {
       if (/^\s*\|.*\|\s*$/.test(l)) { if (/^\s*\|[\s:|-]+\|\s*$/.test(l)) return; const cel = l.trim().slice(1, -1).split('|').map((c) => inl(c.trim())); if (lista !== 'table') { cerrar(); html += '<table class="ony-tb">'; lista = 'table'; html += '<tr>' + cel.map((c) => '<th>' + c + '</th>').join('') + '</tr>'; } else html += '<tr>' + cel.map((c) => '<td>' + c + '</td>').join('') + '</tr>'; return; }
       const m1 = l.match(/^\s*[-•*]\s+(.*)/), m2 = l.match(/^\s*\d+[.)]\s+(.*)/), h = l.match(/^#{1,4}\s+(.*)/);
@@ -4109,20 +4130,34 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && abierto) abrir(false); });
 
   const bajarScroll = () => { lista.scrollTop = lista.scrollHeight; };
-  const burbuja = (quien, texto, extra) => {
-    const d = document.createElement('div'); d.className = 'ony-m ' + (quien === 'yo' ? 'yo' : 'ony');
-    if (quien === 'yo') { d.textContent = texto; }
-    else {
-      const { texto: t, acciones } = separar(texto);
-      d.innerHTML = md(t);
-      if (acciones.length && !esTrab() && !(extra && extra.historial)) acciones.forEach((a) => d.appendChild(tarjetaAccion(a)));
-      else if (acciones.length && extra && extra.historial) { const n = document.createElement('p'); n.className = 'ony-sub'; n.textContent = 'Propuso ' + acciones.length + (acciones.length === 1 ? ' cambio' : ' cambios') + ' (ya no se pueden aplicar desde aquí; pídeselos de nuevo si los quieres).'; d.appendChild(n); }
-    }
-    if (extra && extra.fecha) { const f = document.createElement('span'); f.className = 'ony-f'; f.textContent = extra.fecha; d.appendChild(f); }
-    if (extra && extra.imgs) { const w = document.createElement('div'); w.className = 'ony-thumbs'; extra.imgs.forEach((u) => { const im = document.createElement('img'); im.src = u; im.alt = ''; w.appendChild(im); }); d.prepend(w); }
-    lista.appendChild(d); bajarScroll(); return d;
+  // Hora como en WhatsApp: «10:18 p. m.»
+  const horaWa = (f) => { let d = f ? new Date(String(f).replace(' ', 'T') + ':00-05:00') : new Date(); if (isNaN(d)) d = new Date(); return new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', hour: 'numeric', minute: '2-digit', hour12: true }).format(d).replace(/\s+/g, ' '); };
+  const pie = (d, quien, fecha) => { const f = document.createElement('span'); f.className = 'ony-f'; f.textContent = horaWa(fecha); if (quien === 'yo') { const c = document.createElement('span'); c.className = 'chk'; c.textContent = '✓✓'; f.appendChild(c); } d.appendChild(f); };
+  const unaBurbuja = (quien, html, extra, sigue) => {
+    const d = document.createElement('div'); d.className = 'ony-m ' + (quien === 'yo' ? 'yo' : 'ony') + (sigue ? ' sigue' : '');
+    if (quien === 'yo') d.textContent = html; else d.innerHTML = html;
+    lista.appendChild(d); return d;
   };
-  const pensando = (txt) => { $('ony-bot-h').classList.add('piensa'); if (window.onyBot3D) window.onyBot3D.pensar(true); const d = document.createElement('div'); const quitar = d.remove.bind(d); d.remove = () => { quitar(); if (!lista.querySelector('.ony-pensando')) { $('ony-bot-h').classList.remove('piensa'); if (window.onyBot3D) window.onyBot3D.pensar(false); } }; d.className = 'ony-m ony ony-pensando'; d.innerHTML = '<span class="ony-dots"><i></i><i></i><i></i></span> ' + esc(txt || 'ONY está pensando…'); lista.appendChild(d); bajarScroll(); return d; };
+  const burbuja = (quien, texto, extra) => {
+    const ult = lista.lastElementChild, mismo = ult && ult.classList.contains('ony-m') && ult.classList.contains(quien === 'yo' ? 'yo' : 'ony');
+    let d;
+    if (quien === 'yo') {
+      d = unaBurbuja('yo', texto, extra, mismo);
+      if (extra && extra.imgs && extra.imgs.length) { const w = document.createElement('div'); w.className = 'ony-thumbs'; extra.imgs.forEach((u) => { const im = document.createElement('img'); im.src = u; im.alt = ''; w.appendChild(im); }); d.prepend(w); }
+      pie(d, 'yo', extra && extra.fecha);
+    } else {
+      // ONY escribe como en WhatsApp: varios mensajes cortos (uno por párrafo, máximo 4)
+      const { texto: t, acciones } = separar(texto);
+      let partes = t.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
+      if (partes.length > 4) partes = [...partes.slice(0, 3), partes.slice(3).join('\n\n')];
+      if (!partes.length) partes = [''];
+      partes.forEach((x, i) => { d = unaBurbuja('ony', md(x), extra, mismo || i > 0); if (i === partes.length - 1) pie(d, 'ony', extra && extra.fecha); });
+      if (acciones.length && !esTrab() && !(extra && extra.historial)) acciones.forEach((a) => d.insertBefore(tarjetaAccion(a), d.querySelector('.ony-f')));
+      else if (acciones.length && extra && extra.historial) { const n = document.createElement('p'); n.className = 'ony-sub'; n.textContent = 'Propuso ' + acciones.length + (acciones.length === 1 ? ' cambio' : ' cambios') + ' (pídeselos de nuevo si los quieres aplicar).'; d.insertBefore(n, d.querySelector('.ony-f')); }
+    }
+    bajarScroll(); return d;
+  };
+  const pensando = (txt) => { $('ony-bot-h').classList.add('piensa'); if (window.onyBot3D) window.onyBot3D.pensar(true); const d = document.createElement('div'); const quitar = d.remove.bind(d); d.remove = () => { quitar(); if (!lista.querySelector('.ony-pensando')) { $('ony-bot-h').classList.remove('piensa'); if (window.onyBot3D) window.onyBot3D.pensar(false); } }; d.className = 'ony-m ony ony-pensando'; d.innerHTML = '<span class="ony-dots"><i></i><i></i><i></i></span> ' + esc(txt || 'ONY está escribiendo…'); lista.appendChild(d); bajarScroll(); return d; };
 
   // Propuesta de cambio: solo se aplica en Meta con el botón (y una segunda confirmación)
   const tarjetaAccion = (a) => {
@@ -4182,11 +4217,11 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     ocupado = true; btnEnviar.disabled = true;
     const imgs = adjuntos.map((a) => a.url);
     if (!o.saludo) burbuja('yo', texto || 'Analiza esto', { imgs });
-    const p = pensando(o.saludo ? 'ONY está preparando tu resumen de la mañana…' : adjuntos.length ? 'ONY está mirando los archivos…' : 'ONY está pensando…');
+    const p = pensando(o.saludo ? 'ONY está preparando tu resumen de la mañana…' : adjuntos.length ? 'ONY está mirando los archivos…' : 'ONY está escribiendo…');
     // Si la app todavía está trayendo los datos (por ejemplo, recién abierta), espera hasta 40 s antes de preguntar
     const fuentes = esTrab() ? ['creativos'] : ['resumen', 'diario', 'meta_campanas', 'meta_conjuntos'];
     const listos = () => fuentes.every((id) => { const x = window.dash && window.dash.data(id); return x && x.status !== 'loading' && !x.refreshing; });
-    if (!listos()) { p.lastChild.textContent = ' ONY espera a que carguen los datos de la app…'; for (let i = 0; i < 80 && !listos(); i++) await new Promise((r) => setTimeout(r, 500)); p.lastChild.textContent = ' ONY está pensando…'; }
+    if (!listos()) { p.lastChild.textContent = ' ONY espera a que carguen los datos de la app…'; for (let i = 0; i < 80 && !listos(); i++) await new Promise((r) => setTimeout(r, 500)); p.lastChild.textContent = ' ONY está escribiendo…'; }
     const body = { accion: o.saludo ? 'ony_saludo' : 'ony_chat', texto, contexto: contextoTxt(), pantalla: NOMBRES_VISTA[window.idealabVista ? window.idealabVista() : ''] || '', adjuntos: adjuntos.map((a) => ({ media_type: a.media_type, data: a.data })), nota_adjuntos: notaAdj };
     adjuntos = []; notaAdj = ''; pintarAdj();
     try {
