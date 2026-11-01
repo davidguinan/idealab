@@ -810,7 +810,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       <button type="button" data-v="contabilidad"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"/></svg>Contabilidad</button>
       <button type="button" data-v="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Configuración</button>
     </nav>
-    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 32 · ONY vivo</span></div>
+    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 33 · ONY vivo</span></div>
   </aside>
 
   <main class="ag-main">
@@ -1426,7 +1426,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   // --- Cálculos ---
   // Colchón de la tasa: cada tasa de la pestaña Tasas se usa un X % más baja, para no mostrar utilidad que no existe
   // cuando el dinero se cambie a pesos. Por defecto 3 %; se cambia con una fila «Colchón tasa» en la pestaña Config.
-  const COLCHON_TASA_DEF = 3;
+  const COLCHON_TASA_DEF = 2;
   const colchonTasa = () => {
     const C = window.dash.data('config');
     const f = C.status === 'ok' ? C.data.find((c) => c.tipo === 'porcentaje' && /tasa|colch/i.test(c.parametro)) : null;
@@ -1435,7 +1435,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   };
   dash.calc('tasas_aj', {
     title: 'Tasas con colchón',
-    description: 'La hoja Tasas con cada tasa rebajada por el colchón de seguridad (por defecto 3 %). Las columnas <MONEDA>_real guardan la tasa original de la hoja.',
+    description: 'La hoja Tasas con cada tasa rebajada por el colchón de seguridad (por defecto 2 %). Las columnas <MONEDA>_real guardan la tasa original de la hoja.',
     inputs: ['tasas'],
     fn: (tasas) => {
       const k = 1 - colchonTasa() / 100;
@@ -1795,8 +1795,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   dash.calc('liquidacion', {
     title: 'Cierres por quincena y mes',
     description: 'Por periodo (filas total) y por periodo y país (filas pais, también en moneda local con la tasa de Tasas al cierre del periodo): ventas, pauta con IVA, utilidad de países, gastos, utilidad total, comisión de proveedores (% de la utilidad de cada país, si es positiva), nómina (% de la utilidad total; si hay trabajadores en Config, la suma de sus % y una fila trabajador por persona con su pago), empresa (% de la utilidad total) y lo que queda para cada socio, con los porcentajes de la pestaña Config.',
-    inputs: ['meta_dias', 'ventas_cop', 'gastos', 'config', 'paises', 'tasas_aj', 'facturas_cont'],
-    fn: (meta_dias, ventas_cop, gastos0, config, paises, tasas, facturas_cont) => {
+    inputs: ['meta_dias', 'ventas', 'gastos', 'config', 'paises', 'tasas_aj', 'facturas_cont'],
+    fn: (meta_dias, ventas_raw, gastos0, config, paises, tasas, facturas_cont) => {
       // Gastos pagados y pendientes + facturas por pagar: todos se descuentan en la quincena de su fecha de creación
       const gastos = [...gastos0, ...facturas_cont.map((f) => ({ fecha: f.creada, valor: f.valor, pais: 'General' }))];
       const periodosDe = (fechas) => {
@@ -1815,7 +1815,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         const IVA = 1.19;
         const monedaDe = {}; paises.forEach((x) => { if (!monedaDe[x.pais]) monedaDe[x.pais] = x.moneda; });
         const fechasT = tasas.map((t) => t.fecha).sort();
-        const tasaAl = (mon, f) => { if (mon === 'COP') return 1; const d = fechasT.filter((x) => x <= f).reverse().find((x) => { const t = tasas.find((y) => y.fecha === x); return t && t[mon]; }); const t = d && tasas.find((y) => y.fecha === d); return t ? t[mon] : null; };
+        const tasaAl = (mon, f, real) => { if (mon === 'COP') return 1; const d = fechasT.filter((x) => x <= f).reverse().find((x) => { const t = tasas.find((y) => y.fecha === x); return t && t[mon]; }); const t = d && tasas.find((y) => y.fecha === d); return t ? (real ? t[mon + '_real'] || t[mon] : t[mon]) : null; };
+        const r2 = (n) => Math.round(n * 100) / 100;
         const P_PROV = pct(config, /proveedor/i, 10), P_TRAB0 = pct(config, /trabajador/i, 15), P_EMP = pct(config, /empresa/i, 10);
         const trabajadores = config.filter((c) => c.tipo === 'trabajador' && c.valor > 0);
         const P_TRAB = trabajadores.length ? Math.round(trabajadores.reduce((x, c) => x + c.valor, 0) * 100) / 100 : P_TRAB0;
@@ -1830,34 +1831,42 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         const tot = [], pai = [];
         periodosDe(fechas).filter((p) => p.desde <= hoy && p.hasta >= datosDesde).forEach((p) => {
           const enP = (f) => f >= p.desde && f <= p.hasta;
+          // Cierre por país, igual que en el Excel: las ventas de la pestaña del país (ni más ni menos), sumadas en su moneda;
+          // se pasan a pesos con UNA tasa (la del cierre, con colchón); se restan los gastos del país y la pauta del país con IVA;
+          // el proveedor recibe su % de esa utilidad, y lo que queda es la utilidad final del país.
           const porPais = {};
-          paises.forEach((x) => { porPais[x.pais] = { pais: x.pais, gasto: 0, ventas: 0, ventas_n: 0, conversaciones: 0 }; });
-          const pp = (k) => (porPais[k] = porPais[k] || { pais: k, gasto: 0, ventas: 0, ventas_n: 0, conversaciones: 0 });
-          const adPais = {};
-          meta_dias.forEach((r) => { adPais[r.ad_id] = paisDe(r.campana); });
+          paises.forEach((x) => { porPais[x.pais] = { pais: x.pais, gasto: 0, ventas_local: 0, ventas_n: 0, conversaciones: 0 }; });
+          const pp = (k) => (porPais[k] = porPais[k] || { pais: k, gasto: 0, ventas_local: 0, ventas_n: 0, conversaciones: 0 });
           meta_dias.filter((r) => enP(r.fecha)).forEach((r) => { const x = pp(paisDe(r.campana)); x.gasto += r.gasto; x.conversaciones += r.conversaciones; });
-          ventas_cop.filter((v) => v.valor_cop && enP(v.fecha)).forEach((v) => { const x = pp(adPais[v.ad_id] || v.pais); x.ventas += v.valor_cop; x.ventas_n += 1; if (v.moneda === monedaDe[x.pais]) x.ventas_local = (x.ventas_local || 0) + v.valor_local; else x.ventas_otra = (x.ventas_otra || 0) + v.valor_cop; });
+          ventas_raw.filter((v) => v.fecha && v.valor_local > 0 && enP(v.fecha)).forEach((v) => { const x = pp(v.pais); x.ventas_local += v.valor_local; x.ventas_n += 1; });
           const gs = gastos.filter((g) => enP(g.fecha));
           const gastoPais = {};
           gs.forEach((g) => { gastoPais[g.pais] = (gastoPais[g.pais] || 0) + g.valor; if (g.pais !== 'General') pp(g.pais); });
           let ventas = 0, pauta = 0, prov = 0, util_p = 0, n = 0, conv = 0;
           Object.values(porPais).forEach((x) => {
-            const pauta_iva = Math.round(x.gasto * IVA);
-            const util = Math.round(x.ventas - pauta_iva);
-            const com = util > 0 ? Math.round((util * P_PROV) / 100) : 0;
-            ventas += x.ventas; pauta += pauta_iva; prov += com; util_p += util; n += x.ventas_n; conv += x.conversaciones;
             const moneda = monedaDe[x.pais] || 'COP';
-            const tasa = tasaAl(moneda, p.hasta < hoy ? p.hasta : hoy);
-            const loc = (cop) => (tasa ? Math.round((cop / tasa) * 100) / 100 : null);
-            const ventas_local = tasa ? Math.round(((x.ventas_local || 0) + (x.ventas_otra || 0) / tasa) * 100) / 100 : null;
+            const fCierre = p.hasta < hoy ? p.hasta : hoy;
+            const tasa = tasaAl(moneda, fCierre), tasa_real = tasaAl(moneda, fCierre, true);
+            const ventas_local = r2(x.ventas_local);
+            const ventasCop = tasa ? Math.round(ventas_local * tasa) : 0;
+            const pauta_iva = Math.round(x.gasto * IVA);
             const g_p = Math.round(gastoPais[x.pais] || 0);
-            const ut_p = util - g_p, base_p = Math.max(ut_p, 0);
+            const util_antes = ventasCop - pauta_iva;            // ventas − pauta (para los totales)
+            const util = util_antes - g_p;                         // utilidad del país: ventas − gastos del país − pauta con IVA
+            const com = util > 0 ? Math.round((util * P_PROV) / 100) : 0;
+            const ut_fin = util - com;                             // utilidad final del país
+            ventas += ventasCop; pauta += pauta_iva; prov += com; util_p += util_antes; n += x.ventas_n; conv += x.conversaciones;
+            const aLoc = (cop_) => (tasa ? r2(cop_ / tasa) : null);
+            const pauta_local = aLoc(pauta_iva), gastos_local = aLoc(g_p);
+            const utilidad_local = tasa ? r2(ventas_local - pauta_local - gastos_local) : null;
+            const comision_local = utilidad_local === null ? null : utilidad_local > 0 ? r2((utilidad_local * P_PROV) / 100) : 0;
+            const base_p = Math.max(util, 0);
             const nom_p = Math.round((base_p * P_TRAB) / 100), emp_p = Math.round((base_p * P_EMP) / 100);
-            const resto_p = ut_p - com - nom_p - emp_p;
-            if (x.gasto || x.ventas || g_p) pai.push({ clave: p.periodo + '|' + x.pais, periodo: p.periodo, tipo: p.tipo, pais: x.pais, desde: p.desde, hasta: p.hasta, completo: p.hasta < hoy, ventas: Math.round(x.ventas), ventas_n: x.ventas_n, pauta_iva, utilidad: util, pct_prov: P_PROV, comision: com, conversaciones: x.conversaciones,
-              gastos: g_p, utilidad_total: ut_p, proveedores: com, pct_trab: P_TRAB, nomina: nom_p, pct_emp: P_EMP, empresa: emp_p, pct_s1: S1, pct_s2: S2, socio1: Math.round((resto_p * S1) / 100), socio2: Math.round((resto_p * S2) / 100),
-              rentabilidad: pauta_iva > 0 ? Math.round((ut_p / pauta_iva) * 1000) / 10 : null, roas: x.gasto > 0 ? Math.round((x.ventas / (x.gasto * IVA)) * 100) / 100 : null,
-              moneda, tasa, colchon_tasa: colchonTasa(), ventas_local, pauta_local: loc(pauta_iva), utilidad_local: ventas_local === null ? null : Math.round((ventas_local - pauta_iva / tasa) * 100) / 100, comision_local: ventas_local === null ? null : Math.max(0, Math.round((ventas_local - pauta_iva / tasa) * P_PROV) / 100) });
+            const resto_p = util - com - nom_p - emp_p;
+            if (x.gasto || x.ventas_n || g_p) pai.push({ clave: p.periodo + '|' + x.pais, periodo: p.periodo, tipo: p.tipo, pais: x.pais, desde: p.desde, hasta: p.hasta, completo: p.hasta < hoy, ventas: ventasCop, ventas_n: x.ventas_n, pauta_iva, utilidad: util, pct_prov: P_PROV, comision: com, conversaciones: x.conversaciones,
+              gastos: g_p, utilidad_total: util, utilidad_final: ut_fin, proveedores: com, pct_trab: P_TRAB, nomina: nom_p, pct_emp: P_EMP, empresa: emp_p, pct_s1: S1, pct_s2: S2, socio1: Math.round((resto_p * S1) / 100), socio2: Math.round((resto_p * S2) / 100),
+              rentabilidad: pauta_iva > 0 ? Math.round((util / pauta_iva) * 1000) / 10 : null, roas: x.gasto > 0 ? Math.round((ventasCop / (x.gasto * IVA)) * 100) / 100 : null,
+              moneda, tasa, tasa_real, fecha_tasa: fCierre, colchon_tasa: colchonTasa(), ventas_local, pauta_local, gastos_local, utilidad_local, comision_local, utilidad_final_local: utilidad_local === null ? null : r2(utilidad_local - comision_local) });
           });
           const gasto_total = Math.round(gs.reduce((s, g) => s + g.valor, 0));
           const util_total = util_p - gasto_total;
@@ -2893,7 +2902,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     doc.text('CONCEPTO', cx[0] + 5, y + 6.5); doc.text(local ? r.moneda : 'COP', cx[1], y + 6.5, { align: 'right' }); doc.text(local ? 'COP' : '', cx[2] - 5, y + 6.5, { align: 'right' });
     y += 10;
     const filas = [];
-    if (conUtil) filas.push(['Utilidad del país', 'ventas menos la pauta de Meta con IVA', local ? fLocal(r.utilidad_local, r.moneda) : cop.format(r.utilidad), local ? cop.format(r.utilidad) : '']);
+    if (conUtil) filas.push(['Utilidad del país', 'ventas menos gastos del país y pauta de Meta con IVA', local ? fLocal(r.utilidad_local, r.moneda) : cop.format(r.utilidad), local ? cop.format(r.utilidad) : '']);
     filas.push(['Porcentaje del proveedor', conUtil ? 'sobre la utilidad del país' : 'acordado sobre la utilidad de tu país', num.format(r.pct_prov) + ' %', local ? num.format(r.pct_prov) + ' %' : '']);
     filas.push(['Comisión del periodo', 'lo que te corresponde', local ? fLocal(r.comision_local, r.moneda) : cop.format(r.comision), local ? cop.format(r.comision) : '']);
     filas.forEach((f, i) => {
@@ -3351,7 +3360,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       celda: (td, c, f) => { if (/_local$/.test(c)) { td.textContent = fLocal(f[c], f.moneda); if (c === 'utilidad_local') td.className = 'num ' + (f[c] > 0 ? 'ag-pos' : f[c] < 0 ? 'ag-neg' : ''); return true; } return false; },
     });
     const rc = $('recibos'); rc.replaceChildren();
-    filasP.filter((r) => r.comision > 0).forEach((r) => {
+    filasP.filter((r) => r.ventas_n || r.pauta_iva || r.gastos).forEach((r) => {
       const fl = banderaDe(r.pais);
       const d = document.createElement('div'); d.className = 'ag-recibo';
       d.style.setProperty('--fl1', fl.c[0]); d.style.setProperty('--fl2', fl.c[1]); d.style.setProperty('--fl3', fl.c[2]); d.style.setProperty('--fl-ac', fl.acento);
@@ -3372,15 +3381,17 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         l.append(a, b); d.appendChild(l);
       };
       // En la app se ve el cierre completo del país (el PDF para el proveedor sigue mostrando solo lo que le corresponde)
-      const loc = (cop_) => (local && r.tasa ? fLocal(cop_ / r.tasa, r.moneda) : '');
-      lineaDoble('Ventas del periodo · ' + num.format(r.ventas_n || 0), cop.format(r.ventas), fLocal(r.ventas_local, r.moneda), 'ventas');
-      lineaDoble('Pauta Meta con IVA', cop.format(r.pauta_iva), fLocal(r.pauta_local, r.moneda), 'pauta_iva');
-      lineaDoble('Gastos del país', cop.format(r.gastos || 0), loc(r.gastos || 0), 'gastos');
-      lineaDoble('Utilidad del país', cop.format(r.utilidad), fLocal(r.utilidad_local, r.moneda), 'utilidad');
+      // Mismo orden que el cierre a mano: ventas exactas del Excel → tasa → gastos del país → pauta con IVA → utilidad → proveedor → utilidad final
+      const lineaTxt = (lb, v1, v2) => { const l = document.createElement('div'); l.className = 'rc-ln'; const a = document.createElement('span'); a.className = 'rc-lb'; a.textContent = lb; const b = document.createElement('span'); b.className = 'rc-v'; const x1 = document.createElement('b'); x1.textContent = v1; b.appendChild(x1); if (v2) { const x2 = document.createElement('em'); x2.textContent = v2; b.appendChild(x2); } l.append(a, b); d.appendChild(l); return l; };
+      lineaDoble('Ventas del periodo · ' + num.format(r.ventas_n || 0) + (r.ventas_n === 1 ? ' venta' : ' ventas'), cop.format(r.ventas), fLocal(r.ventas_local, r.moneda), 'ventas');
+      if (local) lineaTxt('Tasa de cambio', r.tasa ? '1 ' + r.moneda + ' = ' + fTasa(r.tasa) + ' COP' : '—', r.tasa_real ? 'tasa real ' + fTasa(r.tasa_real) + ' − colchón ' + num.format(r.colchon_tasa) + '%' : '');
+      lineaDoble('− Gastos del país', cop.format(r.gastos || 0), fLocal(r.gastos_local || 0, r.moneda), 'gastos');
+      lineaDoble('− Pauta Meta con IVA', cop.format(r.pauta_iva), fLocal(r.pauta_local, r.moneda), 'pauta_iva');
+      lineaDoble('= Utilidad del país', cop.format(r.utilidad), fLocal(r.utilidad_local, r.moneda), 'utilidad');
       d.lastChild.classList.add('rc-fuerte'); d.lastChild.querySelector('.rc-v b').className = r.utilidad >= 0 ? 'ag-pos' : 'ag-neg';
-      lineaDoble('Utilidad después de gastos', cop.format(r.utilidad_total), loc(r.utilidad_total), 'utilidad_total');
-      const lp = document.createElement('div'); lp.className = 'rc-ln'; const a = document.createElement('span'); a.className = 'rc-lb'; a.textContent = 'Porcentaje del proveedor'; const b = document.createElement('span'); b.className = 'rc-v'; const bb = document.createElement('b'); bb.textContent = num.format(r.pct_prov) + '%'; b.appendChild(bb); lp.append(a, b); d.appendChild(lp);
-      if (local) { const lt = document.createElement('div'); lt.className = 'rc-ln'; const a3 = document.createElement('span'); a3.className = 'rc-lb'; a3.textContent = 'Tasa de cambio'; const b3 = document.createElement('span'); b3.className = 'rc-v'; const x1 = document.createElement('b'); x1.textContent = r.tasa ? '1 ' + r.moneda + ' = ' + fTasa(r.tasa) + ' COP' : '—'; b3.appendChild(x1); if (r.tasa && r.colchon_tasa !== undefined) { const x2 = document.createElement('em'); x2.textContent = 'con colchón de ' + num.format(r.colchon_tasa) + '%'; b3.appendChild(x2); } lt.append(a3, b3); d.appendChild(lt); }
+      lineaDoble('− Proveedor (' + num.format(r.pct_prov) + '%)', cop.format(r.comision), fLocal(r.comision_local, r.moneda), 'comision');
+      lineaDoble('= Utilidad final del país', cop.format(r.utilidad_final), fLocal(r.utilidad_final_local, r.moneda), 'utilidad_final');
+      d.lastChild.classList.add('rc-fuerte'); d.lastChild.querySelector('.rc-v b').className = r.utilidad_final >= 0 ? 'ag-pos' : 'ag-neg';
       const tot = document.createElement('div'); tot.className = 'rc-tot';
       const tl = document.createElement('span'); tl.textContent = 'A pagar al proveedor';
       const tv = document.createElement('b'); tv.dataset.source = 'liquidacion_paises'; tv.dataset.field = local ? 'comision_local' : 'comision'; tv.dataset.where = 'clave=' + enc(r.clave); tv.textContent = local ? fLocal(r.comision_local, r.moneda) : cop.format(r.comision);
@@ -3390,7 +3401,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       botonesComprobante(d, r);
       rc.appendChild(d);
     });
-    if (!rc.children.length) { const e = document.createElement('p'); e.className = 'ag-empty'; e.textContent = 'Ningún país tuvo utilidad en este periodo.'; rc.appendChild(e); }
+    if (!rc.children.length) { const e = document.createElement('p'); e.className = 'ag-empty'; e.textContent = 'Ningún país tuvo ventas ni pauta en este periodo.'; rc.appendChild(e); }
 
     // Gastos del periodo
     if (gPaisesLista.join('|') !== ORD.join('|')) { gPaisesLista = ORD; gSel = gSel.filter((x) => ORD.includes(x)); pintarRepartoGasto(); }
