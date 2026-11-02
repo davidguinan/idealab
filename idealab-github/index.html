@@ -849,7 +849,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       <button type="button" data-v="notas"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>Mis notas</button>
       <button type="button" data-v="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Configuración</button>
     </nav>
-    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 36 · ONY vivo</span></div>
+    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 37 · ONY vivo</span></div>
   </aside>
 
   <main class="ag-main">
@@ -3571,6 +3571,19 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     tarjeta('Llevamos', cop.format(Math.round(total)), meta ? num.format(Math.round(pct)) + '% de la meta' + (esActual ? ' · ' + (metaModo === 'mes' ? 'día ' + pasoHoy + ' de ' + nPasos : MESES_L[pasoHoy - 1]) : '') : 'Libre para los socios', meta ? pct : undefined);
     if (meta) tarjeta(meta - total > 0 ? 'Nos falta' : '¡Meta cumplida!', cop.format(Math.round(Math.abs(meta - total))), meta - total > 0 ? (esActual && faltanPasos > 0 ? cop.format(Math.round((meta - total) / Math.max(1, faltanPasos))) + ' por ' + (metaModo === 'mes' ? 'día' : 'mes') + ' para lograrla' : 'Quedó por debajo de la meta') : 'Por encima de la meta');
     if (esActual) tarjeta('A este ritmo cerraríamos en', cop.format(proy), meta ? (proy >= meta ? '✓ alcanzaría la meta' : 'quedaría un ' + num.format(Math.round((proy / meta) * 100)) + '% de la meta') : 'Proyección con el promedio de ' + (metaModo === 'mes' ? 'cada día' : 'cada mes'));
+    // Meta de hoy y de esta semana (solo en el mes en curso): la meta del mes repartida por igual entre sus días
+    if (meta && esActual && metaModo === 'mes') {
+      const porDia = meta / nPasos;
+      const hoyGan = sociosDia[HOY] || 0;
+      const faltaHoy = porDia - hoyGan;
+      tarjeta('Meta de hoy', cop.format(Math.round(porDia)), faltaHoy > 0 ? 'Llevamos ' + cop.format(Math.round(hoyGan)) + ' · faltan ' + cop.format(Math.round(faltaHoy)) : '✓ Cumplida: llevamos ' + cop.format(Math.round(hoyGan)) + ' (' + cop.format(Math.round(-faltaHoy)) + ' de más)', (hoyGan / porDia) * 100);
+      // Semana de lunes a domingo, solo con los días que caen en este mes
+      const b0 = new Date(HOY + 'T12:00:00Z'), lunes = new Date(b0.getTime() - ((b0.getUTCDay() + 6) % 7) * 864e5);
+      const diasSem = []; for (let k = 0; k < 7; k++) { const f = new Date(lunes.getTime() + k * 864e5).toISOString().slice(0, 10); if (f.slice(0, 7) === metaSel) diasSem.push(f); }
+      const metaSem = porDia * diasSem.length, ganSem = diasSem.filter((f) => f <= HOY).reduce((s0, f) => s0 + (sociosDia[f] || 0), 0), faltaSem = metaSem - ganSem;
+      const fd = (f) => Number(f.slice(8, 10)) + ' ' + MESES[Number(f.slice(5, 7)) - 1];
+      tarjeta('Meta de esta semana', cop.format(Math.round(metaSem)), (faltaSem > 0 ? 'Llevamos ' + cop.format(Math.round(ganSem)) + ' · faltan ' + cop.format(Math.round(faltaSem)) : '✓ Cumplida: llevamos ' + cop.format(Math.round(ganSem))) + ' · ' + fd(diasSem[0]) + ' al ' + fd(diasSem[diasSem.length - 1]), (ganSem / metaSem) * 100);
+    }
     tarjeta('Cada socio', cop.format(Math.round(total / 2)), meta ? 'Meta por socio: ' + cop.format(Math.round(meta / 2)) : '');
     // Gráfica: gris = camino a la meta (de 0 a la meta), verde = lo que llevamos, verde claro = proyección
     caja.replaceChildren();
