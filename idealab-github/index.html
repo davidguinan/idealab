@@ -66,7 +66,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 
   const loaders = {}, calcs = {}, estado = {}, oyentes = [];
   let params = {};
-  const HOJAS = { meta_diario: 'meta_diario', paises: 'productos', tasas: 'tasas', config: 'config', gastos: 'gastos', cierres: 'cierres', cambios: 'cambios', numeros: 'numeros', fan_pages: 'fan_pages', tasas_cierre: 'tasas_cierre', cierres_paises: 'cierres_paises', avances: 'avances' };
+  const HOJAS = { meta_diario: 'meta_diario', paises: 'productos', tasas: 'tasas', config: 'config', gastos: 'gastos', cierres: 'cierres', cambios: 'cambios', numeros: 'numeros', fan_pages: 'fan_pages', tasas_cierre: 'tasas_cierre', cierres_paises: 'cierres_paises', avances: 'avances', metas: 'metas' };
 
   const fijar = (id, st) => { estado[id] = st; };
   const avisar = () => { clearTimeout(avisar.t); avisar.t = setTimeout(() => oyentes.forEach((fn) => { try { fn(); } catch (e) { console.error(e); } }), 10); };
@@ -762,6 +762,13 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 .nt-pill.Tarea { background: rgba(45,212,191,.16); } .nt-pill.Pendiente { background: rgba(245,184,0,.18); } .nt-pill.Apunte { background: rgba(96,165,250,.18); }
 .nt-acc { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
 .nt-ed { display: grid; gap: 6px; } .nt-ed textarea { width: 100%; font: inherit; }
+.meta-res { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin: 12px 0 10px; }
+.meta-k { border: 1px solid var(--ag-line); border-radius: 12px; padding: 10px 12px; background: var(--ag-panel2); min-width: 0; }
+.meta-k .lb { font-size: 11.5px; color: var(--ag-muted); text-transform: uppercase; letter-spacing: .03em; } .meta-k .v { display: block; font-size: 19px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; } .meta-k .s { font-size: 12px; color: var(--ag-muted); }
+.meta-bar { height: 8px; border-radius: 99px; background: rgba(var(--tinta),.08); overflow: hidden; margin-top: 6px; } .meta-bar i { display: block; height: 100%; background: #22C55E; border-radius: 99px; }
+.meta-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--ag-line); }
+.meta-form label { display: grid; gap: 4px; font-size: 12.5px; color: var(--ag-muted); flex: 1 1 220px; }
+.rep-dp { margin-top: 6px; font-size: 12px; padding: 4px 10px; }
 .liq-guardar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--ag-line); font-size: 13px; color: var(--ag-muted); }
 .liq-guardar .ok { color: var(--ag-good, #2DD4BF); font-weight: 600; }
 .av-h3 { font-size: 13px; letter-spacing: .02em; color: var(--ag-muted); font-weight: 600; margin: 18px 0 8px; text-transform: uppercase; }
@@ -842,7 +849,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       <button type="button" data-v="notas"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>Mis notas</button>
       <button type="button" data-v="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Configuración</button>
     </nav>
-    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 35 · ONY vivo</span></div>
+    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 36 · ONY vivo</span></div>
   </aside>
 
   <main class="ag-main">
@@ -1066,6 +1073,18 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           <h2>Reparto</h2>
           <p class="ag-note" id="rep-nota">Porcentajes de la pestaña Config.</p>
           <div class="ag-split" id="reparto" data-source="liquidacion"></div>
+        </div>
+        <div class="ag-card solo-socios" style="margin-top:14px" id="meta-card">
+          <div class="ag-top"><div><h2>Meta</h2><p class="ag-note">Meta de <b>utilidad libre para los socios</b>: lo que queda para Anthony y Alejandra después de gastos, pauta, proveedores, nómina y ahorro de la empresa. Gris = el camino para llegar a la meta; verde = lo que llevamos.</p></div>
+            <div class="ag-chips" id="meta-modo"><button type="button" class="ag-btn" data-m="mes" aria-pressed="true">Mensual</button><button type="button" class="ag-btn" data-m="anio" aria-pressed="false">Anual</button><select class="ag-sel" id="meta-sel" aria-label="Mes o año de la meta"></select></div></div>
+          <div class="meta-res" id="meta-res" data-source="liquidacion"></div>
+          <div class="ag-legend"><span><i style="background:#94A3B8"></i>Camino a la meta</span><span><i style="background:#22C55E"></i>Lo que llevamos</span><span><i style="background:#22C55E;opacity:.45"></i>Si seguimos a este ritmo</span></div>
+          <div class="ag-chart" id="meta-graf" data-source="liquidacion" style="min-height:250px"></div>
+          <div class="meta-form">
+            <label><span>Meta de <span id="meta-lb">este mes</span> (COP)</span><input class="ag-in" type="text" inputmode="numeric" id="meta-valor" placeholder="ej. 20.000.000"></label>
+            <button type="button" class="ag-btn pri" id="meta-guardar">Guardar meta</button>
+            <span class="ag-msg" id="meta-msg"></span>
+          </div>
         </div>
         <div class="ag-card" style="margin-top:14px">
           <h2>Por país</h2>
@@ -1503,6 +1522,10 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       if (!v.length || !/moneda/i.test(String((v[0] || [])[4] || ''))) return { columns: COLS_CIERRE_P, rows: [] }; // formato viejo: se ignora
       return { columns: COLS_CIERRE_P, rows: v.slice(1).filter((r) => r[0] && r[3]).map((r) => { const o = {}; COLS_CIERRE_P.forEach((c, i) => { o[c] = ['id', 'pais', 'moneda', 'registrado'].includes(c) ? String(r[i] || '').trim() : ['desde', 'hasta'].includes(c) ? leerFecha(r[i]) : c === 'tasa' ? leerValor(r[i]) : leerValor(r[i]); }); return o; }) };
     },
+  });
+  dash.loader('metas', {
+    description: 'La pestaña Metas: meta de utilidad libre para los socios por mes (yyyy-mm) o por año (yyyy), en COP.',
+    fn: ({ answer }) => ({ columns: ['periodo', 'valor'], rows: valores(answer).slice(1).map((r) => ({ periodo: String(r[0] || '').trim(), valor: leerValor(r[1]) })).filter((r) => /^\d{4}(-\d{2})?$/.test(r.periodo) && r.valor > 0) }),
   });
   dash.loader('avances', {
     description: 'La pestaña Avances: cada envío de dinero de un proveedor (fecha, país, monto en moneda local, tasa, valor en COP y cierre al que cuenta).',
@@ -3426,6 +3449,169 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     });
   }
 
+  // ---------- Desprendible de pago (socios y trabajadores): solo periodo y total, sin porcentajes ----------
+  const desprendiblePDF = async (p) => {
+    const [{ jsPDF }, logo] = await Promise.all([cargarJsPDF(), cargarLogo()]);
+    const doc = new jsPDF({ unit: 'mm', format: 'a5' });
+    const W = 148, M = 14;
+    const NAVY = [11, 21, 48], NAVY2 = [20, 34, 72], INK = [24, 31, 48], MUTED = [104, 114, 138], LINE = [226, 230, 238], GOLD = [245, 184, 0];
+    const emitido = new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+    const ini = sinTilde(p.nombre).split(/\s+/).map((x) => x[0] || '').join('').toUpperCase().slice(0, 3);
+    const numero = 'DP-' + String(p.periodo).replace(/[^0-9A-Za-z]/g, '') + '-' + ini;
+    const largo = (f) => Number(f.slice(8, 10)) + ' de ' + MESES_L[Number(f.slice(5, 7)) - 1] + ' de ' + f.slice(0, 4);
+    doc.setFillColor(...NAVY); doc.rect(0, 0, W, 36, 'F');
+    doc.setFillColor(...NAVY2); doc.circle(W - 10, -4, 26, 'F');
+    if (logo) { try { doc.addImage(logo, 'PNG', M, 8, 20, 20); } catch (e) {} }
+    const xT = logo ? M + 25 : M;
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(19); doc.text('IdeaLab', xT, 18);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(200, 208, 228); doc.text('Desprendible de pago', xT, 24.5);
+    doc.setFontSize(8.5); doc.setTextColor(230, 234, 245); doc.text(txtPDF('N.º ' + numero), W - M, 15, { align: 'right' }); doc.text(txtPDF('Emitido el ' + emitido), W - M, 21, { align: 'right' });
+    doc.setFillColor(...GOLD); doc.rect(0, 36, W, 2, 'F');
+    let y = 52;
+    const campo = (lb, v) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text(lb.toUpperCase(), M, y); doc.setFont('helvetica', 'bold'); doc.setFontSize(12.5); doc.setTextColor(...INK); doc.text(txtPDF(v), M, y + 6.5); y += 17; };
+    campo('Pagado a', p.nombre);
+    campo('Concepto', p.rol === 'socio' ? 'Participación de utilidades del periodo' : 'Pago por el trabajo del periodo');
+    campo('Periodo', 'Del ' + largo(p.desde) + ' al ' + largo(p.hasta));
+    doc.setDrawColor(...LINE); doc.setLineWidth(0.3); doc.line(M, y - 6, W - M, y - 6);
+    y += 2;
+    doc.setFillColor(...NAVY); doc.roundedRect(M, y, W - 2 * M, 28, 3, 3, 'F');
+    doc.setFillColor(...GOLD); doc.rect(M + 3, y, W - 2 * M - 6, 1.4, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(200, 208, 228); doc.text('TOTAL A RECIBIR', M + 7, y + 10);
+    doc.setFontSize(22); doc.setTextColor(255, 214, 102); doc.text(txtPDF(cop.format(Math.round(p.valor))), M + 7, y + 21.5);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(170, 180, 205); doc.text('Pesos colombianos (COP)', W - M - 7, y + 21.5, { align: 'right' });
+    y += 46;
+    doc.setDrawColor(...MUTED); doc.setLineWidth(0.3);
+    const cw = (W - 2 * M - 12) / 2;
+    doc.line(M, y, M + cw, y); doc.line(M + cw + 12, y, W - M, y);
+    doc.setFontSize(8.5); doc.setTextColor(...MUTED); doc.text('Entrega: IdeaLab', M, y + 5); doc.text(txtPDF('Recibe: ' + p.nombre), M + cw + 12, y + 5);
+    doc.setFontSize(8); doc.setTextColor(...MUTED); doc.text(txtPDF('Gracias por tu trabajo y compromiso con IdeaLab.'), W / 2, 200, { align: 'center' });
+    return { blob: doc.output('blob'), nombre: 'Desprendible ' + sinTilde(p.nombre).replace(/[^a-z0-9]+/g, '-') + ' ' + p.periodo + '.pdf' };
+  };
+  const botonDesprendible = (cont, p) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'ag-btn rep-dp'; b.textContent = '📄 Desprendible';
+    b.title = 'PDF con el periodo y el total a recibir (sin porcentajes)';
+    b.addEventListener('click', async () => {
+      b.disabled = true; const t0 = b.textContent; b.textContent = 'Generando…';
+      try {
+        const { blob, nombre } = await desprendiblePDF(p);
+        const f = typeof File === 'function' ? new File([blob], nombre, { type: 'application/pdf' }) : null;
+        let compartido = false;
+        if (f && navigator.canShare && /Android|iPhone|iPad/i.test(navigator.userAgent)) { try { if (navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: 'Desprendible de pago', text: 'Desprendible de pago · ' + p.nombre }); compartido = true; } } catch (e) {} }
+        if (!compartido) { const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = nombre; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); }
+      } catch (e) { alertaSuave(b, 'No se pudo generar: ' + (e.message || e)); }
+      b.disabled = false; b.textContent = t0;
+    });
+    cont.appendChild(b);
+  };
+  const alertaSuave = (el, txt) => { const s0 = document.createElement('small'); s0.style.display = 'block'; s0.style.color = 'var(--ag-bad)'; s0.textContent = txt; el.after(s0); setTimeout(() => s0.remove(), 6000); };
+
+  // ---------- Meta de utilidad libre para los socios ----------
+  let metaModo = 'mes', metaSel = null;
+  function dibujarMeta(tots) {
+    const caja = $('meta-graf'); if (!caja) return;
+    const MT = dash.data('metas'), metas = MT.status === 'ok' ? MT.data : [];
+    const metaDe = (per) => (metas.find((m) => m.periodo === per) || {}).valor || null;
+    document.querySelectorAll('#meta-modo [data-m]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.m === metaModo)));
+    // Socios por quincena (cierre guardado o cálculo de hoy) y su reparto por día según la utilidad de cada día
+    const quinc = tots.filter((t) => t.tipo === 'Quincena');
+    const D0 = dash.data('diario'), dia = D0.status === 'ok' ? D0.data.filter((r) => r.nivel === 'total') : [];
+    const G0 = dash.data('gastos'), F0 = dash.data('facturas_cont'), gDia = {};
+    [...(G0.status === 'ok' ? G0.data : []), ...(F0.status === 'ok' ? F0.data.map((f) => ({ fecha: f.creada, valor: f.valor })) : [])].forEach((g) => { if (g.fecha) gDia[g.fecha] = (gDia[g.fecha] || 0) + (g.valor || 0); });
+    const uDia = {}; dia.forEach((r) => { uDia[r.fecha] = (uDia[r.fecha] || 0) + (r.ventas_cop || 0) - (r.gasto_iva || 0); }); Object.keys(gDia).forEach((f) => { uDia[f] = (uDia[f] || 0) - gDia[f]; });
+    const sociosDia = {}; // fecha -> socios ganado ese día
+    quinc.forEach((q) => {
+      const tot = (q.socio1 || 0) + (q.socio2 || 0), fin = q.hasta < HOY ? q.hasta : HOY;
+      const dias = []; for (let f = q.desde; f <= fin; f = new Date(Date.parse(f + 'T12:00:00Z') + 864e5).toISOString().slice(0, 10)) dias.push(f);
+      const uTot = dias.reduce((s0, f) => s0 + (uDia[f] || 0), 0);
+      dias.forEach((f) => { sociosDia[f] = uTot ? (tot * (uDia[f] || 0)) / uTot : tot / dias.length; });
+    });
+    const anios = [...new Set(quinc.map((q) => q.periodo.slice(0, 4)))], meses = [...new Set(quinc.map((q) => q.periodo.slice(0, 7)))];
+    const opts = metaModo === 'mes' ? meses : anios;
+    const actual = metaModo === 'mes' ? HOY.slice(0, 7) : HOY.slice(0, 4);
+    if (!opts.includes(actual)) opts.push(actual);
+    if (!metaSel || !opts.includes(metaSel) || metaSel.length !== actual.length) metaSel = actual;
+    const sel = $('meta-sel'), firma = metaModo + opts.join();
+    const nomMes = (ym) => MESES_L[Number(ym.slice(5, 7)) - 1] + ' ' + ym.slice(0, 4);
+    if (sel.dataset.v !== firma) { sel.replaceChildren(...[...opts].sort().reverse().map((o) => new Option(metaModo === 'mes' ? nomMes(o).charAt(0).toUpperCase() + nomMes(o).slice(1) : o, o))); sel.dataset.v = firma; }
+    sel.value = metaSel;
+    const meta = metaDe(metaSel);
+    $('meta-lb').textContent = metaModo === 'mes' ? nomMes(metaSel) : 'el año ' + metaSel;
+    if (document.activeElement !== $('meta-valor')) $('meta-valor').value = meta ? num.format(meta) : '';
+    // Serie acumulada
+    let puntos = [], total = 0, nPasos = 0, pasoHoy = 0, etqX;
+    if (metaModo === 'mes') {
+      const y0 = Number(metaSel.slice(0, 4)), m0 = Number(metaSel.slice(5, 7)), finM = new Date(Date.UTC(y0, m0, 0)).getUTCDate();
+      nPasos = finM; etqX = (d) => 'día ' + d;
+      let acc = 0;
+      for (let d = 1; d <= finM; d++) { const f = metaSel + '-' + String(d).padStart(2, '0'); if (f > HOY) break; acc += sociosDia[f] || 0; puntos.push({ x: d, v: acc }); }
+      pasoHoy = puntos.length; total = acc;
+    } else {
+      nPasos = 12; etqX = (m) => MESES[m - 1];
+      let acc = 0;
+      for (let m = 1; m <= 12; m++) { const ym = metaSel + '-' + String(m).padStart(2, '0'); if (ym > HOY.slice(0, 7)) break; Object.keys(sociosDia).forEach((f) => { if (f.slice(0, 7) === ym) acc += sociosDia[f]; }); puntos.push({ x: m, v: acc }); }
+      pasoHoy = puntos.length; total = acc;
+    }
+    const esActual = metaSel === actual;
+    let ritmo = pasoHoy ? total / pasoHoy : 0, proy = total, faltanPasos = Math.max(0, nPasos - pasoHoy);
+    if (esActual && metaModo === 'anio') {
+      // Ritmo por mes contando solo desde el primer mes con datos; el mes actual cuenta por la fracción de días que van
+      const conDatos = Object.keys(sociosDia).filter((f) => f.slice(0, 4) === metaSel).sort();
+      const m1 = conDatos.length ? Number(conDatos[0].slice(5, 7)) : Number(HOY.slice(5, 7));
+      const mAct = Number(HOY.slice(5, 7)), finAct = new Date(Date.UTC(Number(metaSel), mAct, 0)).getUTCDate();
+      const transcurridos = mAct - m1 + Number(HOY.slice(8, 10)) / finAct;
+      ritmo = transcurridos > 0 ? total / transcurridos : 0;
+      faltanPasos = 12 - mAct + (1 - Number(HOY.slice(8, 10)) / finAct);
+      proy = Math.round(total + ritmo * faltanPasos);
+    } else if (esActual) proy = Math.round(ritmo * nPasos);
+    // Tarjetas
+    const res = $('meta-res'); res.replaceChildren();
+    const tarjeta = (lb, v, s, pct) => { const c = document.createElement('div'); c.className = 'meta-k'; const a = document.createElement('span'); a.className = 'lb'; a.textContent = lb; const b = document.createElement('span'); b.className = 'v'; b.textContent = v; c.append(a, b); if (pct !== undefined) { const br = document.createElement('div'); br.className = 'meta-bar'; const i = document.createElement('i'); i.style.width = Math.max(0, Math.min(100, pct)) + '%'; br.appendChild(i); c.appendChild(br); } if (s) { const e = document.createElement('span'); e.className = 's'; e.textContent = s; c.appendChild(e); } res.appendChild(c); };
+    const pct = meta ? (total / meta) * 100 : null;
+    tarjeta('Meta', meta ? cop.format(meta) : 'Sin meta', meta ? 'Para los dos socios juntos' : 'Escríbela abajo y guárdala');
+    tarjeta('Llevamos', cop.format(Math.round(total)), meta ? num.format(Math.round(pct)) + '% de la meta' + (esActual ? ' · ' + (metaModo === 'mes' ? 'día ' + pasoHoy + ' de ' + nPasos : MESES_L[pasoHoy - 1]) : '') : 'Libre para los socios', meta ? pct : undefined);
+    if (meta) tarjeta(meta - total > 0 ? 'Nos falta' : '¡Meta cumplida!', cop.format(Math.round(Math.abs(meta - total))), meta - total > 0 ? (esActual && faltanPasos > 0 ? cop.format(Math.round((meta - total) / Math.max(1, faltanPasos))) + ' por ' + (metaModo === 'mes' ? 'día' : 'mes') + ' para lograrla' : 'Quedó por debajo de la meta') : 'Por encima de la meta');
+    if (esActual) tarjeta('A este ritmo cerraríamos en', cop.format(proy), meta ? (proy >= meta ? '✓ alcanzaría la meta' : 'quedaría un ' + num.format(Math.round((proy / meta) * 100)) + '% de la meta') : 'Proyección con el promedio de ' + (metaModo === 'mes' ? 'cada día' : 'cada mes'));
+    tarjeta('Cada socio', cop.format(Math.round(total / 2)), meta ? 'Meta por socio: ' + cop.format(Math.round(meta / 2)) : '');
+    // Gráfica: gris = camino a la meta (de 0 a la meta), verde = lo que llevamos, verde claro = proyección
+    caja.replaceChildren();
+    const W = Math.max(caja.clientWidth, 300), H = 250, m = { t: 16, r: 70, b: 28, l: 64 };
+    const x = d3.scaleLinear([metaModo === 'mes' ? 1 : 1, nPasos], [m.l, W - m.r]);
+    const hi = Math.max(1, meta || 0, d3.max(puntos, (p) => p.v) || 0, esActual ? proy : 0), lo = Math.min(0, d3.min(puntos, (p) => p.v) || 0);
+    const y = d3.scaleLinear([lo, hi], [H - m.b, m.t]).nice();
+    const svg = d3.select(caja).append('svg').attr('width', '100%').attr('viewBox', [0, 0, W, H]);
+    svg.append('g').selectAll('line').data(y.ticks(4)).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y).attr('y2', y).attr('stroke', tc('rgba(255,255,255,.06)'));
+    svg.append('g').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(4).tickFormat((v) => '$' + corto.format(v)).tickSize(0).tickPadding(8)).attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').remove());
+    const tv = metaModo === 'mes' ? [1, 5, 10, 15, 20, 25, nPasos] : d3.range(1, 13);
+    svg.append('g').attr('transform', `translate(0,${H - m.b})`).call(d3.axisBottom(x).tickValues(tv).tickFormat(etqX).tickSize(0).tickPadding(10)).attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').attr('stroke', tc('rgba(255,255,255,.12)')));
+    const GRIS = tc('rgba(148,163,184,.85)'), VERDE = '#22C55E';
+    if (meta) {
+      svg.append('line').attr('x1', x(1)).attr('x2', x(nPasos)).attr('y1', y(meta / nPasos)).attr('y2', y(meta)).attr('stroke', GRIS).attr('stroke-width', 2).attr('stroke-dasharray', '6 5');
+      svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(meta)).attr('y2', y(meta)).attr('stroke', GRIS).attr('stroke-opacity', 0.35);
+      svg.append('text').attr('x', W - m.r + 6).attr('y', y(meta) + 4).attr('font-size', 11).attr('fill', GRIS).text('Meta $' + corto.format(meta));
+    }
+    if (puntos.length) {
+      const ln = d3.line().x((p) => x(p.x)).y((p) => y(p.v));
+      svg.append('path').datum([{ x: 1, v: 0 }, ...puntos].filter((p, i, a) => i > 0 || a.length < 2 || a[1].x !== 1)).attr('d', ln).attr('fill', 'none').attr('stroke', VERDE).attr('stroke-width', 3);
+      const u = puntos[puntos.length - 1];
+      if (esActual && u.x < nPasos) svg.append('line').attr('x1', x(u.x)).attr('y1', y(u.v)).attr('x2', x(nPasos)).attr('y2', y(proy)).attr('stroke', VERDE).attr('stroke-opacity', 0.45).attr('stroke-width', 2).attr('stroke-dasharray', '3 4');
+      svg.append('circle').attr('cx', x(u.x)).attr('cy', y(u.v)).attr('r', 4.5).attr('fill', VERDE);
+      svg.append('text').attr('x', x(u.x) + 7).attr('y', y(u.v) - 6).attr('font-size', 11.5).attr('font-weight', 700).attr('fill', VERDE).text('$' + corto.format(u.v));
+      svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', W - m.l - m.r).attr('height', H - m.t - m.b).attr('fill', 'transparent')
+        .on('mousemove', (ev) => { const [mx, my] = d3.pointer(ev, caja); const k = Math.max(1, Math.min(nPasos, Math.round(x.invert(d3.pointer(ev)[0])))); const p = puntos.find((z) => z.x === k); mostrarTip(caja, mx, my, [[metaModo === 'mes' ? 'Día ' + k : MESES_L[k - 1], 'd'], ['Llevamos ' + (p ? cop.format(Math.round(p.v)) : '—'), '', VERDE], ...(meta ? [['Camino a la meta ' + cop.format(Math.round((meta * k) / nPasos)), '', GRIS]] : [])]); })
+        .on('mouseleave', ocultarTip);
+    }
+  }
+  $('meta-modo').addEventListener('click', (e) => { const b = e.target.closest('[data-m]'); if (b) { metaModo = b.dataset.m; metaSel = null; dibujar(); } });
+  $('meta-sel').addEventListener('change', (e) => { metaSel = e.target.value; dibujar(); });
+  $('meta-guardar').addEventListener('click', async () => {
+    const t = String($('meta-valor').value).replace(/[^\d]/g, ''), valor = Number(t) || 0;
+    const b = $('meta-guardar'); b.disabled = true; const el = $('meta-msg'); el.className = 'ag-msg ok'; el.textContent = 'Guardando…';
+    const quien = (() => { try { return localStorage.getItem('idealab_nombre') || ''; } catch (e) { return ''; } })();
+    try { await window.idealabEnviar({ accion: 'meta_guardar', periodo: metaSel, valor, quien }); el.textContent = valor ? 'Meta guardada: ' + cop.format(valor) + '.' : 'Meta quitada.'; dash.refresh('metas'); }
+    catch (e) { el.className = 'ag-msg err'; el.textContent = 'No se pudo guardar: ' + (e.message || e); }
+    b.disabled = false;
+  });
+
   // ---------- Avances de proveedores ----------
   let avPer = null, avPais = null;
   const leerNum = (t) => { const s0 = String(t || '').trim().replace(/\s/g, ''); if (!s0) return null; let s1 = s0; if (s1.includes(',')) s1 = s1.replace(/\./g, '').replace(',', '.'); else if (/^\d{1,3}(\.\d{3})+$/.test(s1)) s1 = s1.replace(/\./g, ''); const n = Number(s1); return Number.isFinite(n) && n > 0 ? n : null; };
@@ -3559,15 +3745,16 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       const a = document.createElement('div'); a.textContent = n; const sm = document.createElement('small'); sm.textContent = sub + enLocal(valor); a.appendChild(sm);
       const v = document.createElement('div'); v.className = 'v ' + (valor < 0 ? 'ag-neg' : ''); v.dataset.source = src; v.dataset.field = campo; v.dataset.where = 'clave=' + enc(claveR); v.textContent = cop.format(valor);
       const bar = document.createElement('div'); bar.className = 'bar'; const i = document.createElement('i'); i.style.width = Math.min(100, (Math.abs(valor) / base) * 100) + '%'; i.style.background = col; bar.appendChild(i);
-      row.append(a, v, bar); rep.appendChild(row);
+      row.append(a, v, bar); rep.appendChild(row); return a;
     };
     filaRep(paisCierre ? 'Proveedor de cuentas de ' + paisCierre : 'Proveedores de cuentas', t.pct_prov + '% utilidad ' + (paisCierre ? 'del país' : 'por país'), t.proveedores, '#60A5FA', fuente, 'proveedores', t.clave);
     const pagos = paisCierre ? [] : L.data.filter((r) => r.nivel === 'trabajador' && r.periodo === periodoSel);
-    if (pagos.length) pagos.forEach((w) => filaRep(w.nombre, num.format(w.pct) + '% de la utilidad', w.pago, '#C084FC', 'liquidacion', 'pago', w.clave));
+    const dp = (cel, nombre, rol, valor) => { if (!paisCierre && valor > 0) botonDesprendible(cel, { nombre, rol, valor, periodo: t.periodo, desde: t.desde, hasta: t.hasta }); };
+    if (pagos.length) pagos.forEach((w) => dp(filaRep(w.nombre, num.format(w.pct) + '% de la utilidad', w.pago, '#C084FC', 'liquidacion', 'pago', w.clave), w.nombre, 'trabajador', w.pago));
     else filaRep('Nómina trabajadores', num.format(t.pct_trab) + '% de la utilidad', t.nomina, '#C084FC', fuente, 'nomina', t.clave);
     filaRep('Empresa (ahorro e inversión)', t.pct_emp + '% utilidad', t.empresa, '#2DD4BF', fuente, 'empresa', t.clave);
-    filaRep('Anthony Guiñan', t.pct_s1 + '% del resto', t.socio1, '#F5B800', fuente, 'socio1', t.clave);
-    filaRep('Alejandra Acosta', t.pct_s2 + '% del resto', t.socio2, '#F5B800', fuente, 'socio2', t.clave);
+    dp(filaRep('Anthony Guiñan', t.pct_s1 + '% del resto', t.socio1, '#F5B800', fuente, 'socio1', t.clave), 'Anthony Guiñan', 'socio', t.socio1);
+    dp(filaRep('Alejandra Acosta', t.pct_s2 + '% del resto', t.socio2, '#F5B800', fuente, 'socio2', t.clave), 'Alejandra Acosta', 'socio', t.socio2);
 
     const filasP = filasLP.filter((r) => r.periodo === periodoSel && (!paisCierre || r.pais === paisCierre));
     tabla($('t-liq-paises'), [['pais', 'País'], ['ventas_n', 'Ventas', 'num'], ['ventas', 'Facturación COP', 'num'], ['pauta_iva', 'Pauta IVA COP', 'num'], ['gastos', 'Gastos COP', 'num'], ['utilidad', 'Utilidad COP', 'num'], ['comision', 'Comisión COP', 'num'], ['moneda', 'Moneda'], ['ventas_local', 'Facturación local', 'num'], ['pauta_local', 'Pauta local', 'num'], ['utilidad_local', 'Utilidad local', 'num'], ['comision_local', 'Comisión local', 'num']], filasP, {
@@ -3833,6 +4020,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 
     // ---------- Avances de proveedores ----------
     dibujarAvances(tots, filasLP, etq);
+    dibujarMeta(tots);
   }
 
   function dibujarConfig() {
