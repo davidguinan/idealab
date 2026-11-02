@@ -161,13 +161,45 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     (pvals || []).slice(1).forEach((r) => { const cod = String(r[1] || '').trim().toUpperCase(); if (!cod || !r[2] || !leerFecha(r[3])) return; (porCod[cod] = porCod[cod] || []).push({ id: String(r[0] || ''), pais: String(r[2] || '').trim(), inicio: leerFecha(r[3]), escala: leerFecha(r[4]) || '', fin: leerFecha(r[5]) || '', nota: String(r[7] || ''), actualizado: String(r[8] || ''), por: String(r[9] || ''), bitacora: String(r[10] || '').split('\n').map((x) => x.trim()).filter(Boolean) }); });
     return vals.slice(1).map((r, i) => ({ fila: i + 2, codigo: String(r[0] || '').trim().toUpperCase(), tipo: /video/i.test(String(r[1] || '')) || /^VD/i.test(String(r[0] || '')) ? 'Video' : 'Imagen', original: String(r[2] || ''), enlace: String(r[3] || ''), id: String(r[4] || '').trim(), subido: leerFecha(r[5]) || String(r[5] || ''), por: String(r[6] || ''), estadoHoja: String(r[7] || '').trim() || 'Sin publicar', nota: String(r[11] || '') })).filter((r) => r.codigo).map((c) => ({ ...c, paises: porCod[c.codigo] || [] }));
   };
+  const aplicarCreativos = (r) => { const vals = r && Array.isArray(r.values) ? r.values : null; if (!vals) throw new Error('sin_servidor'); window.idealabCrMeta = { consecutivos: r.consecutivos || null, lista_paises: r.lista_paises || [] }; fijar('creativos', { status: 'ok', data: leerCreativos(vals, r.paises) }); avisar(); };
   const cargarCreativos = async () => {
     if (!estado.creativos || estado.creativos.status !== 'ok') fijar('creativos', { status: 'loading', data: [] }); avisar();
-    try { const r = await enviar({ accion: 'creativos_leer' }); const vals = r && Array.isArray(r.values) ? r.values : null; if (!vals) throw new Error('sin_servidor'); window.idealabCrMeta = { consecutivos: r.consecutivos || null, lista_paises: r.lista_paises || [] }; fijar('creativos', { status: 'ok', data: leerCreativos(vals, r.paises) }); if (rolActual() === 'creativos') document.getElementById('ag-actualizado').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }); }
+    try { const r = await enviar({ accion: 'creativos_leer' }); aplicarCreativos(r); cacheGuardar('creativos', { values: r.values, paises: r.paises, consecutivos: r.consecutivos, lista_paises: r.lista_paises }); if (rolActual() === 'creativos') marcarFresco(); if (rolActual() === 'creativos') document.getElementById('ag-actualizado').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }); }
     catch (e) { fijar('creativos', { status: 'error', data: [], message: /desconocid|unknown|no v[aá]lid|sin_servidor|Clave/i.test(String(e.message)) || e instanceof SyntaxError ? 'sin_servidor' : String(e.message || e) }); }
     avisar();
   };
   window.idealabCreativos = { recargar: cargarCreativos, enviar: (b) => enviar(b) };
+
+  // ---- Copia local de los datos (IndexedDB): la app abre al instante con lo último que trajo; «Actualizar» trae lo nuevo
+  const CACHE_DB = 'idealab-datos', CACHE_ST = 'copias';
+  const abrirDB = () => new Promise((ok, mal) => { try { const rq = indexedDB.open(CACHE_DB, 1); rq.onupgradeneeded = () => rq.result.createObjectStore(CACHE_ST); rq.onsuccess = () => ok(rq.result); rq.onerror = () => mal(rq.error); } catch (e) { mal(e); } });
+  const claveCache = (k) => k + '|' + (cfg().usuario || 'socios');
+  const cacheGuardar = async (k, v) => { try { const db = await abrirDB(); await new Promise((ok) => { const tx = db.transaction(CACHE_ST, 'readwrite'); tx.objectStore(CACHE_ST).put({ v, t: Date.now() }, claveCache(k)); tx.oncomplete = ok; tx.onerror = ok; tx.onabort = ok; }); db.close(); } catch (e) {} };
+  const cacheLeer = async (k) => { try { const db = await abrirDB(); const r = await new Promise((ok) => { const tx = db.transaction(CACHE_ST, 'readonly'); const rq = tx.objectStore(CACHE_ST).get(claveCache(k)); rq.onsuccess = () => ok(rq.result || null); rq.onerror = () => ok(null); }); db.close(); return r; } catch (e) { return null; } };
+  const cacheBorrar = () => new Promise((ok) => { try { const rq = indexedDB.deleteDatabase(CACHE_DB); rq.onsuccess = rq.onerror = rq.onblocked = () => ok(); } catch (e) { ok(); } });
+  window.idealabCacheBorrar = cacheBorrar;
+  const horaTxt = (t) => { const d = new Date(t), hoyB = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date()), dB = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(d); const h = d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' }); return dB === hoyB ? 'hoy ' + h : d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', timeZone: 'America/Bogota' }) + ' ' + h; };
+  const marcarCopia = (t) => {
+    const hoyB = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date()), dB = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date(t));
+    const el = document.getElementById('ag-actualizado'); if (el) el.textContent = 'Datos guardados de ' + horaTxt(t) + ' · toca Actualizar para ver lo último';
+    ['actualizar', 'actualizar2'].forEach((id) => { const b = document.getElementById(id); if (b) { b.classList.add('ag-viejo'); b.classList.toggle('ag-muy-viejo', dB !== hoyB); b.title = 'Estás viendo los datos guardados de ' + horaTxt(t) + '. Toca para traer lo último.'; } });
+  };
+  const marcarFresco = () => { ['actualizar', 'actualizar2'].forEach((id) => { const b = document.getElementById(id); if (b) { b.classList.remove('ag-viejo', 'ag-muy-viejo'); b.title = 'Traer los datos más recientes'; } }); };
+  const iniciarDesdeCopia = async () => {
+    const c = await cacheLeer('datos');
+    if (!c || !c.v || !c.v.j) return false;
+    try {
+      const pr = c.v.rango || '|';
+      if (pr !== '|') { const [d, h] = pr.split('|'); params = { ...params, desde: d, hasta: h }; }
+      ultimoRango = pr;
+      cargarTodo(c.v.j);
+      const cr = await cacheLeer('creativos'); if (cr && cr.v) aplicarCreativos(cr.v); else cargarCreativos();
+      marcarCopia(c.t);
+      return true;
+    } catch (e) { console.error('copia local', e); return false; }
+  };
+  const iniciar = async () => { if (!(await iniciarDesdeCopia())) cargar(); };
+  const iniciarCreativos = async () => { const cr = await cacheLeer('creativos'); if (cr && cr.v) { aplicarCreativos(cr.v); marcarCopia(cr.t); } else cargarCreativos(); };
 
   const calcular = () => {
     let pendientes = Object.keys(calcs);
@@ -196,6 +228,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
       const j = await pedir({ accion: 'datos', desde: p.desde || '', hasta: p.hasta || '' });
       ultimoRango = (p.desde || '') + '|' + (p.hasta || '');
       cargarTodo(j);
+      cacheGuardar('datos', { j, rango: ultimoRango }); marcarFresco();
       cargarCreativos();
       document.getElementById('ag-actualizado').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
     } catch (e) {
@@ -265,8 +298,8 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
       }
       catch (e) { document.getElementById('lg-msg').textContent = /Clave/.test(e.message) ? 'La clave no es correcta.' : 'No se pudo conectar: ' + e.message; }
     });
-    document.getElementById('ag-salir').addEventListener('click', () => { ['idealab_clave', 'idealab_usuario', 'idealab_rol', 'idealab_nombre', 'idealab_apodo'].forEach((k) => LS.del(k)); location.reload(); });
-    if (cfg().url && cfg().clave) { if (rolActual() === 'creativos') cargarCreativos(); else cargar(); } else mostrarLogin('');
+    document.getElementById('ag-salir').addEventListener('click', async () => { ['idealab_clave', 'idealab_usuario', 'idealab_rol', 'idealab_nombre', 'idealab_apodo'].forEach((k) => LS.del(k)); await cacheBorrar(); location.reload(); });
+    if (cfg().url && cfg().clave) { if (rolActual() === 'creativos') iniciarCreativos(); else iniciar(); } else mostrarLogin('');
   });
 })();
 
@@ -769,6 +802,10 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 .meta-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--ag-line); }
 .meta-form label { display: grid; gap: 4px; font-size: 12.5px; color: var(--ag-muted); flex: 1 1 220px; }
 .rep-dp { margin-top: 6px; font-size: 12px; padding: 4px 10px; }
+.ag-act2 { margin: 6px 0 2px; font-size: 12px; padding: 5px 10px; }
+.ag-btn.ag-viejo { position: relative; border-color: rgba(245,184,0,.6); }
+.ag-btn.ag-viejo::after { content: ''; position: absolute; top: -3px; right: -3px; width: 9px; height: 9px; border-radius: 50%; background: #F5B800; box-shadow: 0 0 0 2px var(--ag-bg, #0B1530); }
+.ag-btn.ag-muy-viejo::after { background: #FB7185; }
 .liq-guardar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--ag-line); font-size: 13px; color: var(--ag-muted); }
 .liq-guardar .ok { color: var(--ag-good, #2DD4BF); font-weight: 600; }
 .av-h3 { font-size: 13px; letter-spacing: .02em; color: var(--ag-muted); font-weight: 600; margin: 18px 0 8px; text-transform: uppercase; }
@@ -849,7 +886,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       <button type="button" data-v="notas"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>Mis notas</button>
       <button type="button" data-v="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Configuración</button>
     </nav>
-    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 37 · ONY vivo</span></div>
+    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-btn ag-act2" id="actualizar2">↻ Actualizar datos</button><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 38 · ONY vivo</span></div>
   </aside>
 
   <main class="ag-main">
@@ -2091,6 +2128,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   });
   const FUENTES = ['meta_rango', 'meta_hoy', 'meta_campanas', 'meta_conjuntos', 'meta_diario', 'meta_creativos', 'meta_paginas', 'ventas', 'tasas', 'gastos', 'config', 'cierres', 'cambios', 'numeros'];
   $('actualizar').addEventListener('click', () => FUENTES.forEach((id) => dash.refresh(id)));
+  $('actualizar2').addEventListener('click', () => { const t = $('ag-actualizado'); if (t) t.textContent = 'Actualizando…'; if (window.idealabRol === 'creativos') dash.refresh('creativos'); else FUENTES.forEach((id) => dash.refresh(id)); });
 
   // ---------- Navegación ----------
   let vista = 'inicio';
