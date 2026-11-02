@@ -66,7 +66,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 
   const loaders = {}, calcs = {}, estado = {}, oyentes = [];
   let params = {};
-  const HOJAS = { meta_diario: 'meta_diario', paises: 'productos', tasas: 'tasas', config: 'config', gastos: 'gastos', cierres: 'cierres', cambios: 'cambios', numeros: 'numeros', fan_pages: 'fan_pages', tasas_cierre: 'tasas_cierre' };
+  const HOJAS = { meta_diario: 'meta_diario', paises: 'productos', tasas: 'tasas', config: 'config', gastos: 'gastos', cierres: 'cierres', cambios: 'cambios', numeros: 'numeros', fan_pages: 'fan_pages', tasas_cierre: 'tasas_cierre', cierres_paises: 'cierres_paises', avances: 'avances' };
 
   const fijar = (id, st) => { estado[id] = st; };
   const avisar = () => { clearTimeout(avisar.t); avisar.t = setTimeout(() => oyentes.forEach((fn) => { try { fn(); } catch (e) { console.error(e); } }), 10); };
@@ -586,7 +586,7 @@ tr.cd-vacio td { opacity: .45; }
 .cr-form .ag-in, .cr-form .ag-sel { width: 100%; }
 .cr-dur { margin: 0; font-size: 12.5px; color: var(--ag-gold); }
 /* Cuenta de creativos: solo ve este apartado */
-[data-rol="creativos"] #nav button:not([data-v="creativos"]) { display: none !important; }
+[data-rol="creativos"] #nav button:not([data-v="creativos"]):not([data-v="notas"]) { display: none !important; }
 [data-rol="creativos"] #rango, [data-rol="creativos"] #takeaway { display: none !important; }
 [data-rol="creativos"] .ag-session b::after { content: ''; }
 .f-res { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin: 10px 0 12px; }
@@ -749,6 +749,34 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 .ony-msgs { background-color: var(--wa-fondo); background-image: radial-gradient(rgba(255,255,255,.035) 1.2px, transparent 1.3px), radial-gradient(rgba(255,255,255,.025) 1px, transparent 1.1px); background-size: 22px 22px, 31px 31px; background-position: 0 0, 11px 15px; gap: 3px; padding: 12px 12px 14px; }
 [data-tema="claro"] .ony-msgs { background-image: radial-gradient(rgba(0,0,0,.05) 1.2px, transparent 1.3px), radial-gradient(rgba(0,0,0,.035) 1px, transparent 1.1px); }
 .ony-msgs { overflow-x: hidden; }
+.nt-nueva { display: grid; gap: 8px; margin-top: 12px; padding: 12px; border: 1px dashed rgba(245,184,0,.35); border-radius: 12px; }
+.nt-tipos { display: flex; flex-wrap: wrap; gap: 6px; } .nt-txt { width: 100%; resize: vertical; min-height: 54px; font: inherit; }
+.nt-nueva > .ag-btn.pri { justify-self: end; }
+.nt-lista { display: grid; gap: 8px; margin-top: 14px; }
+.nt-it { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--ag-line); border-radius: 12px; background: var(--ag-panel2); min-width: 0; }
+.nt-it.hecha .nt-t { text-decoration: line-through; opacity: .55; }
+.nt-it input[type=checkbox] { width: 18px; height: 18px; margin-top: 2px; accent-color: #F5B800; }
+.nt-t { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.45; cursor: text; min-width: 0; }
+.nt-meta { display: block; font-size: 11.5px; color: var(--ag-muted); margin-top: 4px; }
+.nt-pill { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 999px; margin-right: 6px; background: rgba(var(--tinta),.08); }
+.nt-pill.Tarea { background: rgba(45,212,191,.16); } .nt-pill.Pendiente { background: rgba(245,184,0,.18); } .nt-pill.Apunte { background: rgba(96,165,250,.18); }
+.nt-acc { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.nt-ed { display: grid; gap: 6px; } .nt-ed textarea { width: 100%; font: inherit; }
+.liq-guardar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--ag-line); font-size: 13px; color: var(--ag-muted); }
+.liq-guardar .ok { color: var(--ag-good, #2DD4BF); font-weight: 600; }
+.av-h3 { font-size: 13px; letter-spacing: .02em; color: var(--ag-muted); font-weight: 600; margin: 18px 0 8px; text-transform: uppercase; }
+.av-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; margin-top: 10px; }
+.av-c { border: 1px solid var(--ag-line); border-radius: 12px; padding: 12px 14px; background: var(--ag-panel2); min-width: 0; }
+.av-c h4 { margin: 0 0 8px; font-size: 14px; display: flex; justify-content: space-between; gap: 8px; } .av-c h4 small { color: var(--ag-muted); font-weight: 500; }
+.av-l { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; font-size: 13px; border-bottom: 1px dashed rgba(var(--tinta),.07); } .av-l span:first-child { color: var(--ag-muted); } .av-l b { font-variant-numeric: tabular-nums; text-align: right; }
+.av-l em { display: block; font-style: normal; font-size: 11px; color: var(--ag-muted); text-align: right; font-weight: 400; }
+.av-tot { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: rgba(245,184,0,.12); display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; } .av-tot.neg { background: rgba(45,212,191,.12); }
+.av-form .av-nota { grid-column: span 2; } @media (max-width: 640px) { .av-form .av-nota { grid-column: auto; } }
+.bit-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.bit-k { border: 1px solid var(--ag-line); border-radius: 12px; padding: 10px 12px; background: var(--ag-panel2); min-width: 0; }
+.bit-k .lb { font-size: 11.5px; color: var(--ag-muted); text-transform: uppercase; letter-spacing: .03em; } .bit-k .v { display: block; font-size: 19px; font-weight: 700; margin: 2px 0; font-variant-numeric: tabular-nums; }
+.bit-k .s { font-size: 12px; color: var(--ag-muted); } .bit-k .up { color: #2DD4BF; font-weight: 600; } .bit-k .dn { color: #FB7185; font-weight: 600; }
+.bit-top { margin-top: 16px; }
 .rc-tasa-ed { padding: 0 16px 10px; border-bottom: 1px dashed rgba(var(--tinta),.06); } .rc-tasa-ed > .ag-btn { font-size: 12px; padding: 5px 10px; }
 .rc-tasa-f { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; } .rc-tasa-f .ag-in { flex: 1 1 110px; min-width: 0; padding: 7px 9px; }
 .rc-tasa-msg { flex-basis: 100%; color: var(--ag-muted); font-size: 11.5px; }
@@ -811,9 +839,10 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       <button type="button" data-v="paginas"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></svg>Fan pages</button>
       <button type="button" data-v="creativos"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6M15 9h.01"/></svg>Creativos</button>
       <button type="button" data-v="contabilidad"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"/></svg>Contabilidad</button>
+      <button type="button" data-v="notas"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>Mis notas</button>
       <button type="button" data-v="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Configuración</button>
     </nav>
-    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 34 · ONY vivo</span></div>
+    <div class="ag-session">Sesión<br><span class="ses-socios"><b id="ses-so-n">Socios</b> · acceso total</span><span class="ses-cr"><b id="ses-cr-n">Creativos</b> · solo creativos</span><br><span id="ag-actualizado">Cargando…</span><br><button type="button" class="ag-x" id="ag-salir">Cerrar sesión</button><br><span style="opacity:.55;font-size:10.5px">Versión 35 · ONY vivo</span></div>
   </aside>
 
   <main class="ag-main">
@@ -1030,6 +1059,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           <div class="ag-kpi"><span class="lb">Gastos</span><span class="v" data-l="gastos" data-source="liquidacion" data-field="gastos">—</span></div>
           <div class="ag-kpi"><span class="lb">Utilidad total</span><span class="v" data-l="utilidad_total" data-source="liquidacion" data-field="utilidad_total">—</span><span class="s" id="liq-rent"></span></div>
         </div>
+        <div class="liq-guardar solo-socios" id="liq-guardar"></div>
       </div>
       <div style="margin-top:14px;min-width:0">
         <div class="ag-card">
@@ -1039,14 +1069,33 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         </div>
         <div class="ag-card" style="margin-top:14px">
           <h2>Por país</h2>
-          <p class="ag-note">Utilidad de cada país = ventas − pauta con IVA. Comisión del proveedor = % de esa utilidad (si es positiva). En pesos y en la moneda de cada país (tasa de la pestaña Tasas al cierre del periodo).</p>
+          <p class="ag-note">Ventas = las de la pestaña del país en el Excel. Utilidad del país = ventas − gastos del país − pauta con IVA. Comisión del proveedor = su % de esa utilidad (si es positiva). En pesos y en la moneda del país, con la tasa del cierre (2 % de colchón o la que pongas a mano).</p>
           <div class="ag-scroll"><table class="ag-table" id="t-liq-paises" data-source="liquidacion_paises" data-row-key="clave"></table></div>
         </div>
       </div>
       <div class="ag-card" style="margin-top:14px">
         <h2>Comprobantes para proveedores de cuentas</h2>
-        <p class="ag-note">Uno por país con utilidad en el periodo. Descárgalo en PDF o compártelo directo (por WhatsApp, correo…) desde el celular.</p>
+        <p class="ag-note">Uno por país con ventas, pauta o gastos en el periodo. Descárgalo en PDF o compártelo directo (por WhatsApp, correo…) desde el celular.</p>
         <div class="ag-recibos" id="recibos" data-source="liquidacion_paises"></div>
+      </div>
+      <div class="ag-card solo-socios" style="margin-top:14px" id="avances-card">
+        <div class="ag-top"><div><h2>Avances de proveedores</h2><p class="ag-note">Cada envío de dinero que te hace un proveedor. La cuenta del proveedor tiene lo que entró por ventas en su país; con cada avance baja. Al cierre: lo que queda en su cuenta − su comisión = lo que debe enviar.</p></div>
+          <div class="ag-chips"><select class="ag-sel" id="av-periodo" aria-label="Cierre de los avances"></select></div></div>
+        <div class="av-grid" id="av-saldos" data-source="avances"></div>
+        <h3 class="av-h3">Registrar un avance</h3>
+        <div class="ag-form av-form">
+          <label>Fecha de envío<input class="ag-in" type="date" id="av-fecha" min="2020-01-01" max="2099-12-31"></label>
+          <label>País<select class="ag-sel" id="av-pais"></select></label>
+          <label>Monto enviado <span id="av-mon">(moneda local)</span><input class="ag-in" type="text" inputmode="decimal" id="av-monto" placeholder="ej. 8.000"></label>
+          <label>Tasa (COP por 1)<input class="ag-in" type="text" inputmode="decimal" id="av-tasa" placeholder="ej. 3,05"></label>
+          <label>Se volvió en pesos (COP)<input class="ag-in" type="text" id="av-cop" readonly tabindex="-1"></label>
+          <label>Cuenta para el cierre de<select class="ag-sel" id="av-per"></select></label>
+          <label class="av-nota">Nota (opcional)<input class="ag-in" id="av-nota" placeholder="Banco, referencia…"></label>
+          <button type="button" class="ag-btn pri" id="av-guardar">Registrar avance</button>
+        </div>
+        <p class="ag-msg" id="av-msg"></p>
+        <div class="ag-scroll"><table class="ag-table" id="t-avances" data-source="avances" data-row-key="id"></table></div>
+        <p class="ag-empty" id="avances-vacio" hidden>No hay avances registrados para este cierre.</p>
       </div>
       <div class="ag-card" style="margin-top:14px">
         <h2>Agregar factura</h2>
@@ -1085,11 +1134,35 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       </div>
       <div class="ag-card" style="margin-top:14px">
         <h2>Bitácora de cierres</h2>
-        <p class="ag-note" id="hist-nota">Por quincena: ventas, pauta + gastos y utilidad. Las barras claras son quincenas en curso. Los cierres se guardan solos el 16 y el 1.º de cada mes.</p>
-        <div class="ag-legend"><span><i style="background:#F5B800"></i>Ventas</span><span><i style="background:#60A5FA"></i>Pauta con IVA + gastos</span><span><i style="background:#2DD4BF"></i>Utilidad</span></div>
+        <p class="ag-note" id="hist-nota">Cómo va el mes frente al anterior, quincena por quincena, y los cierres que ya revisaron y guardaron.</p>
+        <h3 class="av-h3" id="bit-tit">Este mes frente al mes pasado</h3>
+        <div class="bit-kpis" id="bit-kpis" data-source="diario"></div>
+        <div class="ag-top bit-top"><div><h3 class="av-h3" style="margin:0">Utilidad acumulada día a día</h3><p class="ag-note" id="bit-acum-nota">Ventas − pauta con IVA − gastos, sumando desde el día 1 de cada mes.</p></div>
+          <div class="ag-chips" id="bit-met"><button type="button" class="ag-btn" data-m="utilidad" aria-pressed="true">Utilidad</button><button type="button" class="ag-btn" data-m="ventas" aria-pressed="false">Ventas</button><button type="button" class="ag-btn" data-m="costos" aria-pressed="false">Pauta + gastos</button></div></div>
+        <div class="ag-legend" id="bit-leg"></div>
+        <div class="ag-chart" id="bit-acum" data-source="diario" style="min-height:240px"></div>
+        <h3 class="av-h3">Por quincena</h3>
+        <div class="ag-legend"><span><i style="background:#F5B800"></i>Ventas</span><span><i style="background:#60A5FA"></i>Pauta con IVA + gastos</span><span><i style="background:#2DD4BF"></i>Utilidad</span><span><i style="background:#94A3B8;opacity:.5"></i>Clara = en curso</span></div>
         <div class="ag-chart" id="hist-chart" data-source="liquidacion" style="min-height:260px"></div>
+        <h3 class="av-h3">Cierres guardados</h3>
         <div class="ag-scroll"><table class="ag-table" id="t-cierres" data-source="cierres" data-row-key="id"></table></div>
-        <p class="ag-empty" id="cierres-vacio" hidden>Todavía no hay cierres guardados. El primero se guarda el 1.º de noviembre.</p>
+        <p class="ag-empty" id="cierres-vacio" hidden>Todavía no hay cierres guardados. Revisa la quincena terminada y toca «Guardar este cierre».</p>
+      </div>
+    </section>
+
+    <!-- MIS NOTAS -->
+    <section class="ag-vista" id="notas" data-vista="notas" hidden>
+      <div class="ag-card">
+        <div class="ag-top"><div><h2>Mis notas</h2><p class="ag-note">Tu bloc para el día: tareas, apuntes y pendientes. Solo tú las ves con tu usuario.</p></div>
+          <div class="ag-chips" id="nt-filtro"><button type="button" class="ag-btn" data-f="abiertas" aria-pressed="true">Por hacer</button><button type="button" class="ag-btn" data-f="Tarea">Tareas</button><button type="button" class="ag-btn" data-f="Pendiente">Pendientes</button><button type="button" class="ag-btn" data-f="Apunte">Apuntes</button><button type="button" class="ag-btn" data-f="hechas">Hechas</button></div></div>
+        <div class="nt-nueva">
+          <div class="nt-tipos" id="nt-tipo" role="radiogroup" aria-label="Tipo de nota"><button type="button" class="ag-btn" data-t="Tarea" aria-pressed="true">✅ Tarea</button><button type="button" class="ag-btn" data-t="Pendiente" aria-pressed="false">⏳ Pendiente</button><button type="button" class="ag-btn" data-t="Apunte" aria-pressed="false">📝 Apunte</button></div>
+          <textarea class="ag-in nt-txt" id="nt-texto" rows="2" placeholder="Escribe una tarea, un pendiente o un apunte… (Ctrl + Enter para guardar)"></textarea>
+          <button type="button" class="ag-btn pri" id="nt-agregar">Agregar</button>
+        </div>
+        <p class="ag-msg" id="nt-msg"></p>
+        <div class="nt-lista" id="nt-lista"></div>
+        <p class="ag-empty" id="nt-vacio" hidden>No hay notas aquí todavía.</p>
       </div>
     </section>
 
@@ -1421,6 +1494,20 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       }),
     }),
   });
+  // Cierres por país guardados (formato nuevo, con moneda local y tasa)
+  const COLS_CIERRE_P = ['id', 'desde', 'hasta', 'pais', 'moneda', 'tasa', 'ventas_n', 'ventas_local', 'ventas', 'gastos', 'pauta_iva', 'utilidad', 'pct_prov', 'comision', 'comision_local', 'utilidad_final', 'gastos_local', 'pauta_local', 'utilidad_local', 'utilidad_final_local', 'registrado'];
+  dash.loader('cierres_paises', {
+    description: 'La pestaña Cierres_paises: el cierre guardado de cada país (ventas en moneda local y en COP, tasa, gastos, pauta, utilidad, comisión del proveedor y utilidad final).',
+    fn: ({ answer }) => {
+      const v = valores(answer);
+      if (!v.length || !/moneda/i.test(String((v[0] || [])[4] || ''))) return { columns: COLS_CIERRE_P, rows: [] }; // formato viejo: se ignora
+      return { columns: COLS_CIERRE_P, rows: v.slice(1).filter((r) => r[0] && r[3]).map((r) => { const o = {}; COLS_CIERRE_P.forEach((c, i) => { o[c] = ['id', 'pais', 'moneda', 'registrado'].includes(c) ? String(r[i] || '').trim() : ['desde', 'hasta'].includes(c) ? leerFecha(r[i]) : c === 'tasa' ? leerValor(r[i]) : leerValor(r[i]); }); return o; }) };
+    },
+  });
+  dash.loader('avances', {
+    description: 'La pestaña Avances: cada envío de dinero de un proveedor (fecha, país, monto en moneda local, tasa, valor en COP y cierre al que cuenta).',
+    fn: ({ answer }) => ({ columns: ['id', 'fecha', 'pais', 'moneda', 'monto', 'tasa', 'cop', 'periodo', 'nota', 'quien', 'registrado'], rows: valores(answer).slice(1).filter((r) => r[0]).map((r) => ({ id: String(r[0]), fecha: leerFecha(r[1]), pais: String(r[2] || '').trim(), moneda: String(r[3] || '').trim(), monto: leerValor(r[4]), tasa: leerValor(r[5]), cop: leerValor(r[6]), periodo: String(r[7] || '').trim(), nota: String(r[8] || ''), quien: String(r[9] || ''), registrado: String(r[10] || '') })) }),
+  });
   dash.loader('cambios', {
     description: 'La pestaña Cambios_programados como filas: cada cambio pedido para Meta, cuándo se aplica y su estado.',
     fn: ({ answer }) => ({
@@ -1520,7 +1607,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       meta_rango.forEach((r) => niveles(r.ad_id, paisDe(r.campana)).forEach((x) => { x.gasto += r.gasto; x.conversaciones += r.conversaciones; }));
       ventas_cop.filter((v) => v.fecha >= desde && v.fecha <= hasta && v.valor_cop).forEach((v) => {
         const a = anuncios[v.ad_id];
-        if (a) niveles(v.ad_id, paisDe(a.campana)).forEach((x) => { x.ventas_n += 1; x.ventas_cop += v.valor_cop; sumarLocal(x, v); });
+        // El país de la venta es SIEMPRE la pestaña del Excel donde está (igual que el cierre); el anuncio solo dice de qué campaña vino
+        if (a) niveles(v.ad_id, v.pais).forEach((x) => { x.ventas_n += 1; x.ventas_cop += v.valor_cop; sumarLocal(x, v); });
         else niveles(null, v.pais).forEach((x) => { x.sin_atrib_n += 1; x.sin_atrib_cop += v.valor_cop; sumarLocal(x, v); });
       });
       return Object.values(g).map((x) => {
@@ -1579,7 +1667,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       meta_dias.forEach((r) => { const p = paisDe(r.campana); todos(r.fecha, r.ad_id, p, 'gasto', r.gasto); todos(r.fecha, r.ad_id, p, 'conversaciones', r.conversaciones); });
       ventas_cop.filter((v) => v.valor_cop && v.fecha >= min && v.fecha <= max).forEach((v) => {
         const a = adInfo[v.ad_id];
-        const p = a ? paisDe(a.campana) : v.pais;
+        const p = v.pais; // país = pestaña del Excel
         todos(v.fecha, a ? v.ad_id : null, p, 'ventas_n', 1);
         todos(v.fecha, a ? v.ad_id : null, p, 'ventas_cop', v.valor_cop);
         if (a) todos(v.fecha, v.ad_id, p, 'ventas_atrib_n', 1);
@@ -1802,10 +1890,10 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   dash.calc('liquidacion', {
     title: 'Cierres por quincena y mes',
     description: 'Por periodo (filas total) y por periodo y país (filas pais, también en moneda local con la tasa de Tasas al cierre del periodo): ventas, pauta con IVA, utilidad de países, gastos, utilidad total, comisión de proveedores (% de la utilidad de cada país, si es positiva), nómina (% de la utilidad total; si hay trabajadores en Config, la suma de sus % y una fila trabajador por persona con su pago), empresa (% de la utilidad total) y lo que queda para cada socio, con los porcentajes de la pestaña Config.',
-    inputs: ['meta_dias', 'ventas', 'gastos', 'config', 'paises', 'tasas_aj', 'facturas_cont', 'tasas_cierre'],
-    fn: (meta_dias, ventas_raw, gastos0, config, paises, tasas, facturas_cont, tasas_cierre) => {
+    inputs: ['meta_dias', 'ventas', 'gastos', 'config', 'paises', 'tasas_aj', 'facturas_cont', 'tasas_cierre', 'cierres', 'cierres_paises'],
+    fn: (meta_dias, ventas_raw, gastos0, config, paises, tasas, facturas_cont, tasas_cierre, cierres, cierres_paises) => {
       // Gastos pagados y pendientes + facturas por pagar: todos se descuentan en la quincena de su fecha de creación
-      const gastos = [...gastos0, ...facturas_cont.map((f) => ({ fecha: f.creada, valor: f.valor, pais: 'General' }))];
+      const gastos = [...gastos0, ...facturas_cont.map((f) => ({ fecha: f.creada, valor: f.valor, pais: 'General', concepto: f.concepto + ' (pendiente)' }))];
       const periodosDe = (fechas) => {
         const meses = [...new Set(fechas.map((f) => f.slice(0, 7)))].sort();
         const out = [];
@@ -1883,14 +1971,32 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           const nomina = Math.round((base * P_TRAB) / 100), empresa = Math.round((base * P_EMP) / 100);
           trabajadores.forEach((w) => pagos.push({ nivel: 'trabajador', clave: p.periodo + '|trab|' + w.nombre, periodo: p.periodo, nombre: w.nombre, pct: w.valor, pago: Math.round((base * w.valor) / 100) }));
           const resto = util_total - prov - nomina - empresa;
+          const detalle_gastos = gs.map((g) => (g.concepto || 'Gasto') + ' (' + (g.pais || 'General') + '): $' + Math.round(g.valor).toLocaleString('es-CO')).join('; ') + (trabajadores.length ? '; Nómina: ' + trabajadores.map((w) => w.nombre + ' $' + Math.round((base * w.valor) / 100).toLocaleString('es-CO')).join('; ') : '');
           tot.push({
             periodo: p.periodo, tipo: p.tipo, desde: p.desde, hasta: p.hasta, completo: p.hasta < hoy, datos_desde: datosDesde, parcial: p.desde < datosDesde,
             ventas: Math.round(ventas), ventas_n: n, conversaciones: conv, pauta_iva: pauta, utilidad_paises: util_p, gastos: gasto_total, utilidad_total: util_total,
             pct_prov: P_PROV, proveedores: prov, pct_trab: P_TRAB, nomina, pct_emp: P_EMP, empresa, pct_s1: S1, pct_s2: S2,
             socio1: Math.round((resto * S1) / 100), socio2: Math.round((resto * S2) / 100),
             rentabilidad: pauta > 0 ? Math.round((util_total / pauta) * 1000) / 10 : null,
-            roas: pauta > 0 ? Math.round((ventas / pauta) * 100) / 100 : null,
+            roas: pauta > 0 ? Math.round((ventas / pauta) * 100) / 100 : null, detalle_gastos,
           });
+        });
+        // Cierres ya guardados: se muestran tal como se guardaron (no cambian si después cambian porcentajes, tasas o datos)
+        const PCT_KEYS = ['ventas', 'ventas_n', 'pauta_iva', 'utilidad_paises', 'gastos', 'utilidad_total', 'proveedores', 'pct_trab', 'nomina', 'pct_emp', 'empresa', 'socio1', 'socio2', 'rentabilidad', 'roas', 'detalle_gastos'];
+        (cierres || []).forEach((c) => {
+          const t = tot.find((x) => x.periodo === c.id); if (!t) return;
+          t.calculado = { ...t };
+          PCT_KEYS.forEach((k) => { if (c[k] !== null && c[k] !== undefined && c[k] !== '') t[k] = c[k]; });
+          t.guardado = true; t.registrado = c.registrado;
+          // pagos a trabajadores guardados en el detalle («Nómina: Nombre $x; …»)
+          const m = String(c.detalle_gastos || '').split('Nómina:')[1];
+          if (m) { for (let i = pagos.length - 1; i >= 0; i--) if (pagos[i].periodo === c.id) pagos.splice(i, 1); m.split(';').forEach((z) => { const mm = z.trim().match(/^(.+?)\s*\$\s*([\d.,]+)$/); if (mm) pagos.push({ nivel: 'trabajador', clave: c.id + '|trab|' + mm[1].trim(), periodo: c.id, nombre: mm[1].trim(), pct: null, pago: leerValor(mm[2]) }); }); const mios = pagos.filter((x) => x.periodo === c.id); mios.forEach((x) => { x.pct = c.pct_trab && mios.length ? Math.round((c.pct_trab / mios.length) * 100) / 100 : null; }); }
+        });
+        (cierres_paises || []).forEach((c) => {
+          const r = pai.find((x) => x.periodo === c.id && x.pais === c.pais); if (!r) return;
+          r.calculado = { ...r };
+          ['moneda', 'tasa', 'ventas_n', 'ventas_local', 'ventas', 'gastos', 'pauta_iva', 'utilidad', 'pct_prov', 'comision', 'comision_local', 'utilidad_final', 'gastos_local', 'pauta_local', 'utilidad_local', 'utilidad_final_local'].forEach((k) => { if (c[k] !== null && c[k] !== undefined && c[k] !== '') r[k] = c[k]; });
+          r.utilidad_total = r.utilidad; r.proveedores = r.comision; r.guardado = true; r.tasa_manual = false;
         });
           return [...tot.map((t) => ({ nivel: 'total', clave: t.periodo, ...t })), ...pai.map((p) => ({ nivel: 'pais', ...p })), ...pagos];
     },
@@ -1966,11 +2072,12 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   // ---------- Navegación ----------
   let vista = 'inicio';
   const mostrar = (v) => {
-    if (window.idealabRol === 'creativos') v = 'creativos';
+    if (window.idealabRol === 'creativos' && v !== 'notas') v = 'creativos';
     vista = v; window.idealabVista = () => vista;
     document.querySelectorAll('[data-vista]').forEach((s) => { s.hidden = s.dataset.vista !== v; });
     document.querySelectorAll('#nav button').forEach((b) => { if (b.dataset.v === v) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
-    $('rango').style.visibility = v === 'contabilidad' || v === 'config' || v === 'paginas' || v === 'creativos' ? 'hidden' : 'visible';
+    $('rango').style.visibility = v === 'contabilidad' || v === 'config' || v === 'paginas' || v === 'creativos' || v === 'notas' ? 'hidden' : 'visible';
+    if (v === 'notas' && window.idealabNotas) window.idealabNotas.abrir();
     dash.setLink(v);
     dibujar();
   };
@@ -1982,6 +2089,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   let metrica = 'ganancia';
   let abierta = null;
   let periodoSel = null;
+  let bitMet = 'utilidad';
   let paisCierre = null;
   ['vida-orden', 'vida-estado'].forEach((id) => $(id).addEventListener('change', () => { vidaTodos = false; dibujarSeguro(); }));
   $('vida-mas').addEventListener('click', () => { vidaTodos = !vidaTodos; dibujarSeguro(); });
@@ -3318,6 +3426,103 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     });
   }
 
+  // ---------- Avances de proveedores ----------
+  let avPer = null, avPais = null;
+  const leerNum = (t) => { const s0 = String(t || '').trim().replace(/\s/g, ''); if (!s0) return null; let s1 = s0; if (s1.includes(',')) s1 = s1.replace(/\./g, '').replace(',', '.'); else if (/^\d{1,3}(\.\d{3})+$/.test(s1)) s1 = s1.replace(/\./g, ''); const n = Number(s1); return Number.isFinite(n) && n > 0 ? n : null; };
+  const quincenaDe = (f) => f.slice(0, 7) + (Number(f.slice(8, 10)) <= 15 ? '-Q1' : '-Q2');
+  function dibujarAvances(tots, filasLP, etq) {
+    const A = dash.data('avances'), PA = dash.data('paises');
+    const av = A.status === 'ok' ? A.data : [];
+    const paisesL = PA.status === 'ok' ? [...new Map(PA.data.map((x) => [x.pais, x])).values()] : [];
+    const quin = tots.filter((t) => t.tipo === 'Quincena');
+    const hoyQ = quincenaDe(HOY);
+    if (!avPer || !quin.find((t) => t.periodo === avPer)) avPer = quin.find((t) => t.periodo === hoyQ) ? hoyQ : (quin[quin.length - 1] || {}).periodo;
+    const sp = $('av-periodo'), opts = [...quin].reverse();
+    const firma = opts.map((o) => o.periodo + o.completo).join();
+    if (sp.dataset.v !== firma) { sp.replaceChildren(...opts.map((t) => new Option(etq(t), t.periodo))); sp.dataset.v = firma; const sp2 = $('av-per'); const v2 = sp2.value; sp2.replaceChildren(...opts.map((t) => new Option(etq(t), t.periodo))); if (v2) sp2.value = v2; }
+    sp.value = avPer;
+    const tq = quin.find((t) => t.periodo === avPer); if (!tq) return;
+    // Saldos por país
+    const box = $('av-saldos'); box.replaceChildren();
+    paisesL.forEach((p) => {
+      const r = filasLP.find((x) => x.periodo === avPer && x.pais === p.pais);
+      const mios = av.filter((a) => a.periodo === avPer && a.pais === p.pais);
+      if (!r && !mios.length) return;
+      const mon = (r && r.moneda) || p.moneda || 'COP';
+      const ventasL = r ? r.ventas_local || 0 : 0, enviado = mios.reduce((s0, a) => s0 + (a.monto || 0), 0), enviadoCop = mios.reduce((s0, a) => s0 + (a.cop || 0), 0);
+      const restante = Math.round((ventasL - enviado) * 100) / 100, com = r ? r.comision_local || 0 : 0, aEnviar = Math.round((restante - com) * 100) / 100;
+      const c = document.createElement('div'); c.className = 'av-c';
+      const h = document.createElement('h4'); h.textContent = p.pais; const sm = document.createElement('small'); sm.textContent = (r ? num.format(r.ventas_n || 0) : 0) + ' ventas · ' + mon; h.appendChild(sm); c.appendChild(h);
+      const ln = (lb, v, sub) => { const l = document.createElement('div'); l.className = 'av-l'; const a = document.createElement('span'); a.textContent = lb; const b = document.createElement('b'); b.textContent = v; if (sub) { const e = document.createElement('em'); e.textContent = sub; b.appendChild(e); } l.append(a, b); c.appendChild(l); };
+      ln('Entró por ventas', fLocal(ventasL, mon), 'lo que hay en la cuenta del proveedor');
+      ln('− Avances enviados (' + mios.length + ')', fLocal(enviado, mon), enviado ? 'llegaron ' + cop.format(enviadoCop) : '');
+      ln('= Queda en su cuenta', fLocal(restante, mon));
+      ln('− Comisión ' + num.format(r ? r.pct_prov : 10) + '% sobre la utilidad', fLocal(com, mon), tq.completo ? '' : 'estimada: el periodo sigue abierto');
+      const t = document.createElement('div'); t.className = 'av-tot' + (aEnviar < 0 ? ' neg' : '');
+      const a1 = document.createElement('span'); a1.textContent = aEnviar >= 0 ? (tq.completo ? 'Debe enviar' : 'Le quedaría por enviar') : 'Se le debe al proveedor';
+      const b1 = document.createElement('b'); b1.textContent = fLocal(Math.abs(aEnviar), mon) + (r && r.tasa && mon !== 'COP' ? ' ≈ ' + cop.format(Math.round(Math.abs(aEnviar) * r.tasa)) : '');
+      t.append(a1, b1); c.appendChild(t);
+      box.appendChild(c);
+    });
+    if (!box.children.length) { const e = document.createElement('p'); e.className = 'ag-empty'; e.textContent = 'Sin ventas ni avances en este periodo.'; box.appendChild(e); }
+    // Formulario
+    const sel = $('av-pais');
+    if (sel.options.length !== paisesL.length) { sel.replaceChildren(...paisesL.map((p) => new Option(p.pais + ' (' + p.moneda + ')', p.pais))); }
+    if (!$('av-fecha').value) $('av-fecha').value = HOY;
+    if (!$('av-per').value) $('av-per').value = quincenaDe($('av-fecha').value || HOY);
+    const pSel = paisesL.find((p) => p.pais === sel.value);
+    $('av-mon').textContent = '(' + (pSel ? pSel.moneda : 'moneda local') + ')';
+    // Tabla del periodo
+    const filas = av.filter((a) => a.periodo === avPer).sort((a, b) => b.fecha.localeCompare(a.fecha));
+    $('avances-vacio').hidden = filas.length > 0 || A.status !== 'ok';
+    tabla($('t-avances'), [['fecha', 'Fecha'], ['pais', 'País'], ['monto', 'Enviado', 'num'], ['tasa', 'Tasa', 'num'], ['cop', 'En pesos', 'num'], ['nota', 'Nota'], ['quien', 'Registró'], ['borrar', '']], filas, {
+      key: 'id',
+      celda: (td, c, f) => {
+        if (c === 'fecha') { td.textContent = fCorta(f.fecha) + ' ' + f.fecha.slice(0, 4); return true; }
+        if (c === 'monto') { td.textContent = fLocal(f.monto, f.moneda); return true; }
+        if (c === 'tasa') { td.textContent = fTasa(f.tasa); return true; }
+        if (c === 'cop') { td.textContent = cop.format(f.cop); return true; }
+        if (c !== 'borrar') return false;
+        const bt = document.createElement('button'); bt.type = 'button'; bt.className = 'ag-x'; bt.textContent = 'Eliminar';
+        bt.addEventListener('click', async () => {
+          if (bt.dataset.seguro !== '1') { bt.dataset.seguro = '1'; bt.textContent = '¿Seguro? Toca otra vez'; bt.style.color = 'var(--ag-bad)'; setTimeout(() => { bt.dataset.seguro = ''; bt.textContent = 'Eliminar'; bt.style.color = ''; }, 4000); return; }
+          bt.disabled = true;
+          try { await window.idealabEnviar({ accion: 'avance_eliminar', id: f.id }); avisar('av-msg', 'Avance eliminado.', true); dash.refresh('avances'); } catch (e) { avisar('av-msg', 'No se pudo eliminar: ' + (e.message || e), false); bt.disabled = false; }
+        });
+        td.appendChild(bt); return true;
+      },
+    });
+  }
+  const avCalc = () => { const m = leerNum($('av-monto').value), t = leerNum($('av-tasa').value); $('av-cop').value = m && t ? cop.format(Math.round(m * t)) : ''; };
+  const avTasaSugerida = () => {
+    const pais = $('av-pais').value, per = $('av-per').value;
+    const LP = dash.data('liquidacion_paises'); const r = LP.status === 'ok' ? LP.data.find((x) => x.pais === pais && x.periodo === per) || LP.data.filter((x) => x.pais === pais).pop() : null;
+    const PA = dash.data('paises'); const p = PA.status === 'ok' ? PA.data.find((x) => x.pais === pais) : null;
+    $('av-mon').textContent = '(' + (p ? p.moneda : 'moneda local') + ')';
+    if (p && p.moneda === 'COP') $('av-tasa').value = '1'; else if (r && r.tasa && !$('av-tasa').dataset.tocada) $('av-tasa').value = String(r.tasa).replace('.', ',');
+    avCalc();
+  };
+  $('av-periodo').addEventListener('change', (e) => { avPer = e.target.value; dibujar(); });
+  $('av-pais').addEventListener('change', () => { $('av-tasa').dataset.tocada = ''; avTasaSugerida(); });
+  $('av-fecha').addEventListener('change', () => { if ($('av-fecha').value) $('av-per').value = quincenaDe($('av-fecha').value); avTasaSugerida(); });
+  $('av-per').addEventListener('change', avTasaSugerida);
+  $('av-monto').addEventListener('input', avCalc);
+  $('av-tasa').addEventListener('input', () => { $('av-tasa').dataset.tocada = '1'; avCalc(); });
+  $('av-guardar').addEventListener('click', async () => {
+    const pais = $('av-pais').value, PA = dash.data('paises'), p = PA.status === 'ok' ? PA.data.find((x) => x.pais === pais) : null;
+    const monto = leerNum($('av-monto').value), tasa = leerNum($('av-tasa').value), fecha = $('av-fecha').value, periodo = $('av-per').value;
+    if (!fecha || !pais || !monto || !tasa || !periodo) { avisar('av-msg', 'Falta la fecha, el país, el monto, la tasa o el cierre.', false); return; }
+    const b = $('av-guardar'); b.disabled = true; avisar('av-msg', 'Guardando…', true);
+    const quien = (() => { try { return localStorage.getItem('idealab_nombre') || ''; } catch (e) { return ''; } })();
+    try {
+      await window.idealabEnviar({ accion: 'avance_guardar', fecha, pais, moneda: p ? p.moneda : '', monto, tasa, periodo, nota: $('av-nota').value.trim(), quien });
+      avisar('av-msg', 'Avance registrado: ' + fLocal(monto, p ? p.moneda : 'COP') + ' de ' + pais + ' = ' + cop.format(Math.round(monto * tasa)) + '.', true);
+      $('av-monto').value = ''; $('av-nota').value = ''; $('av-cop').value = ''; avPer = periodo; dash.refresh('avances');
+    } catch (e) { avisar('av-msg', 'No se pudo guardar: ' + (e.message || e), false); }
+    b.disabled = false;
+  });
+  $('bit-met').addEventListener('click', (e) => { const b = e.target.closest('[data-m]'); if (b) { bitMet = b.dataset.m; dibujar(); } });
+
   function dibujarContabilidad() {
     const L = dash.data('liquidacion');
     const sel = $('liq-periodo');
@@ -3503,36 +3708,131 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     if (!$('g-fecha').value) $('g-fecha').value = HOY;
     dibujarFacturas();
 
-    // Bitácora: barras agrupadas por quincena
+    // ---------- Guardar el cierre (lo deja fijo: ya no cambia con porcentajes, tasas o datos nuevos) ----------
+    const lg = $('liq-guardar'); lg.replaceChildren();
+    const txtG = document.createElement('span');
+    if (tg.tipo === 'Mes') txtG.textContent = 'El mes se calcula con los datos de hoy; lo que se guarda y se paga son las quincenas.';
+    else if (tg.guardado) { txtG.innerHTML = ''; const okS = document.createElement('span'); okS.className = 'ok'; okS.textContent = '✓ Cierre guardado'; txtG.append(okS, document.createTextNode(' · ' + (tg.registrado || '') + '. Así quedó y ya no cambia aunque cambien los porcentajes, las tasas o los datos.')); }
+    else if (tg.completo) txtG.textContent = 'Esta quincena ya terminó. Revísala (tasas, gastos, porcentajes) y guárdala para dejarla fija.';
+    else txtG.textContent = 'Quincena en curso: usa los porcentajes actuales de Configuración. Cuando termine, revísala y guárdala.';
+    lg.appendChild(txtG);
+    if (tg.tipo === 'Quincena' && tg.completo) {
+      const bG = document.createElement('button'); bG.type = 'button'; bG.className = 'ag-btn' + (tg.guardado ? '' : ' pri'); bG.textContent = tg.guardado ? 'Volver a guardar con los datos de hoy' : 'Guardar este cierre';
+      const msgG = document.createElement('small');
+      bG.addEventListener('click', async () => {
+        if (tg.guardado && bG.dataset.seguro !== '1') { bG.dataset.seguro = '1'; bG.textContent = '¿Reemplazar el cierre guardado? Toca otra vez'; setTimeout(() => { bG.dataset.seguro = ''; bG.textContent = 'Volver a guardar con los datos de hoy'; }, 5000); return; }
+        bG.disabled = true; msgG.textContent = 'Guardando…';
+        const base = tg.calculado || tg;
+        const paisesG = filasLP.filter((r) => r.periodo === tg.periodo).map((r) => { const c = r.calculado || r; return { pais: c.pais, moneda: c.moneda, tasa: c.tasa, ventas_n: c.ventas_n, ventas_local: c.ventas_local, ventas: c.ventas, gastos: c.gastos, pauta_iva: c.pauta_iva, utilidad: c.utilidad, pct_prov: c.pct_prov, comision: c.comision, comision_local: c.comision_local, utilidad_final: c.utilidad_final, gastos_local: c.gastos_local, pauta_local: c.pauta_local, utilidad_local: c.utilidad_local, utilidad_final_local: c.utilidad_final_local }; });
+        const quien = (() => { try { return localStorage.getItem('idealab_nombre') || ''; } catch (e) { return ''; } })();
+        try { await window.idealabEnviar({ accion: 'cierre_guardar', quien, global: { id: base.periodo, tipo: base.tipo, desde: base.desde, hasta: base.hasta, ventas: base.ventas, pauta_iva: base.pauta_iva, utilidad_paises: base.utilidad_paises, gastos: base.gastos, detalle_gastos: base.detalle_gastos, utilidad_total: base.utilidad_total, proveedores: base.proveedores, pct_trab: base.pct_trab, nomina: base.nomina, pct_emp: base.pct_emp, empresa: base.empresa, socio1: base.socio1, socio2: base.socio2, rentabilidad: base.rentabilidad, roas: base.roas, ventas_n: base.ventas_n }, paises: paisesG });
+          msgG.textContent = 'Cierre guardado. Recargando…'; dash.refresh('cierres'); }
+        catch (e) { msgG.textContent = 'No se pudo guardar: ' + (e.message || e); bG.disabled = false; }
+      });
+      lg.append(bG, msgG);
+    }
+
+    // ---------- Bitácora ----------
+    const D0 = dash.data('diario'), dia = D0.status === 'ok' ? D0.data.filter((r) => r.nivel === (paisCierre ? 'pais' : 'total') && (!paisCierre || r.id === paisCierre)) : [];
+    const G0 = dash.data('gastos'), F0 = dash.data('facturas_cont');
+    const gastoDia = {};
+    [...(G0.status === 'ok' ? G0.data : []), ...(F0.status === 'ok' ? F0.data.map((f) => ({ fecha: f.creada, valor: f.valor, pais: 'General' })) : [])].forEach((g) => { if (!g.fecha || (paisCierre && g.pais !== paisCierre)) return; gastoDia[g.fecha] = (gastoDia[g.fecha] || 0) + (g.valor || 0); });
+    const porDia = {}; dia.forEach((r) => { porDia[r.fecha] = r; });
+    const mesAct = HOY.slice(0, 7), dHoy = Number(HOY.slice(8, 10));
+    const mesAnt = (() => { const y = Number(mesAct.slice(0, 4)), m = Number(mesAct.slice(5, 7)); return m === 1 ? (y - 1) + '-12' : y + '-' + String(m - 1).padStart(2, '0'); })();
+    const finMes = (ym) => new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 0)).getUTCDate();
+    const serie = (ym, hasta) => { let v = 0, c = 0, u = 0, n = 0, g = 0; const out = []; for (let d = 1; d <= hasta; d++) { const f = ym + '-' + String(d).padStart(2, '0'); const r = porDia[f] || {}; v += r.ventas_cop || 0; c += (r.gasto_iva || 0) + (gastoDia[f] || 0); g += r.gasto || 0; n += r.ventas_n || 0; u = v - c; out.push({ d, f, ventas: v, costos: c, utilidad: u, ventas_n: n, gasto: g }); } return out; };
+    const sAct = serie(mesAct, dHoy), sAnt = serie(mesAnt, finMes(mesAnt));
+    const aHoy = sAct[sAct.length - 1] || { ventas: 0, costos: 0, utilidad: 0, ventas_n: 0, gasto: 0 };
+    const antMismo = sAnt[Math.min(dHoy, sAnt.length) - 1] || { ventas: 0, costos: 0, utilidad: 0, ventas_n: 0, gasto: 0 };
+    const antFull = sAnt[sAnt.length - 1] || antMismo;
+    const nomMes = (ym) => MESES_L[Number(ym.slice(5, 7)) - 1];
+    $('bit-tit').textContent = nomMes(mesAct).charAt(0).toUpperCase() + nomMes(mesAct).slice(1) + ' (1 al ' + dHoy + ') frente a ' + nomMes(mesAnt) + ' al mismo día' + (paisCierre ? ' · ' + paisCierre : '');
+    const bk = $('bit-kpis'); bk.replaceChildren();
+    const roasDe = (x) => (x.gasto > 0 ? x.ventas / (x.gasto * 1.19) : null);
+    [['Ventas', 'ventas', cop], ['Pauta + gastos', 'costos', cop, true], ['Utilidad', 'utilidad', cop], ['N.º de ventas', 'ventas_n', num], ['ROAS', 'roas', null]].forEach(([lb, k, fmt_, alReves]) => {
+      const a = k === 'roas' ? roasDe(aHoy) : aHoy[k], b = k === 'roas' ? roasDe(antMismo) : antMismo[k], full = k === 'roas' ? roasDe(antFull) : antFull[k];
+      const fx = (v) => (v === null || v === undefined ? '—' : fmt_ ? fmt_.format(Math.round(v)) : dec.format(v));
+      const c = document.createElement('div'); c.className = 'bit-k';
+      const l1 = document.createElement('span'); l1.className = 'lb'; l1.textContent = lb;
+      const v1 = document.createElement('span'); v1.className = 'v'; v1.textContent = fx(a);
+      const s1 = document.createElement('span'); s1.className = 's';
+      if (b) { const pc = ((a - b) / Math.abs(b)) * 100; const sp = document.createElement('span'); const bueno = alReves ? pc <= 0 : pc >= 0; sp.className = bueno ? 'up' : 'dn'; sp.textContent = (pc >= 0 ? '▲ ' : '▼ ') + num.format(Math.abs(Math.round(pc))) + '%'; s1.append(sp, document.createTextNode(' vs ' + fx(b) + ' en ' + nomMes(mesAnt) + ' al día ' + Math.min(dHoy, sAnt.length))); }
+      else s1.textContent = 'Sin datos de ' + nomMes(mesAnt) + ' al mismo día';
+      const s2 = document.createElement('span'); s2.className = 's'; s2.style.display = 'block'; s2.textContent = nomMes(mesAnt).charAt(0).toUpperCase() + nomMes(mesAnt).slice(1) + ' completo: ' + fx(full);
+      c.append(l1, v1, s1, s2); bk.appendChild(c);
+    });
+    // Línea acumulada: mes actual vs mes anterior, por día del mes
+    const ba = $('bit-acum'); ba.replaceChildren();
+    document.querySelectorAll('#bit-met [data-m]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.m === bitMet)));
+    const COLA = '#F5B800', COLB = tc('rgba(148,163,184,.85)');
+    $('bit-leg').innerHTML = '<span><i style="background:' + COLA + '"></i>' + nomMes(mesAct) + ' (en curso)</span><span><i style="background:' + COLB + '"></i>' + nomMes(mesAnt) + '</span>';
+    $('bit-acum-nota').textContent = (bitMet === 'utilidad' ? 'Ventas − pauta con IVA − gastos' : bitMet === 'ventas' ? 'Ventas en pesos' : 'Pauta con IVA + gastos') + ', sumando desde el día 1 de cada mes. Así ves si este mes va por encima o por debajo del anterior.';
+    if (sAnt.length || sAct.length) {
+      const W = Math.max(ba.clientWidth, 300), H = 240, m = { t: 14, r: 60, b: 28, l: 64 };
+      const x = d3.scaleLinear([1, 31], [m.l, W - m.r]);
+      const vals = [...sAct, ...sAnt].map((r) => r[bitMet]);
+      const y = d3.scaleLinear([Math.min(0, d3.min(vals) || 0), Math.max(1, d3.max(vals) || 1)], [H - m.b, m.t]).nice();
+      const svg = d3.select(ba).append('svg').attr('width', '100%').attr('viewBox', [0, 0, W, H]);
+      svg.append('g').selectAll('line').data(y.ticks(4)).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y).attr('y2', y).attr('stroke', tc('rgba(255,255,255,.06)'));
+      svg.append('g').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(4).tickFormat((v) => '$' + corto.format(v)).tickSize(0).tickPadding(8)).attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').remove());
+      svg.append('g').attr('transform', `translate(0,${H - m.b})`).call(d3.axisBottom(x).tickValues([1, 5, 10, 15, 20, 25, 31]).tickFormat((d) => 'día ' + d).tickSize(0).tickPadding(10)).attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').attr('stroke', tc('rgba(255,255,255,.12)')));
+      if (y.domain()[0] < 0) svg.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', tc('rgba(255,255,255,.25)'));
+      svg.append('line').attr('x1', x(15.5)).attr('x2', x(15.5)).attr('y1', m.t).attr('y2', H - m.b).attr('stroke', tc('rgba(255,255,255,.12)')).attr('stroke-dasharray', '3 4');
+      const ln = d3.line().x((r) => x(r.d)).y((r) => y(r[bitMet]));
+      svg.append('path').datum(sAnt).attr('d', ln).attr('fill', 'none').attr('stroke', COLB).attr('stroke-width', 2).attr('stroke-dasharray', '5 4');
+      svg.append('path').datum(sAct).attr('d', ln).attr('fill', 'none').attr('stroke', COLA).attr('stroke-width', 3);
+      const fin = (s, col, nombre) => { const r = s[s.length - 1]; if (!r) return; svg.append('circle').attr('cx', x(r.d)).attr('cy', y(r[bitMet])).attr('r', 4).attr('fill', col); svg.append('text').attr('x', x(r.d) + 6).attr('y', y(r[bitMet]) + 4).attr('font-size', 11).attr('fill', col).text('$' + corto.format(r[bitMet])); };
+      fin(sAnt, COLB); fin(sAct, COLA);
+      svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', W - m.l - m.r).attr('height', H - m.t - m.b).attr('fill', 'transparent')
+        .on('mousemove', (ev) => { const [mx, my] = d3.pointer(ev, ba); const d = Math.max(1, Math.min(31, Math.round(x.invert(d3.pointer(ev)[0])))); const a = sAct[d - 1], b = sAnt[d - 1]; mostrarTip(ba, mx, my, [['Día ' + d, 'd'], [nomMes(mesAct) + ': ' + (a ? cop.format(a[bitMet]) : '—'), '', COLA], [nomMes(mesAnt) + ': ' + (b ? cop.format(b[bitMet]) : '—'), '', COLB], ...(a && b ? [['Diferencia: ' + cop.format(a[bitMet] - b[bitMet]), 'd']] : [])]); })
+        .on('mouseleave', ocultarTip);
+    }
+
+    // Barras por quincena (desde el primer cierre guardado, o la última quincena con datos), con su valor encima
     const hc = $('hist-chart');
-    const hist = paisCierre
-      ? tots.filter((x) => x.tipo === 'Quincena').map((x) => filasLP.find((r) => r.periodo === x.periodo && r.pais === paisCierre) || { ...vacia(paisCierre), periodo: x.periodo, tipo: 'Quincena', completo: x.completo })
-      : tots.filter((x) => x.tipo === 'Quincena');
+    const C = dash.data('cierres');
+    const ci = C.status === 'ok' ? C.data.filter((c) => /-Q[12]$/.test(c.id)) : [];
+    const primera = ci.length ? ci.map((c) => c.id).sort()[0] : null;
+    let quinc = tots.filter((x) => x.tipo === 'Quincena' && (!primera || x.periodo >= primera));
+    if (!primera) quinc = quinc.slice(-4);
+    const hist = paisCierre ? quinc.map((x) => filasLP.find((r) => r.periodo === x.periodo && r.pais === paisCierre) || { ...vacia(paisCierre), periodo: x.periodo, tipo: 'Quincena', completo: x.completo }) : quinc;
     hc.replaceChildren();
     hc.dataset.source = paisCierre ? 'liquidacion_paises' : 'liquidacion';
     if (hist.length) {
-      const W = Math.max(hc.clientWidth, 300), H = 260, m = { t: 14, r: 10, b: 30, l: 60 };
-      const SER = [['ventas', '#F5B800'], ['costos', '#60A5FA'], ['utilidad_total', '#2DD4BF']];
-      const datos = hist.map((h) => ({ ...h, costos: (h.pauta_iva || 0) + (h.gastos || 0) }));
+      const W = Math.max(hc.clientWidth, 300), H = 270, m = { t: 26, r: 10, b: 40, l: 60 };
+      const SER = [['ventas', '#F5B800'], ['costos', '#60A5FA'], ['util', '#2DD4BF']];
+      const datos = hist.map((h) => ({ ...h, costos: (h.pauta_iva || 0) + (h.gastos || 0), util: paisCierre ? h.utilidad : h.utilidad_total }));
       const x0 = d3.scaleBand(datos.map((h) => h.periodo), [m.l, W - m.r]).padding(0.25);
       const x1 = d3.scaleBand(SER.map((z) => z[0]), [0, x0.bandwidth()]).padding(0.12);
-      const lo = Math.min(0, d3.min(datos, (h) => h.utilidad_total)), hi = Math.max(1, d3.max(datos, (h) => Math.max(h.ventas, h.costos, h.utilidad_total)));
+      const lo = Math.min(0, d3.min(datos, (h) => h.util)), hi = Math.max(1, d3.max(datos, (h) => Math.max(h.ventas, h.costos, h.util)));
       const y = d3.scaleLinear([lo, hi], [H - m.b, m.t]).nice();
       const svg = d3.select(hc).append('svg').attr('width', '100%').attr('viewBox', [0, 0, W, H]);
       svg.append('g').selectAll('line').data(y.ticks(4)).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y).attr('y2', y).attr('stroke', tc('rgba(255,255,255,.06)'));
       svg.append('g').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(4).tickFormat((v) => '$' + corto.format(v)).tickSize(0).tickPadding(8)).attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').remove());
-      svg.append('g').attr('transform', `translate(0,${H - m.b})`).call(d3.axisBottom(x0).tickFormat((k) => MESES[Number(k.slice(5, 7)) - 1] + (k.endsWith('Q1') ? ' 1–15' : ' 16–fin')).tickSize(0).tickPadding(10)).attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').attr('stroke', tc('rgba(255,255,255,.12)')));
+      const etqQ = (k) => (k.endsWith('Q1') ? '1–15 ' : '16–fin ') + MESES[Number(k.slice(5, 7)) - 1];
+      svg.append('g').attr('transform', `translate(0,${H - m.b})`).call(d3.axisBottom(x0).tickFormat(etqQ).tickSize(0).tickPadding(10)).attr('font-size', null).attr('font-family', null).call((g) => g.select('.domain').attr('stroke', tc('rgba(255,255,255,.12)')));
+      svg.append('g').selectAll('text').data(datos).join('text').attr('x', (h) => x0(h.periodo) + x0.bandwidth() / 2).attr('y', H - 6).attr('text-anchor', 'middle').attr('font-size', 10.5).attr('fill', tc('rgba(255,255,255,.5)')).text((h) => (h.guardado ? '✓ guardado' : h.completo ? 'sin guardar' : 'en curso'));
       const grp = svg.append('g').selectAll('g').data(datos).join('g').attr('transform', (h) => `translate(${x0(h.periodo)},0)`);
+      const bw = Math.min(34, x1.bandwidth());
       grp.selectAll('rect').data((h) => SER.map(([k, col]) => ({ h, k, col, v: h[k] || 0 }))).join('rect')
-        .attr('x', (d) => x1(d.k)).attr('width', Math.min(30, x1.bandwidth())).attr('y', (d) => y(Math.max(0, d.v))).attr('height', (d) => Math.max(1, Math.abs(y(d.v) - y(0)))).attr('rx', 4)
-        .attr('fill', (d) => (d.k === 'utilidad_total' && d.v < 0 ? '#FB7185' : d.col)).attr('fill-opacity', (d) => (d.h.completo ? 1 : 0.45))
-        .on('mousemove', (ev, d) => { const [mx, my] = d3.pointer(ev, hc); mostrarTip(hc, mx, my, [[etq(d.h) + (paisCierre ? ' · ' + paisCierre : ''), 'd'], ['Ventas ' + cop.format(d.h.ventas), '', '#F5B800'], ['Pauta + gastos ' + cop.format(d.h.costos), '', '#60A5FA'], ['Utilidad ' + cop.format(d.h.utilidad_total), '', '#2DD4BF'], ['Cada socio ' + cop.format(d.h.socio1), 'd']]); })
+        .attr('x', (d) => x1(d.k) + (x1.bandwidth() - bw) / 2).attr('width', bw).attr('y', (d) => y(Math.max(0, d.v))).attr('height', (d) => Math.max(1, Math.abs(y(d.v) - y(0)))).attr('rx', 4)
+        .attr('fill', (d) => (d.k === 'util' && d.v < 0 ? '#FB7185' : d.col)).attr('fill-opacity', (d) => (d.h.completo ? 1 : 0.45))
+        .on('mousemove', (ev, d) => { const [mx, my] = d3.pointer(ev, hc); mostrarTip(hc, mx, my, [[etq(d.h) + (paisCierre ? ' · ' + paisCierre : ''), 'd'], ['Ventas ' + cop.format(d.h.ventas), '', '#F5B800'], ['Pauta + gastos ' + cop.format(d.h.costos), '', '#60A5FA'], ['Utilidad ' + cop.format(d.h.util), '', '#2DD4BF'], ...(paisCierre ? [] : [['Cada socio ' + cop.format(d.h.socio1), 'd']])]); })
         .on('mouseleave', ocultarTip);
+      grp.selectAll('text.vl').data((h) => SER.map(([k]) => ({ h, k, v: h[k] || 0 }))).join('text').attr('class', 'vl')
+        .attr('x', (d) => x1(d.k) + x1.bandwidth() / 2).attr('y', (d) => y(Math.max(0, d.v)) - 5).attr('text-anchor', 'middle').attr('font-size', 10.5).attr('font-weight', 600).attr('fill', tc('rgba(255,255,255,.85)')).text((d) => corto.format(d.v));
     }
-    const C = dash.data('cierres');
-    const ci = C.status === 'ok' ? C.data : [];
+    // Tabla de cierres guardados (solo quincenas; lo que realmente se pagó)
     $('cierres-vacio').hidden = ci.length > 0 || C.status !== 'ok';
-    tabla($('t-cierres'), [['id', 'Cierre'], ['ventas', 'Ventas', 'num'], ['pauta_iva', 'Pauta IVA', 'num'], ['gastos', 'Gastos', 'num'], ['utilidad_total', 'Utilidad', 'num'], ['nomina', 'Nómina', 'num'], ['socio1', 'Anthony', 'num'], ['socio2', 'Alejandra', 'num'], ['rentabilidad', 'Rentab.', 'num']], [...ci].reverse(), { key: 'id' });
+    const nomQ = (id) => (id.endsWith('Q1') ? '1.ª' : '2.ª') + ' quincena de ' + MESES_L[Number(id.slice(5, 7)) - 1] + ' ' + id.slice(0, 4);
+    tabla($('t-cierres'), [['id', 'Cierre'], ['ventas', 'Ventas', 'num'], ['pauta_iva', 'Pauta IVA', 'num'], ['gastos', 'Gastos', 'num'], ['utilidad_total', 'Utilidad', 'num'], ['proveedores', 'Proveedores', 'num'], ['nomina', 'Nómina', 'num'], ['empresa', 'Empresa', 'num'], ['socio1', 'Anthony', 'num'], ['socio2', 'Alejandra', 'num'], ['pcts', '% usados']], [...ci].sort((a, b) => b.id.localeCompare(a.id)), {
+      key: 'id',
+      celda: (td, c, f) => { if (c === 'id') { td.textContent = nomQ(f.id); return true; } if (c === 'pcts') { td.textContent = 'Nómina ' + num.format(f.pct_trab || 0) + '% · Empresa ' + num.format(f.pct_emp || 0) + '%'; td.style.whiteSpace = 'nowrap'; return true; } return false; },
+    });
+
+    // ---------- Avances de proveedores ----------
+    dibujarAvances(tots, filasLP, etq);
   }
 
   function dibujarConfig() {
@@ -4890,6 +5190,69 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (habia && !window.__recargado) { window.__recargado = true; location.reload(); } });
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {}));
 }
+</script>
+<script>
+// ---------- Mis notas (bloc de cada usuario; se guarda en la pestaña Notas) ----------
+(function () {
+  const $ = (id) => document.getElementById(id);
+  let notas = [], cargadas = false, filtro = 'abiertas', tipo = 'Tarea', editando = null;
+  const msg = (t, ok) => { const el = $('nt-msg'); el.textContent = t; el.className = 'ag-msg ' + (ok ? 'ok' : 'err'); };
+  const pedir = async (body) => { const r = await window.idealabEnviar(body); notas = r.notas || []; cargadas = true; pintar(); };
+  const fechaTxt = (f) => { if (!f) return ''; const d = f.slice(0, 10), hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date()); return (d === hoy ? 'hoy' : d.slice(8, 10) + '/' + d.slice(5, 7)) + ' ' + f.slice(11, 16); };
+  function pintar() {
+    document.querySelectorAll('#nt-filtro [data-f]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.f === filtro)));
+    document.querySelectorAll('#nt-tipo [data-t]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.t === tipo)));
+    const L = $('nt-lista'); L.replaceChildren();
+    const ver = notas.filter((n) => (filtro === 'abiertas' ? !n.hecho : filtro === 'hechas' ? n.hecho : n.tipo === filtro))
+      .sort((a, b) => (a.hecho - b.hecho) || String(b.actualizada).localeCompare(String(a.actualizada)));
+    $('nt-vacio').hidden = ver.length > 0 || !cargadas;
+    ver.forEach((n) => {
+      const it = document.createElement('div'); it.className = 'nt-it' + (n.hecho ? ' hecha' : '');
+      const ck = document.createElement('input'); ck.type = 'checkbox'; ck.checked = n.hecho; ck.title = n.hecho ? 'Marcar como no hecha' : 'Marcar como hecha'; ck.setAttribute('aria-label', 'Hecha');
+      ck.addEventListener('change', () => pedir({ accion: 'notas_guardar', id: n.id, tipo: n.tipo, texto: n.texto, hecho: ck.checked }).catch((e) => msg('No se pudo guardar: ' + (e.message || e), false)));
+      const cuerpo = document.createElement('div'); cuerpo.style.minWidth = '0';
+      if (editando === n.id) {
+        const ed = document.createElement('div'); ed.className = 'nt-ed';
+        const ta = document.createElement('textarea'); ta.className = 'ag-in'; ta.rows = 3; ta.value = n.texto;
+        const sl = document.createElement('select'); sl.className = 'ag-sel'; ['Tarea', 'Pendiente', 'Apunte'].forEach((t) => sl.add(new Option(t, t))); sl.value = n.tipo;
+        const fila = document.createElement('div'); fila.className = 'nt-acc'; fila.style.justifyContent = 'flex-start';
+        const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'ag-btn pri'; ok.textContent = 'Guardar';
+        const no = document.createElement('button'); no.type = 'button'; no.className = 'ag-btn'; no.textContent = 'Cancelar';
+        ok.addEventListener('click', async () => { ok.disabled = true; try { await pedir({ accion: 'notas_guardar', id: n.id, tipo: sl.value, texto: ta.value, hecho: n.hecho }); editando = null; pintar(); } catch (e) { msg('No se pudo guardar: ' + (e.message || e), false); ok.disabled = false; } });
+        no.addEventListener('click', () => { editando = null; pintar(); });
+        fila.append(sl, ok, no); ed.append(ta, fila); cuerpo.appendChild(ed);
+        setTimeout(() => ta.focus(), 0);
+      } else {
+        const t = document.createElement('div'); t.className = 'nt-t'; t.textContent = n.texto; t.title = 'Toca para editar';
+        t.addEventListener('click', () => { editando = n.id; pintar(); });
+        const meta = document.createElement('span'); meta.className = 'nt-meta';
+        const pill = document.createElement('span'); pill.className = 'nt-pill ' + n.tipo; pill.textContent = n.tipo;
+        meta.append(pill, document.createTextNode(fechaTxt(n.actualizada || n.creada)));
+        cuerpo.append(t, meta);
+      }
+      const acc = document.createElement('div'); acc.className = 'nt-acc';
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'ag-x'; del.textContent = 'Borrar';
+      del.addEventListener('click', async () => {
+        if (del.dataset.seguro !== '1') { del.dataset.seguro = '1'; del.textContent = '¿Seguro?'; setTimeout(() => { del.dataset.seguro = ''; del.textContent = 'Borrar'; }, 3500); return; }
+        del.disabled = true; try { await pedir({ accion: 'notas_borrar', id: n.id }); } catch (e) { msg('No se pudo borrar: ' + (e.message || e), false); del.disabled = false; }
+      });
+      acc.appendChild(del);
+      it.append(ck, cuerpo, acc); L.appendChild(it);
+    });
+  }
+  const agregar = async () => {
+    const tx = $('nt-texto').value.trim(); if (!tx) { msg('Escribe algo primero.', false); return; }
+    const b = $('nt-agregar'); b.disabled = true; msg('Guardando…', true);
+    try { await pedir({ accion: 'notas_guardar', tipo, texto: tx, hecho: false }); $('nt-texto').value = ''; msg('Guardada.', true); if (filtro === 'hechas') filtro = 'abiertas'; pintar(); }
+    catch (e) { msg('No se pudo guardar: ' + (e.message || e), false); }
+    b.disabled = false;
+  };
+  $('nt-agregar').addEventListener('click', agregar);
+  $('nt-texto').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); agregar(); } });
+  $('nt-tipo').addEventListener('click', (e) => { const b = e.target.closest('[data-t]'); if (b) { tipo = b.dataset.t; pintar(); } });
+  $('nt-filtro').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (b) { filtro = b.dataset.f; pintar(); } });
+  window.idealabNotas = { abrir: () => { if (!window.idealabEnviar) return; if (!cargadas) msg('Cargando…', true); pedir({ accion: 'notas_leer' }).then(() => { if ($('nt-msg').textContent === 'Cargando…') $('nt-msg').textContent = ''; }).catch((e) => msg('No se pudieron cargar tus notas: ' + (e.message || e), false)); } };
+})();
 </script>
 </body>
 </html>
