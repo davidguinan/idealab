@@ -161,10 +161,10 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     (pvals || []).slice(1).forEach((r) => { const cod = String(r[1] || '').trim().toUpperCase(); if (!cod || !r[2] || !leerFecha(r[3])) return; (porCod[cod] = porCod[cod] || []).push({ id: String(r[0] || ''), pais: String(r[2] || '').trim(), inicio: leerFecha(r[3]), escala: leerFecha(r[4]) || '', fin: leerFecha(r[5]) || '', nota: String(r[7] || ''), actualizado: String(r[8] || ''), por: String(r[9] || ''), bitacora: String(r[10] || '').split('\n').map((x) => x.trim()).filter(Boolean) }); });
     return vals.slice(1).map((r, i) => ({ fila: i + 2, codigo: String(r[0] || '').trim().toUpperCase(), tipo: /video/i.test(String(r[1] || '')) || /^VD/i.test(String(r[0] || '')) ? 'Video' : 'Imagen', original: String(r[2] || ''), enlace: String(r[3] || ''), id: String(r[4] || '').trim(), subido: leerFecha(r[5]) || String(r[5] || ''), por: String(r[6] || ''), estadoHoja: String(r[7] || '').trim() || 'Sin publicar', nota: String(r[11] || '') })).filter((r) => r.codigo).map((c) => ({ ...c, paises: porCod[c.codigo] || [] }));
   };
-  const aplicarCreativos = (r) => { const vals = r && Array.isArray(r.values) ? r.values : null; if (!vals) throw new Error('sin_servidor'); window.idealabCrMeta = { consecutivos: r.consecutivos || null, lista_paises: r.lista_paises || [] }; fijar('creativos', { status: 'ok', data: leerCreativos(vals, r.paises) }); avisar(); };
+  const aplicarCreativos = (r) => { const vals = r && Array.isArray(r.values) ? r.values : null; if (!vals) throw new Error('sin_servidor'); window.idealabCrMeta = { consecutivos: r.consecutivos || null, lista_paises: r.lista_paises || [] }; const rend = r.rendimiento && Array.isArray(r.rendimiento.creativos) ? r.rendimiento : null; window.idealabCrRend = rend; const porCod = {}; (rend ? rend.creativos : []).forEach((x) => { porCod[x.codigo] = x; }); fijar('creativos', { status: 'ok', data: leerCreativos(vals, r.paises).map((c) => ({ ...c, rendimiento: porCod[c.codigo] || null })) }); avisar(); };
   const cargarCreativos = async () => {
     if (!estado.creativos || estado.creativos.status !== 'ok') fijar('creativos', { status: 'loading', data: [] }); avisar();
-    try { const r = await enviar({ accion: 'creativos_leer' }); aplicarCreativos(r); cacheGuardar('creativos', { values: r.values, paises: r.paises, consecutivos: r.consecutivos, lista_paises: r.lista_paises }); if (rolActual() === 'creativos') marcarFresco(); if (rolActual() === 'creativos') document.getElementById('ag-actualizado').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }); }
+    try { const r = await enviar({ accion: 'creativos_leer' }); aplicarCreativos(r); cacheGuardar('creativos', { values: r.values, paises: r.paises, consecutivos: r.consecutivos, lista_paises: r.lista_paises, rendimiento: r.rendimiento }); if (rolActual() === 'creativos') marcarFresco(); if (rolActual() === 'creativos') document.getElementById('ag-actualizado').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }); }
     catch (e) { fijar('creativos', { status: 'error', data: [], message: /desconocid|unknown|no v[aá]lid|sin_servidor|Clave/i.test(String(e.message)) || e instanceof SyntaxError ? 'sin_servidor' : String(e.message || e) }); }
     avisar();
   };
@@ -809,6 +809,16 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 .ag-btn.ag-viejo { position: relative; border-color: rgba(245,184,0,.6); }
 .ag-btn.ag-viejo::after { content: ''; position: absolute; top: -3px; right: -3px; width: 9px; height: 9px; border-radius: 50%; background: #F5B800; box-shadow: 0 0 0 2px var(--ag-bg, #0B1530); }
 .ag-btn.ag-muy-viejo::after { background: #FB7185; }
+.cr-rend { margin: 10px 0 6px; padding: 9px 10px; border: 1px solid var(--ag-line); border-radius: 10px; background: rgba(var(--tinta),.03); }
+.cr-rend-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--ag-muted); margin-bottom: 4px; }
+.cr-niv { text-transform: none; letter-spacing: 0; font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: rgba(var(--tinta),.1); color: var(--ag-fg); }
+.cr-niv.n-Excelente { background: rgba(34,197,94,.2); color: #22C55E; } .cr-niv.n-Bueno { background: rgba(45,212,191,.18); color: #2DD4BF; } .cr-niv.n-Medio { background: rgba(245,184,0,.18); color: #F5B800; } .cr-niv.n-Bajo, .cr-niv.n-Muybajo { background: rgba(251,113,133,.16); color: #FB7185; } .cr-niv.n-Entesteo { background: rgba(96,165,250,.18); color: #60A5FA; }
+.cr-rend-p { font-size: 12.5px; padding: 4px 0; border-top: 1px dashed rgba(var(--tinta),.08); } .cr-rend-p:first-of-type { border-top: 0; }
+.cr-rend-p small { display: block; color: var(--ag-muted); font-size: 11.5px; line-height: 1.4; } .cr-rend-p small.cr-rend-m { color: var(--ag-fg); opacity: .85; }
+.cr-rend > .cr-rend-m { margin: 2px 0; font-size: 12px; color: var(--ag-muted); }
+.cr-rend-k { margin: 6px 0 0; font-size: 12px; line-height: 1.45; }
+.cr-linea { margin: 0 0 14px; padding: 12px 14px; border: 1px solid rgba(34,197,94,.35); border-radius: 12px; background: rgba(34,197,94,.06); }
+.cr-linea h3 { margin: 0 0 4px; font-size: 14px; } .cr-linea p { margin: 2px 0; font-size: 13px; } .cr-linea .cr-linea-e { color: var(--ag-muted); } .cr-linea small { color: var(--ag-muted); font-size: 11.5px; }
 .liq-guardar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--ag-line); font-size: 13px; color: var(--ag-muted); }
 .liq-guardar .ok { color: var(--ag-good, #2DD4BF); font-weight: 600; }
 .av-h3 { font-size: 13px; letter-spacing: .02em; color: var(--ag-muted); font-weight: 600; margin: 18px 0 8px; text-transform: uppercase; }
@@ -1041,6 +1051,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         <div class="ag-top"><div><h2>Biblioteca</h2><p class="ag-note" id="cr-nota">Toca «Editar» para poner el estado y las fechas de cada creativo.</p></div>
           <div class="ag-chips"><select class="ag-sel" id="cr-tipo" aria-label="Tipo"><option value="">Imágenes y videos</option><option value="Imagen">Solo imágenes</option><option value="Video">Solo videos</option></select><select class="ag-sel" id="cr-est" aria-label="Estado"><option value="">Todos los estados</option></select><select class="ag-sel" id="cr-pais" aria-label="País"><option value="">Todos los países</option></select><select class="ag-sel" id="cr-por" aria-label="Subido por"><option value="">Todas las personas</option></select><input class="ag-in" id="cr-buscar" placeholder="Buscar IMG12, VD3…" aria-label="Buscar"></div></div>
         <div class="cr-res" id="cr-res"></div>
+        <div class="cr-linea" id="cr-linea" data-source="creativos" hidden></div>
         <div class="cr-grid" id="cr-grid" data-source="creativos"></div>
         <p class="ag-msg" id="cr-msg"></p>
       </div>
@@ -1661,7 +1672,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         const out = [base('total|todos', { nivel: 'total', pais: 'todos', nombre: 'Total' }), base('pais|' + pais, { nivel: 'pais', pais, nombre: pais })];
         if (a) {
           out.push(base('campana|' + a.campana_id, { nivel: 'campana', pais, nombre: a.campana, campana_id: a.campana_id, cuenta: a.cuenta }));
-          out.push(base('anuncio|' + ad, { nivel: 'anuncio', pais, nombre: a.anuncio, campana_id: a.campana_id, campana: a.campana, conjunto: a.conjunto, ad_id: ad, estado_ad: a.estado, frecuencia: a.frecuencia }));
+          out.push(base('anuncio|' + ad, { nivel: 'anuncio', pais, nombre: a.anuncio, campana_id: a.campana_id, campana: a.campana, conjunto: a.conjunto, conjunto_id: a.conjunto_id, cuenta: a.cuenta, ad_id: ad, estado_ad: a.estado, frecuencia: a.frecuencia }));
         }
         return out;
       };
@@ -2424,6 +2435,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   // ---------- Presupuesto diario editable ----------
   // Dónde vive el presupuesto: en la campaña (CBO) o, si la campaña no tiene, en su único conjunto activo.
   const destinoPresupuesto = (f) => {
+    if (f.presupuesto_tipo === 'Conjunto' && f.conjunto_id) return { nivel: 'conjunto', id: f.conjunto_id, nombre: f.conjunto || f.nombre };
     if (f.presupuesto_tipo === 'Campaña') return { nivel: 'campana', id: f.campana_id, nombre: f.nombre };
     const J = dash.data('meta_conjuntos');
     const act = J.status === 'ok' ? J.data.filter((j) => j.campana_id === f.campana_id && j.estado === 'ACTIVE' && j.presupuesto) : [];
@@ -2632,7 +2644,15 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
             const td = r.insertCell(); if (cls) td.className = cls;
             if (c === 'nombre') td.textContent = a.nombre + ' · ' + a.conjunto + ' · ' + a.ad_id;
             else if (c === 'recomendacion') td.appendChild(pill(a.recomendacion));
-            else if (c === 'presupuesto') td.textContent = a.frecuencia ? 'frec. ' + dec.format(a.frecuencia) : '—';
+            else if (c === 'presupuesto') {
+              // ABO: cada anuncio va en su conjunto con su propio presupuesto (se edita aquí). CBO: el presupuesto es de la campaña.
+              if (f.presupuesto_tipo === 'Campaña') { td.textContent = 'en la campaña (CBO)'; td.title = 'Campaña CBO: el presupuesto se cambia en la campaña'; }
+              else {
+                const J = dash.data('meta_conjuntos'), cj = J.status === 'ok' ? J.data.find((j) => j.conjunto_id === a.conjunto_id) : null;
+                if (cj && cj.presupuesto) celdaPresupuesto(td, { clave: a.clave, nombre: (cj.conjunto || a.conjunto) + ' (' + a.nombre + ')', conjunto: cj.conjunto || a.conjunto, conjunto_id: a.conjunto_id, campana_id: a.campana_id, cuenta: a.cuenta || f.cuenta, presupuesto: cj.presupuesto, presupuesto_tipo: 'Conjunto' });
+                else { td.textContent = cj ? (cj.estado === 'ACTIVE' ? '—' : 'conjunto apagado') : '—'; }
+              }
+            }
             else if (c === 'ventas_total_local') td.textContent = textoLocal(a);
             else { td.textContent = fmt(c, a[c]); if (c === 'ganancia') td.classList.add(a.ganancia > 0 ? 'ag-pos' : a.ganancia < 0 ? 'ag-neg' : 'x'); }
           });
@@ -3154,6 +3174,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   const crResultado = (p) => (p.fin ? (p.escala ? 'Escaló y se apagó' : 'Murió en testeo') : p.escala ? 'Escalado' : 'En testeo');
   const crEstado = (c) => {
     const ps = c.paises || [];
+    const rd = c.rendimiento;
+    if (!ps.length && rd) return rd.escalado ? (rd.pautando ? 'Escalado' : 'Escaló y se apagó') : rd.pautando ? 'En testeo' : 'Murió en testeo';
     if (!ps.length) return c.estadoHoja === 'Subiendo' && !c.enlace ? 'Subiendo' : 'Sin publicar';
     if (ps.some((p) => p.escala && !p.fin)) return 'Escalado';
     if (ps.some((p) => !p.escala && !p.fin)) return 'En testeo';
@@ -3229,6 +3251,17 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   }
   function dibujarCreativos() {
     const C = dash.data('creativos'), grid = $('cr-grid'), res = $('cr-res'), nx = $('cr-next');
+    {
+      const L = window.idealabCrRend, box = $('cr-linea');
+      box.replaceChildren(); box.hidden = !L || !(L.referencias || []).length;
+      if (L && (L.referencias || []).length) {
+        const h = document.createElement('h3'); h.textContent = '🎯 Qué está vendiendo: haz más por esta línea'; box.appendChild(h);
+        const p = document.createElement('p'); p.className = 'cr-linea-t';
+        p.textContent = L.referencias.map((r) => r.codigo + ': ' + r.paises).join(' · '); box.appendChild(p);
+        if ((L.evitar || []).length) { const e = document.createElement('p'); e.className = 'cr-linea-e'; e.textContent = 'No funcionaron (cambia de enfoque frente a estos): ' + L.evitar.join(', '); box.appendChild(e); }
+        const n = document.createElement('small'); n.textContent = 'Según las campañas hasta el ' + (L.hasta ? Number(L.hasta.slice(8, 10)) + ' ' + MESES[Number(L.hasta.slice(5, 7)) - 1] : 'último día') + '. Toca «✦ Analizar con ONY» en un creativo para ver su mensaje, dolor, solución y público.'; box.appendChild(n);
+      }
+    }
     const se = $('cr-est'); if (se.options.length === 1) CR_ESTADOS.forEach((e) => se.appendChild(new Option(e, e)));
     if (C.status === 'error') {
       nx.replaceChildren(); res.replaceChildren(); grid.replaceChildren();
@@ -3317,6 +3350,27 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       });
       bd.appendChild(pl);
       if (crPaisForm === c.codigo + '|nuevo') formPais(c, null, bd);
+      // Rendimiento según las campañas (Meta_diario + ventas): el equipo de creativos ve mensajes, los socios también los valores
+      {
+        const rd = c.rendimiento, w = document.createElement('div'); w.className = 'cr-rend';
+        const h = document.createElement('div'); h.className = 'cr-rend-h'; h.textContent = 'Según las campañas';
+        if (rd) { const n = document.createElement('span'); n.className = 'cr-niv n-' + rd.nivel.replace(/\s/g, ''); n.textContent = rd.nivel; h.appendChild(n); }
+        w.appendChild(h);
+        if (!rd) { const e = document.createElement('p'); e.className = 'cr-rend-m'; e.textContent = 'Aún no se ha pautado en ninguna campaña.'; w.appendChild(e); }
+        else {
+          const fd = (f) => (f ? Number(f.slice(8, 10)) + ' ' + MESES[Number(f.slice(5, 7)) - 1] : '');
+          rd.paises.forEach((x) => {
+            const l = document.createElement('div'); l.className = 'cr-rend-p';
+            const t = document.createElement('b'); t.textContent = x.pais; l.appendChild(t);
+            l.appendChild(document.createTextNode(' · desde ' + fd(x.inicio) + (x.escalado ? ' · ✓ escaló ' + fd(x.inicio_escala) : '') + (x.pautando ? ' · pautando' : ' · hasta ' + fd(x.ultimo))));
+            if (x.roas !== undefined) { const v = document.createElement('small'); v.textContent = 'Gasto ' + cop.format(x.gasto_iva) + ' · ' + num.format(x.ventas_n) + (x.ventas_n === 1 ? ' venta' : ' ventas') + ' · ' + cop.format(x.ventas_cop) + ' · ROAS ' + (x.roas === null ? '—' : dec.format(x.roas)) + ' · utilidad ' + cop.format(x.utilidad); l.appendChild(v); }
+            const m = document.createElement('small'); m.className = 'cr-rend-m'; m.textContent = x.mensaje; l.appendChild(m);
+            w.appendChild(l);
+          });
+          if (rd.consejo) { const k = document.createElement('p'); k.className = 'cr-rend-k'; k.textContent = '💡 ' + rd.consejo; w.appendChild(k); }
+        }
+        bd.appendChild(w);
+      }
       if (c.nota || crNotaEd === c.codigo) {
         if (crNotaEd === c.codigo) {
           const w = document.createElement('div'); w.className = 'cr-nota-ed'; const i = document.createElement('input'); i.className = 'ag-in'; i.value = c.nota; i.placeholder = 'Nota general del creativo';
@@ -4646,8 +4700,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 
   // ---------- Lo que ONY ve de la app ----------
   const contexto = () => {
-    const crs = D('creativos').map((c) => ({ codigo: c.codigo, tipo: c.tipo, estado: c.estado, subido: c.subido, por: c.por, nota: c.nota || undefined, paises: (c.paises || []).map((p) => p.pais + ': testeo ' + p.inicio + (p.escala ? ', escaló ' + p.escala : '') + (p.fin ? ', apagado ' + p.fin : ', activo')) })).slice(0, 80);
-    if (esTrab()) return { creativos: crs };
+    const crs = D('creativos').map((c) => ({ codigo: c.codigo, tipo: c.tipo, estado: c.estado, subido: c.subido, por: c.por, nota: c.nota || undefined, paises: (c.paises || []).map((p) => p.pais + ': testeo ' + p.inicio + (p.escala ? ', escaló ' + p.escala : '') + (p.fin ? ', apagado ' + p.fin : ', activo')), rendimiento: c.rendimiento || undefined })).slice(0, 80);
+    const rendG = window.idealabCrRend ? { referencias: window.idealabCrRend.referencias, evitar: window.idealabCrRend.evitar, hasta: window.idealabCrRend.hasta } : undefined;
+    if (esTrab()) return { creativos: crs, linea_creativos: rendG };
     const R = D('resumen'), P = window.dash.params();
     const paises = R.filter((x) => x.nivel === 'pais' || x.nivel === 'total').map((x) => ({ pais: x.nombre, gasto_con_iva: x.gasto_iva, ventas: x.ventas_total_cop, n_ventas: x.ventas_total_n, roas: x.roas, utilidad: x.ganancia, conversaciones: x.conversaciones, costo_conv: x.costo_conv, pct_conv: x.pct_conv })).filter((x) => x.gasto_con_iva || x.ventas);
     const MC = D('meta_campanas'), MJ = D('meta_conjuntos');
@@ -4671,9 +4726,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const dias_conjunto = {}; Object.values(gc).sort((a, b) => a.f.localeCompare(b.f)).forEach((x) => { const k = nomConj[x.j] + ' (' + x.j + ')'; (dias_conjunto[k] = dias_conjunto[k] || []).push([x.f, null, Math.round(x.v), Math.round(x.g * 1.19), Math.round(x.v - x.g * 1.19), x.g > 0 ? r2(x.v / (x.g * 1.19)) : null, x.c]); });
     const bots = D('numeros_uso').map((n) => ({ codigo: n.codigo, estado: n.estado, mensajes_hoy: n.msg_hoy, campanas: n.campanas, pagina: n.pagina }));
     const estadoDatos = {}; ['meta_rango', 'meta_hoy', 'meta_campanas', 'ventas', 'resumen', 'diario', 'meta_dias'].forEach((id) => { const x = window.dash.data(id); estadoDatos[id] = x ? x.status + (x.status === 'ok' ? ' (' + (x.data || []).length + ' filas)' : x.message ? ': ' + x.message : '') : 'sin cargar'; });
-    return { estado_de_los_datos: estadoDatos, hoy: resDia(hoy), ayer: resDia(sumar(hoy, -1)), periodo: { desde: P.desde, hasta: P.hasta }, paises_del_periodo: paises, campanas, conjuntos_activos: conjuntos, anuncios, dias_columnas: ['fecha', 'n_ventas', 'facturacion', 'gasto_ads_con_iva', 'utilidad', 'roas', 'conversaciones'], dias_pais, dias_campana, dias_conjunto, bots, creativos: crs.slice(0, 40) };
+    return { estado_de_los_datos: estadoDatos, hoy: resDia(hoy), ayer: resDia(sumar(hoy, -1)), periodo: { desde: P.desde, hasta: P.hasta }, paises_del_periodo: paises, campanas, conjuntos_activos: conjuntos, anuncios, dias_columnas: ['fecha', 'n_ventas', 'facturacion', 'gasto_ads_con_iva', 'utilidad', 'roas', 'conversaciones'], dias_pais, dias_campana, dias_conjunto, bots, creativos: crs.slice(0, 40), linea_creativos: rendG };
   };
-  const contextoTxt = () => { let c = contexto(); let t = JSON.stringify(c); if (t.length > 55000 && c.anuncios) { c.anuncios = c.anuncios.slice(0, 20); c.creativos = c.creativos.slice(0, 15); t = JSON.stringify(c); } return t.slice(0, 58000); };
+  const contextoTxt = () => { let c = contexto(); let t = JSON.stringify(c); if (t.length > 55000 && c.anuncios) { c.anuncios = c.anuncios.slice(0, 20); c.creativos = c.creativos.slice(0, 25); t = JSON.stringify(c); } return t.slice(0, 58000); };
 
   // ---------- Texto con formato sencillo (negritas, listas, títulos) ----------
   const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -4889,8 +4944,10 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       await agregarArchivo(blob, c.codigo + (c.original ? ' (' + c.original + ')' : ''));
       p.remove();
       const pa = (c.paises || []).map((x) => x.pais + ': testeo desde ' + x.inicio + (x.escala ? ', escaló ' + x.escala : '') + (x.fin ? ', apagado ' + x.fin : '')).join('; ');
-      notaAdj += '\nEs el creativo ' + c.codigo + ' de la biblioteca (' + c.tipo + ', estado ' + c.estado + ')' + (pa ? '. Historial por país: ' + pa : '') + (c.nota ? '. Nota: ' + c.nota : '') + '.';
-      preguntar('Analiza el creativo ' + c.codigo + ': descripción, ' + (c.tipo === 'Video' ? 'duración, ' : '') + 'gancho, objetivo, público, dolor, necesidad y solución, y propón una versión nueva para testear y lograr escalar.');
+      const rd = c.rendimiento;
+      const rdTxt = rd ? ' RESULTADOS EN CAMPAÑAS (hasta ' + ((window.idealabCrRend || {}).hasta || 'ayer') + '): nivel ' + rd.nivel + (rd.escalado ? ', ESCALÓ' : ', no escaló') + '. ' + rd.paises.map((x) => x.pais + ': desde ' + x.inicio + (x.escalado ? ', escaló ' + x.inicio_escala : '') + (x.pautando ? ', pautando' : ', ya no se pauta') + (x.roas !== undefined ? ', gasto con IVA ' + x.gasto_iva + ', ' + x.ventas_n + ' ventas, ROAS ' + x.roas + ', ' + x.conversaciones + ' conversaciones' : '') + ' (' + x.mensaje + ')').join('; ') : ' Este creativo todavía no se ha pautado en ninguna campaña.';
+      notaAdj += '\nEs el creativo ' + c.codigo + ' de la biblioteca (' + c.tipo + ', estado ' + c.estado + ')' + (pa ? '. Historial por país: ' + pa : '') + (c.nota ? '. Nota: ' + c.nota : '') + '.' + rdTxt;
+      preguntar('Analiza el creativo ' + c.codigo + ' con el criterio de Eduardo: descripción, ' + (c.tipo === 'Video' ? 'duración, ' : '') + 'gancho, MENSAJE, DOLOR que toca, SOLUCIÓN que ofrece, PÚBLICO al que va dirigido y objetivo. ' + (rd ? (rd.nivel === 'Excelente' || rd.nivel === 'Bueno' ? 'Como sí vendió, explica por qué funcionó y propón 2 o 3 creativos similares por esa misma línea.' : rd.nivel === 'En testeo' ? 'Está en testeo: dime qué vigilar y qué mejorarías ya.' : 'Como no funcionó, explica por qué crees que falló y propón 2 o 3 versiones con otro enfoque.') : 'Aún no se ha pautado: dime si lo subirías a testeo y qué le mejorarías antes.') + ' Termina con recomendaciones concretas para el equipo de creativos.');
     } catch (e) { p.remove(); burbuja('ony', 'No pude bajar ' + c.codigo + ': ' + String(e.message || e)); }
   };
 
