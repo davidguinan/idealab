@@ -622,7 +622,7 @@ tr.cd-vacio td { opacity: .45; }
 .cr-form .ag-in, .cr-form .ag-sel { width: 100%; }
 .cr-dur { margin: 0; font-size: 12.5px; color: var(--ag-gold); }
 /* Cuenta de creativos: solo ve este apartado */
-[data-rol="creativos"] #nav button:not([data-v="creativos"]):not([data-v="notas"]) { display: none !important; }
+[data-rol="creativos"] #nav button:not([data-v="creativos"]):not([data-v="notas"]):not([data-v="producto"]) { display: none !important; }
 [data-rol="creativos"] #rango, [data-rol="creativos"] #takeaway { display: none !important; }
 [data-rol="creativos"] .ag-session b::after { content: ''; }
 .f-res { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin: 10px 0 12px; }
@@ -785,6 +785,19 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 .ony-msgs { background-color: var(--wa-fondo); background-image: radial-gradient(rgba(255,255,255,.035) 1.2px, transparent 1.3px), radial-gradient(rgba(255,255,255,.025) 1px, transparent 1.1px); background-size: 22px 22px, 31px 31px; background-position: 0 0, 11px 15px; gap: 3px; padding: 12px 12px 14px; }
 [data-tema="claro"] .ony-msgs { background-image: radial-gradient(rgba(0,0,0,.05) 1.2px, transparent 1.3px), radial-gradient(rgba(0,0,0,.035) 1px, transparent 1.1px); }
 .ony-msgs { overflow-x: hidden; }
+.ony-m a { color: #53BDEB; text-decoration: underline; word-break: break-all; } [data-tema="claro"] .ony-m a { color: #027EB5; }
+.pr-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); margin-top: 14px; }
+.pr-c { position: relative; border: 1px solid var(--ag-line); border-radius: 14px; padding: 16px; background: var(--ag-panel2); min-width: 0; overflow: hidden; }
+.pr-c h3 { margin: 0; font-size: 17px; padding-right: 150px; } .pr-c:not(.lock) h3 { padding-right: 80px; } .pr-c .pr-sub { color: var(--ag-muted); font-size: 12.5px; margin-top: 2px; }
+.pr-est { position: absolute; top: 14px; right: 14px; font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: rgba(34,197,94,.18); color: #22C55E; }
+.pr-c.lock { border-style: dashed; background: repeating-linear-gradient(135deg, rgba(var(--tinta),.025) 0 12px, transparent 12px 24px), var(--ag-panel2); }
+.pr-c.lock .pr-est { background: rgba(245,184,0,.16); color: #F5B800; }
+.pr-lock { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 22px 0 10px; text-align: center; color: var(--ag-muted); font-size: 13px; }
+.pr-lock svg { width: 42px; height: 42px; stroke: #F5B800; fill: none; stroke-width: 1.8; }
+.pr-campos { display: grid; gap: 8px; margin-top: 12px; }
+.pr-f { font-size: 13px; line-height: 1.45; } .pr-f b { display: block; font-size: 11px; color: var(--ag-muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 600; } .pr-f span { white-space: pre-wrap; overflow-wrap: anywhere; }
+.pr-acc { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+.pr-form { display: grid; gap: 8px; margin-top: 12px; } .pr-form label { display: grid; gap: 3px; font-size: 12px; color: var(--ag-muted); } .pr-form textarea { width: 100%; font: inherit; resize: vertical; min-height: 40px; }
 .nt-nueva { display: grid; gap: 8px; margin-top: 12px; padding: 12px; border: 1px dashed rgba(245,184,0,.35); border-radius: 12px; }
 .nt-tipos { display: flex; flex-wrap: wrap; gap: 6px; } .nt-txt { width: 100%; resize: vertical; min-height: 54px; font: inherit; }
 .nt-nueva > .ag-btn.pri { justify-self: end; }
@@ -896,6 +909,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       <button type="button" data-v="paginas"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></svg>Fan pages</button>
       <button type="button" data-v="creativos"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6M15 9h.01"/></svg>Creativos</button>
       <button type="button" data-v="contabilidad"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"/></svg>Contabilidad</button>
+      <button type="button" data-v="producto"><svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></svg>Producto</button>
       <button type="button" data-v="notas"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>Mis notas</button>
       <button type="button" data-v="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Configuración</button>
     </nav>
@@ -1217,6 +1231,16 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         <h3 class="av-h3">Cierres guardados</h3>
         <div class="ag-scroll"><table class="ag-table" id="t-cierres" data-source="cierres" data-row-key="id"></table></div>
         <p class="ag-empty" id="cierres-vacio" hidden>Todavía no hay cierres guardados. Revisa la quincena terminada y toca «Guardar este cierre».</p>
+      </div>
+    </section>
+
+    <!-- PRODUCTO -->
+    <section class="ag-vista" id="producto" data-vista="producto" hidden>
+      <div class="ag-card">
+        <div class="ag-top"><div><h2>Producto</h2><p class="ag-note">La ficha de cada producto: qué es, para quién, qué dolor resuelve, qué incluye, precios y palabra clave. ONY la usa para analizar creativos y escribir guiones.</p></div>
+          <div class="ag-chips solo-socios"><button type="button" class="ag-btn" id="pr-nuevo">+ Nuevo producto</button></div></div>
+        <p class="ag-msg" id="pr-msg"></p>
+        <div class="pr-grid" id="pr-grid"></div>
       </div>
     </section>
 
@@ -2147,12 +2171,13 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   // ---------- Navegación ----------
   let vista = 'inicio';
   const mostrar = (v) => {
-    if (window.idealabRol === 'creativos' && v !== 'notas') v = 'creativos';
+    if (window.idealabRol === 'creativos' && v !== 'notas' && v !== 'producto') v = 'creativos';
     vista = v; window.idealabVista = () => vista;
     document.querySelectorAll('[data-vista]').forEach((s) => { s.hidden = s.dataset.vista !== v; });
     document.querySelectorAll('#nav button').forEach((b) => { if (b.dataset.v === v) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
-    $('rango').style.visibility = v === 'contabilidad' || v === 'config' || v === 'paginas' || v === 'creativos' || v === 'notas' ? 'hidden' : 'visible';
+    $('rango').style.visibility = v === 'contabilidad' || v === 'config' || v === 'paginas' || v === 'creativos' || v === 'notas' || v === 'producto' ? 'hidden' : 'visible';
     if (v === 'notas' && window.idealabNotas) window.idealabNotas.abrir();
+    if (v === 'producto' && window.idealabProductos) window.idealabProductos.abrir();
     dash.setLink(v);
     dibujar();
   };
@@ -4735,7 +4760,16 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   const md = (t) => {
     const lineas = esc(t).split('\n'); let html = '', lista = null, cab = [];
     const cerrar = () => { if (lista) { html += lista === 'tabla' ? '</div>' : '</' + lista + '>'; lista = null; } };
-    const inl = (s) => s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|[\s(])\*(?!\s)(.+?)\*(?=[\s).,;:!?]|$)/g, '$1<b>$2</b>').replace(/(^|[\s(])_(?!\s)(.+?)_(?=[\s).,;:!?]|$)/g, '$1<i>$2</i>').replace(/`([^`]+)`/g, '<code>$1</code>');
+    // Enlaces: se guardan aparte para que los _ o * de la URL no se vuelvan cursiva o negrita
+    const inl = (s0) => {
+      const L = [], ph = (h) => { L.push(h); return '\u0000' + (L.length - 1) + '\u0000'; };
+      const corto = (u) => { const d = u.replace(/&amp;/g, '&').replace(/^https?:\/\/(www\.)?/, ''); return (d.length > 46 ? d.slice(0, 44) + '…' : d).replace(/&/g, '&amp;'); };
+      let s = String(s0).replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, t, u) => ph('<a href="' + u + '" target="_blank" rel="noopener">' + t + '</a>'))
+        .replace(/https?:\/\/[^\s<>"')\]]*[^\s<>"')\].,;:!?]/g, (u) => ph('<a href="' + u + '" target="_blank" rel="noopener">' + corto(u) + '</a>'));
+      s = inlF(s);
+      return s.replace(/\u0000(\d+)\u0000/g, (m, i) => L[Number(i)]);
+    };
+    const inlF = (s) => s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|[\s(])\*(?!\s)(.+?)\*(?=[\s).,;:!?]|$)/g, '$1<b>$2</b>').replace(/(^|[\s(])_(?!\s)(.+?)_(?=[\s).,;:!?]|$)/g, '$1<i>$2</i>').replace(/`([^`]+)`/g, '<code>$1</code>');
     lineas.forEach((l) => {
       if (/^\s*\|.*\|\s*$/.test(l)) { if (/^\s*\|[\s:|-]+\|\s*$/.test(l)) return; const cel = l.trim().slice(1, -1).split('|').map((c) => inl(c.trim())); if (lista !== 'tabla') { cerrar(); lista = 'tabla'; cab = cel; html += '<div class="ony-filas">'; return; } const quita = (x) => x.replace(/<[^>]+>/g, ''); const tot = /^total/i.test(quita(cel[0] || '')); html += '<div class="ony-fila' + (tot ? ' tot' : '') + '"><b>' + (cel[0] || '') + '</b><span>' + cel.slice(1).map((c, i) => (cab[i + 1] ? '<i>' + quita(cab[i + 1]) + '</i> ' : '') + '<b>' + c + '</b>').join('<br>') + '</span></div>'; return; }
       const m1 = l.match(/^\s*[-•*]\s+(.*)/), m2 = l.match(/^\s*\d+[.)]\s+(.*)/), h = l.match(/^#{1,4}\s+(.*)/);
@@ -4947,7 +4981,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       const rd = c.rendimiento;
       const rdTxt = rd ? ' RESULTADOS EN CAMPAÑAS (hasta ' + ((window.idealabCrRend || {}).hasta || 'ayer') + '): nivel ' + rd.nivel + (rd.escalado ? ', ESCALÓ' : ', no escaló') + '. ' + rd.paises.map((x) => x.pais + ': desde ' + x.inicio + (x.escalado ? ', escaló ' + x.inicio_escala : '') + (x.pautando ? ', pautando' : ', ya no se pauta') + (x.roas !== undefined ? ', gasto con IVA ' + x.gasto_iva + ', ' + x.ventas_n + ' ventas, ROAS ' + x.roas + ', ' + x.conversaciones + ' conversaciones' : '') + ' (' + x.mensaje + ')').join('; ') : ' Este creativo todavía no se ha pautado en ninguna campaña.';
       notaAdj += '\nEs el creativo ' + c.codigo + ' de la biblioteca (' + c.tipo + ', estado ' + c.estado + ')' + (pa ? '. Historial por país: ' + pa : '') + (c.nota ? '. Nota: ' + c.nota : '') + '.' + rdTxt;
-      preguntar('Analiza el creativo ' + c.codigo + ' con el criterio de Eduardo: descripción, ' + (c.tipo === 'Video' ? 'duración, ' : '') + 'gancho, MENSAJE, DOLOR que toca, SOLUCIÓN que ofrece, PÚBLICO al que va dirigido y objetivo. ' + (rd ? (rd.nivel === 'Excelente' || rd.nivel === 'Bueno' ? 'Como sí vendió, explica por qué funcionó y propón 2 o 3 creativos similares por esa misma línea.' : rd.nivel === 'En testeo' ? 'Está en testeo: dime qué vigilar y qué mejorarías ya.' : 'Como no funcionó, explica por qué crees que falló y propón 2 o 3 versiones con otro enfoque.') : 'Aún no se ha pautado: dime si lo subirías a testeo y qué le mejorarías antes.') + ' Termina con recomendaciones concretas para el equipo de creativos.');
+      preguntar('Analiza el creativo ' + c.codigo + ' con el criterio de Eduardo: descripción, ' + (c.tipo === 'Video' ? 'duración, ' : '') + 'gancho, MENSAJE, DOLOR que toca, SOLUCIÓN que ofrece, PÚBLICO al que va dirigido y objetivo. ' + (rd ? (rd.nivel === 'Excelente' || rd.nivel === 'Bueno' ? 'Como sí vendió, explica por qué funcionó y propón 2 o 3 creativos similares por esa misma línea.' : rd.nivel === 'En testeo' ? 'Está en testeo: dime qué vigilar y qué mejorarías ya.' : 'Como no funcionó, explica por qué crees que falló y propón 2 o 3 versiones con otro enfoque.') : 'Aún no se ha pautado: dime si lo subirías a testeo y qué le mejorarías antes.') + ' Después busca en la web de 3 a 6 anuncios o videos virales parecidos (TikTok, Instagram, Facebook o la Biblioteca de anuncios de Meta) para modelar, con sus enlaces reales. Termina con recomendaciones concretas para el equipo de creativos.');
     } catch (e) { p.remove(); burbuja('ony', 'No pude bajar ' + c.codigo + ': ' + String(e.message || e)); }
   };
 
@@ -5489,6 +5523,69 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (habia && !window.__recargado) { window.__recargado = true; location.reload(); } });
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {}));
 }
+</script>
+<script>
+// ---------- Producto (ficha de cada producto; pestaña Productos_info) ----------
+(function () {
+  const $ = (id) => document.getElementById(id);
+  let prods = [], cargados = false, editando = null;
+  const CAMPOS = [['nombre_comercial', 'Nombre comercial'], ['que_es', 'Qué es'], ['para_quien', 'Para quién es (público)'], ['dolor', 'Dolor que resuelve'], ['promesa', 'Promesa / transformación'], ['incluye', 'Qué incluye'], ['bonos', 'Bonos'], ['precios', 'Precios por país'], ['palabra', 'Palabra clave del anuncio'], ['enlaces', 'Enlaces (Drive, landing, material)'], ['notas', 'Notas']];
+  const esSocio = () => window.idealabRol !== 'creativos';
+  const msg = (t, ok) => { const el = $('pr-msg'); el.textContent = t; el.className = 'ag-msg ' + (ok ? 'ok' : 'err'); };
+  const pedir = async (body) => { const r = await window.idealabEnviar(body); prods = r.productos || []; cargados = true; pintar(); };
+  const candado = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/><circle cx="12" cy="16" r="1.3"/></svg>';
+  function pintar() {
+    const g = $('pr-grid'); g.replaceChildren();
+    const lista = [...prods]; if (editando === 'nuevo') lista.push({ id: '', producto: '', estado: 'En construcción', nuevo: true });
+    lista.sort((a, b) => (a.estado === 'Activo' ? 0 : 1) - (b.estado === 'Activo' ? 0 : 1));
+    lista.forEach((p) => {
+      const lock = p.estado !== 'Activo', ed = editando === (p.id || 'nuevo');
+      const c = document.createElement('div'); c.className = 'pr-c' + (lock ? ' lock' : '');
+      const est = document.createElement('span'); est.className = 'pr-est'; est.textContent = lock ? '🔒 En construcción' : '● Activo'; c.appendChild(est);
+      const h = document.createElement('h3'); h.textContent = p.producto || 'Producto nuevo'; c.appendChild(h);
+      if (p.nombre_comercial && p.nombre_comercial !== p.producto) { const sb = document.createElement('div'); sb.className = 'pr-sub'; sb.textContent = '«' + p.nombre_comercial + '»'; c.appendChild(sb); }
+      if (ed) {
+        const f = document.createElement('div'); f.className = 'pr-form';
+        const inp = {};
+        const fila = (k, lb, tipo) => { const l = document.createElement('label'); l.textContent = lb; const i = tipo === 'sel' ? document.createElement('select') : k === 'producto' ? document.createElement('input') : document.createElement('textarea'); i.className = tipo === 'sel' ? 'ag-sel' : 'ag-in'; if (tipo === 'sel') ['Activo', 'En construcción'].forEach((o) => i.add(new Option(o === 'Activo' ? '● Activo (ya se vende)' : '🔒 En construcción', o))); if (i.tagName === 'TEXTAREA') i.rows = 2; i.value = p[k] || (tipo === 'sel' ? 'En construcción' : ''); l.appendChild(i); f.appendChild(l); inp[k] = i; };
+        fila('producto', 'Producto'); fila('estado', 'Estado', 'sel'); CAMPOS.forEach(([k, lb]) => fila(k, lb));
+        const acc = document.createElement('div'); acc.className = 'pr-acc';
+        const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'ag-btn pri'; ok.textContent = 'Guardar';
+        const no = document.createElement('button'); no.type = 'button'; no.className = 'ag-btn'; no.textContent = 'Cancelar';
+        ok.addEventListener('click', async () => {
+          const o = { id: p.id || '' }; Object.keys(inp).forEach((k) => { o[k] = inp[k].value.trim(); });
+          if (!o.producto) { msg('Escribe el nombre del producto.', false); return; }
+          ok.disabled = true; msg('Guardando…', true);
+          const quien = (() => { try { return localStorage.getItem('idealab_nombre') || ''; } catch (e) { return ''; } })();
+          try { editando = null; await pedir({ accion: 'productos_guardar', producto: o, quien }); msg('Ficha de ' + o.producto + ' guardada. ONY ya la tiene en cuenta.', true); }
+          catch (e) { editando = p.id || 'nuevo'; msg('No se pudo guardar: ' + (e.message || e), false); ok.disabled = false; }
+        });
+        no.addEventListener('click', () => { editando = null; pintar(); });
+        acc.append(ok, no); f.appendChild(acc); c.appendChild(f);
+      } else {
+        if (lock) { const lk = document.createElement('div'); lk.className = 'pr-lock'; lk.innerHTML = candado + '<b>En construcción</b><span>Pronto lo lanzamos.' + (esSocio() ? ' Ve preparando su ficha.' : '') + '</span>'; c.appendChild(lk); }
+        if (!lock || esSocio()) {
+          const cs = document.createElement('div'); cs.className = 'pr-campos';
+          CAMPOS.filter(([k]) => k !== 'nombre_comercial' && p[k]).forEach(([k, lb]) => { const d = document.createElement('div'); d.className = 'pr-f'; const b = document.createElement('b'); b.textContent = lb; const sp = document.createElement('span'); sp.textContent = p[k]; d.append(b, sp); cs.appendChild(d); });
+          if (cs.children.length) c.appendChild(cs);
+          else if (!lock) { const e = document.createElement('p'); e.className = 'ag-note'; e.textContent = 'Todavía no tiene información.'; c.appendChild(e); }
+        }
+        if (esSocio()) {
+          const acc = document.createElement('div'); acc.className = 'pr-acc';
+          const b = document.createElement('button'); b.type = 'button'; b.className = 'ag-btn'; b.textContent = lock ? 'Preparar ficha' : 'Editar ficha';
+          b.addEventListener('click', () => { editando = p.id; pintar(); });
+          acc.appendChild(b);
+          if (p.actualizado) { const s0 = document.createElement('small'); s0.className = 'ag-note'; s0.style.alignSelf = 'center'; s0.textContent = 'Actualizado ' + p.actualizado + (p.por ? ' · ' + p.por : ''); acc.appendChild(s0); }
+          c.appendChild(acc);
+        }
+      }
+      g.appendChild(c);
+    });
+    if (!lista.length && cargados) { const e = document.createElement('p'); e.className = 'ag-empty'; e.textContent = 'No hay productos todavía.'; g.appendChild(e); }
+  }
+  $('pr-nuevo').addEventListener('click', () => { editando = 'nuevo'; pintar(); });
+  window.idealabProductos = { abrir: () => { if (!window.idealabEnviar) return; if (!cargados) msg('Cargando…', true); pedir({ accion: 'productos_leer' }).then(() => { if ($('pr-msg').textContent === 'Cargando…') $('pr-msg').textContent = ''; }).catch((e) => msg('No se pudieron cargar los productos: ' + (e.message || e), false)); } };
+})();
 </script>
 <script>
 // ---------- Mis notas (bloc de cada usuario; se guarda en la pestaña Notas) ----------
