@@ -9,7 +9,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:wght@400;600&family=Sora:wght@800&display=swap" rel="stylesheet">
 <script src="d3.min.js"></script>
 <style>
 :root { --font-anthropic-sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; --font-anthropic-serif: "Source Serif 4", Georgia, serif; --cds-dur-slow: .35s; --cds-ease-out: cubic-bezier(.2,.8,.2,1); color-scheme: dark; }
@@ -647,8 +647,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 .ag-msg.ok { color: var(--ag-ok); } .ag-msg.err { color: var(--ag-bad); }
 .ag-link { color: var(--ag-gold); font-size: 12.5px; }
 @media (max-width: 860px) {
-  .ag { grid-template-columns: 1fr; }
-  .ag-side { position: static; min-height: 0; height: auto; overflow: visible; border-right: 0; border-bottom: 1px solid var(--ag-line); padding: 12px 16px; gap: 10px; }
+  .ag { grid-template-columns: minmax(0, 1fr); }
+  .ag-side { position: static; min-width: 0; min-height: 0; height: auto; overflow: visible; border-right: 0; border-bottom: 1px solid var(--ag-line); padding: 12px 16px; gap: 10px; }
   .ag-nav { grid-auto-flow: column; overflow-x: auto; }
   .ag-nav button { padding: 7px 10px; font-size: 13px; }
   .ag-navt, .ag-session { display: none; }
@@ -903,6 +903,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     <div class="ag-navt">Vistas</div>
     <nav class="ag-nav" aria-label="Áreas" id="nav">
       <button type="button" data-v="inicio"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Inicio</button>
+      <button type="button" data-v="oficina"><svg viewBox="0 0 24 24"><path d="M4 21V6l8-3 8 3v15M2 21h20M9 21v-4h6v4M8 8h2M14 8h2M8 12h2M14 12h2"/></svg>Oficina</button>
       <button type="button" data-v="resumen"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>Resumen</button>
       <button type="button" data-v="campanas"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l6 5V5L7 10H4a1 1 0 0 0-1 1zM17 8a5 5 0 0 1 0 8"/></svg>Campañas</button>
       <button type="button" data-v="graficas"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Gráficas</button>
@@ -956,6 +957,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         </div>
       </div>
       <div class="ag-areas" style="margin-top:14px">
+        <button type="button" class="ag-area" data-ir="oficina"><svg viewBox="0 0 24 24"><path d="M4 21V6l8-3 8 3v15M2 21h20M9 21v-4h6v4M8 8h2M14 8h2M8 12h2M14 12h2"/></svg><b>Oficina</b><span>El edificio de tus agentes: asigna tareas a cada departamento con tiempo de entrega.</span><em>3D</em></button>
         <button type="button" class="ag-area" data-ir="resumen"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><b>Resumen</b><span>Ventas, pauta, utilidad, ROAS y conversaciones del periodo, por país.</span><em data-source="resumen" data-field="ganancia" data-where="clave=total|todos" id="a-res" class="dash-skeleton">—</em></button>
         <button type="button" class="ag-area" data-ir="campanas"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l6 5V5L7 10H4a1 1 0 0 0-1 1zM17 8a5 5 0 0 1 0 8"/></svg><b>Campañas</b><span>Diagnóstico de cada campaña y anuncio: escalar, mantener, bajar o apagar.</span><em id="a-camp">—</em></button>
         <button type="button" class="ag-area" data-ir="graficas"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><b>Gráficas</b><span>Día a día por país o campaña: ganancia, ROAS, pauta, ventas y conversaciones.</span></button>
@@ -1259,6 +1261,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         <p class="ag-empty" id="nt-vacio" hidden>No hay notas aquí todavía.</p>
       </div>
     </section>
+
+    <!-- OFICINA DE AGENTES (la arma oficina.js) -->
+    <section class="ag-vista" id="oficina" data-vista="oficina" hidden></section>
 
     <!-- CONFIG -->
     <section class="ag-vista" id="config" data-vista="config" hidden>
@@ -2175,7 +2180,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     vista = v; window.idealabVista = () => vista;
     document.querySelectorAll('[data-vista]').forEach((s) => { s.hidden = s.dataset.vista !== v; });
     document.querySelectorAll('#nav button').forEach((b) => { if (b.dataset.v === v) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
-    $('rango').style.visibility = v === 'contabilidad' || v === 'config' || v === 'paginas' || v === 'creativos' || v === 'notas' || v === 'producto' ? 'hidden' : 'visible';
+    $('rango').style.visibility = v === 'contabilidad' || v === 'config' || v === 'oficina' || v === 'paginas' || v === 'creativos' || v === 'notas' || v === 'producto' ? 'hidden' : 'visible';
     if (v === 'notas' && window.idealabNotas) window.idealabNotas.abrir();
     if (v === 'producto' && window.idealabProductos) window.idealabProductos.abrir();
     dash.setLink(v);
@@ -5650,5 +5655,6 @@ if ('serviceWorker' in navigator) {
   window.idealabNotas = { abrir: () => { if (!window.idealabEnviar) return; if (!cargadas) msg('Cargando…', true); pedir({ accion: 'notas_leer' }).then(() => { if ($('nt-msg').textContent === 'Cargando…') $('nt-msg').textContent = ''; }).catch((e) => msg('No se pudieron cargar tus notas: ' + (e.message || e), false)); } };
 })();
 </script>
+<script src="oficina.js"></script>
 </body>
 </html>
