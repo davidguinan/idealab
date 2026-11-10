@@ -68,7 +68,76 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
   let params = {};
   const HOJAS = { meta_diario: 'meta_diario', paises: 'productos', tasas: 'tasas', config: 'config', gastos: 'gastos', cierres: 'cierres', cambios: 'cambios', numeros: 'numeros', fan_pages: 'fan_pages', tasas_cierre: 'tasas_cierre', cierres_paises: 'cierres_paises', avances: 'avances', metas: 'metas' };
 
-  const fijar = (id, st) => { estado[id] = st; };
+  // ---- Productos: Arte (ArteTerapia) y Peque (Creciendo con Jesús). Cada vista muestra «Ambos», «Arte» o «Peque».
+  // Campañas de Peque: llevan PEQ en el nombre (ej. VZLA_PEQ_TEST1_CMP P1). Números de Peque: códigos P1, P2…
+  // Ventas de Peque: las de las hojas que en la pestaña Productos tienen producto «Peque» / «Creciendo con Jesús».
+  // Gastos: columna J de Gastos = Arte, Peque o Compartido (vacío = Arte). Lo compartido se reparte con el % de Config.
+  const PRODS = ['todos', 'arte', 'peque'];
+  let producto = PRODS.includes(LS.get('idealab_producto')) ? LS.get('idealab_producto') : 'todos';
+  let productoCr = LS.get('idealab_producto_cr') === 'peque' ? 'peque' : 'arte';
+  let vistaProd = 'inicio';
+  const VISTAS_PROD = ['resumen', 'campanas', 'graficas', 'paginas', 'numeros', 'contabilidad'];
+  const efectivo = () => (vistaProd === 'creativos' ? productoCr : VISTAS_PROD.includes(vistaProd) ? producto : 'todos');
+  const esPeqTxt = (s) => /(^|[^A-Z0-9])PEQ(UE)?([^A-Z]|$)/i.test(String(s || ''));
+  const esPeqProd = (s) => /peq|creciendo|niñ|nin[oa]s|infantil/i.test(String(s || ''));
+  const esPeqNum = (cod) => /^P\d+$/i.test(String(cod || '').trim());
+  const prodGasto = (g) => { const p = String(g.producto || '').trim().toLowerCase(); return p.startsWith('pe') ? 'peque' : p.startsWith('co') ? 'compartido' : 'arte'; };
+  const crudo = {};
+  const pctCompartidoPeque = () => {
+    const C = crudo.config ? crudo.config.data : [];
+    const f = (C || []).find((c) => c.tipo === 'porcentaje' && /compartid/i.test(c.parametro));
+    const v = f && Number.isFinite(f.valor) ? f.valor : 50;
+    return Math.min(100, Math.max(0, v));
+  };
+  const paginasDe = () => {
+    const peq = new Set(), art = new Set();
+    const camp = {}; ((crudo.meta_campanas && crudo.meta_campanas.data) || []).forEach((c) => { camp[c.campana_id] = c.campana; });
+    ((crudo.meta_creativos && crudo.meta_creativos.data) || []).forEach((a) => { if (!a.page_id) return; (esPeqTxt(a.campana || camp[a.campana_id]) ? peq : art).add(a.page_id); });
+    ((crudo.numeros && crudo.numeros.data) || []).forEach((n) => { if (!n.fan_page) return; (esPeqNum(n.codigo) ? peq : art).add(String(n.fan_page).trim().toLowerCase()); });
+    return { peq, art };
+  };
+  const filtrarFuente = (id, data, p) => {
+    if (!Array.isArray(data)) return data;
+    if (p === 'todos') return id === 'gastos' ? data.map((g) => { const pg = prodGasto(g); return pg === 'arte' ? g : { ...g, concepto: g.concepto + (pg === 'peque' ? ' · Peque' : ' · Compartido') }; }) : data;
+    const quiere = (esPeq) => (p === 'peque' ? esPeq : !esPeq);
+    const camp = {}; ((crudo.meta_campanas && crudo.meta_campanas.data) || []).forEach((c) => { camp[c.campana_id] = c.campana; });
+    switch (id) {
+      case 'meta_rango': case 'meta_hoy': case 'meta_diario': case 'meta_creativos':
+        return data.filter((r) => quiere(esPeqTxt(r.campana || camp[r.campana_id])));
+      case 'meta_campanas': return data.filter((r) => quiere(esPeqTxt(r.campana)));
+      case 'meta_conjuntos': return data.filter((r) => quiere(esPeqTxt(camp[r.campana_id] || r.conjunto)));
+      case 'meta_wa': return data.filter((r) => quiere(camp[r.campana_id] ? esPeqTxt(camp[r.campana_id]) : esPeqNum(r.whatsapp)));
+      case 'ventas': return data.filter((v) => quiere(esPeqProd(v.producto) || esPeqProd(v.hoja)));
+      case 'paises': { const f = data.filter((x) => quiere(esPeqProd(x.producto))); return f.length ? f : data; }
+      case 'numeros': return data.filter((n) => quiere(esPeqNum(n.codigo)));
+      case 'meta_paginas': case 'fan_pages': {
+        const { peq, art } = paginasDe();
+        const dePeq = (x) => peq.has(String(x.page_id)) || peq.has(String(x.pagina || '').trim().toLowerCase()) || esPeqProd(x.pagina) || esPeqProd(x.nota);
+        const deArte = (x) => art.has(String(x.page_id)) || art.has(String(x.pagina || '').trim().toLowerCase());
+        return data.filter((x) => (p === 'peque' ? dePeq(x) : deArte(x) || !dePeq(x)));
+      }
+      case 'gastos': {
+        const k = p === 'peque' ? pctCompartidoPeque() : 100 - pctCompartidoPeque();
+        const out = [];
+        data.forEach((g) => {
+          const pg = prodGasto(g);
+          if (pg === p) out.push(g);
+          else if (pg === 'compartido' && k > 0) out.push({ ...g, valor: Math.round((g.valor * k) / 100), valor_completo: g.valor, compartido_pct: k, concepto: g.concepto + ' (compartido ' + k + ' %)' });
+        });
+        return out;
+      }
+      case 'facturas': case 'facturas_cont': return p === 'arte' ? data : []; // facturas viejas: son de Arte
+      case 'cierres': case 'cierres_paises': return []; // los cierres guardados son de los dos productos juntos
+      default: return data;
+    }
+  };
+  const FILTRABLES = ['meta_rango', 'meta_hoy', 'meta_diario', 'meta_creativos', 'meta_campanas', 'meta_conjuntos', 'meta_wa', 'ventas', 'paises', 'numeros', 'meta_paginas', 'fan_pages', 'gastos', 'facturas', 'facturas_cont', 'cierres', 'cierres_paises', 'config'];
+  const fijar = (id, st) => {
+    if (!FILTRABLES.includes(id)) { estado[id] = st; return; }
+    if (!st || st.status !== 'ok') { delete crudo[id]; estado[id] = st; return; }
+    crudo[id] = st; estado[id] = { ...st, data: filtrarFuente(id, st.data, efectivo()) };
+  };
+  const refiltrar = () => { Object.keys(crudo).forEach((id) => { estado[id] = { ...(estado[id] || {}), ...crudo[id], refreshing: !!(estado[id] && estado[id].refreshing), data: filtrarFuente(id, crudo[id].data, efectivo()) }; }); };
   const avisar = () => { clearTimeout(avisar.t); avisar.t = setTimeout(() => oyentes.forEach((fn) => { try { fn(); } catch (e) { console.error(e); } }), 10); };
 
   // ---- utilidades de lectura (mismas reglas que el dashboard)
@@ -162,13 +231,62 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     return vals.slice(1).map((r, i) => ({ fila: i + 2, codigo: String(r[0] || '').trim().toUpperCase(), tipo: /video/i.test(String(r[1] || '')) || /^VD/i.test(String(r[0] || '')) ? 'Video' : 'Imagen', original: String(r[2] || ''), enlace: String(r[3] || ''), id: String(r[4] || '').trim(), subido: leerFecha(r[5]) || String(r[5] || ''), por: String(r[6] || ''), estadoHoja: String(r[7] || '').trim() || 'Sin publicar', nota: String(r[11] || '') })).filter((r) => r.codigo).map((c) => ({ ...c, paises: porCod[c.codigo] || [] }));
   };
   const aplicarCreativos = (r) => { const vals = r && Array.isArray(r.values) ? r.values : null; if (!vals) throw new Error('sin_servidor'); window.idealabCrMeta = { consecutivos: r.consecutivos || null, lista_paises: r.lista_paises || [] }; const rend = r.rendimiento && Array.isArray(r.rendimiento.creativos) ? r.rendimiento : null; window.idealabCrRend = rend; const porCod = {}; (rend ? rend.creativos : []).forEach((x) => { porCod[x.codigo] = x; }); fijar('creativos', { status: 'ok', data: leerCreativos(vals, r.paises).map((c) => ({ ...c, rendimiento: porCod[c.codigo] || null })) }); avisar(); };
+  // Creativos: Arte y Peque tienen cada uno su propia pestaña en la hoja, su carpeta en Drive y su conteo (IMG1, VD1…)
+  let servidorPeque = LS.get('idealab_srv_peque') === '1';
+  const claveCr = (p) => (p === 'peque' ? 'creativos_peque' : 'creativos');
   const cargarCreativos = async () => {
-    if (!estado.creativos || estado.creativos.status !== 'ok') fijar('creativos', { status: 'loading', data: [] }); avisar();
-    try { const r = await enviar({ accion: 'creativos_leer' }); aplicarCreativos(r); cacheGuardar('creativos', { values: r.values, paises: r.paises, consecutivos: r.consecutivos, lista_paises: r.lista_paises, rendimiento: r.rendimiento }); if (rolActual() === 'creativos') marcarFresco(); if (rolActual() === 'creativos') document.getElementById('ag-actualizado').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }); }
-    catch (e) { fijar('creativos', { status: 'error', data: [], message: /desconocid|unknown|no v[aá]lid|sin_servidor|Clave/i.test(String(e.message)) || e instanceof SyntaxError ? 'sin_servidor' : String(e.message || e) }); }
+    const pr = productoCr;
+    if (!estado.creativos || estado.creativos.status !== 'ok' || estado.creativos.producto !== pr) fijar('creativos', { status: 'loading', data: [], producto: pr }); avisar();
+    try {
+      const r = await enviar({ accion: 'creativos_leer', producto: pr });
+      if (pr === 'peque') { if (r.producto !== 'peque') { servidorPeque = false; LS.del('idealab_srv_peque'); throw new Error('sin_servidor_peque'); } servidorPeque = true; LS.set('idealab_srv_peque', '1'); }
+      if (pr !== productoCr) return; // cambió de pestaña mientras cargaba
+      aplicarCreativos(r); estado.creativos.producto = pr; cacheGuardar(claveCr(pr), { values: r.values, paises: r.paises, consecutivos: r.consecutivos, lista_paises: r.lista_paises, rendimiento: r.rendimiento }); if (rolActual() === 'creativos') marcarFresco(); if (rolActual() === 'creativos') document.getElementById('ag-actualizado').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }); }
+    catch (e) { if (pr !== productoCr) return; fijar('creativos', { status: 'error', data: [], producto: pr, message: String(e.message) === 'sin_servidor_peque' ? 'sin_servidor_peque' : /desconocid|unknown|no v[aá]lid|sin_servidor|Clave/i.test(String(e.message)) || e instanceof SyntaxError ? 'sin_servidor' : String(e.message || e) }); }
     avisar();
   };
-  window.idealabCreativos = { recargar: cargarCreativos, enviar: (b) => enviar(b) };
+  const enviarCr = (b) => {
+    if (productoCr === 'peque' && !servidorPeque) return Promise.reject(new Error('Primero hay que publicar en Apps Script el servidor nuevo (Código.gs) para guardar los creativos de Peque aparte.'));
+    return enviar({ ...b, producto: productoCr });
+  };
+  window.idealabCreativos = { recargar: cargarCreativos, enviar: enviarCr, producto: () => productoCr };
+
+  // ---- Cambiar de producto (pestañas Ambos / Arte / Peque)
+  const pintarProducto = () => {
+    const ef = efectivo();
+    document.documentElement.dataset.prod = ef;
+    document.documentElement.dataset.prodVista = vistaProd;
+    document.querySelectorAll('#prod-tabs [data-p]').forEach((b) => {
+      const p = b.dataset.p, sel = vistaProd === 'creativos' ? productoCr : producto;
+      b.setAttribute('aria-selected', String(p === sel));
+      b.hidden = vistaProd === 'creativos' && p === 'todos';
+      if (p === 'todos') b.lastChild.textContent = vistaProd === 'contabilidad' ? 'Juntos' : 'Ambos';
+    });
+    const np = document.getElementById('n-prod'); if (np && vistaProd === 'numeros' && !np.disabled && ef !== 'todos') { const v = ef === 'peque' ? 'P' : 'B'; if (np.value !== v) { np.value = v; np.dispatchEvent(new Event('change')); } }
+    const gp = document.getElementById('g-producto'); if (gp && vistaProd === 'contabilidad') gp.value = { arte: 'Arte', peque: 'Peque' }[ef] || '';
+    const bar = document.getElementById('prod-tabs'); if (bar) bar.hidden = !(VISTAS_PROD.includes(vistaProd) || vistaProd === 'creativos');
+  };
+  const cambiarCreativos = async () => {
+    const c = await cacheLeer(claveCr(productoCr));
+    if (c && c.v) { try { aplicarCreativos(c.v); estado.creativos.producto = productoCr; } catch (e) {} }
+    else fijar('creativos', { status: 'loading', data: [], producto: productoCr });
+    avisar(); cargarCreativos();
+  };
+  window.idealabProducto = {
+    actual: () => producto, creativos: () => productoCr, efectivo,
+    crudo: (id) => (crudo[id] ? crudo[id].data : null),
+    pctCompartido: pctCompartidoPeque,
+    elegir: (p) => {
+      if (vistaProd === 'creativos') { if (p === 'todos' || p === productoCr) return; productoCr = p; LS.set('idealab_producto_cr', p); pintarProducto(); calcular(); cambiarCreativos(); return; }
+      if (!PRODS.includes(p) || p === producto) return; producto = p; LS.set('idealab_producto', p); pintarProducto(); calcular();
+    },
+    vista: (v) => { const antes = efectivo(); vistaProd = v; pintarProducto(); if (efectivo() !== antes) calcular(); if (v === 'creativos' && estado.creativos && estado.creativos.status !== 'loading' && (estado.creativos.producto || 'arte') !== productoCr) cambiarCreativos(); },
+  };
+  window.addEventListener('DOMContentLoaded', () => {
+    const bar = document.getElementById('prod-tabs');
+    if (bar) bar.addEventListener('click', (e) => { const b = e.target.closest('[data-p]'); if (b) window.idealabProducto.elegir(b.dataset.p); });
+    pintarProducto();
+  });
 
   // ---- Copia local de los datos (IndexedDB): la app abre al instante con lo último que trajo; «Actualizar» trae lo nuevo
   const CACHE_DB = 'idealab-datos', CACHE_ST = 'copias';
@@ -193,15 +311,16 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
       if (pr !== '|') { const [d, h] = pr.split('|'); params = { ...params, desde: d, hasta: h }; }
       ultimoRango = pr;
       cargarTodo(c.v.j);
-      const cr = await cacheLeer('creativos'); if (cr && cr.v) aplicarCreativos(cr.v); else cargarCreativos();
+      const cr = await cacheLeer(claveCr(productoCr)); if (cr && cr.v) { aplicarCreativos(cr.v); estado.creativos.producto = productoCr; } else cargarCreativos();
       marcarCopia(c.t);
       return true;
     } catch (e) { console.error('copia local', e); return false; }
   };
   const iniciar = async () => { if (!(await iniciarDesdeCopia())) cargar(); };
-  const iniciarCreativos = async () => { const cr = await cacheLeer('creativos'); if (cr && cr.v) { aplicarCreativos(cr.v); marcarCopia(cr.t); } else cargarCreativos(); };
+  const iniciarCreativos = async () => { const cr = await cacheLeer(claveCr(productoCr)); if (cr && cr.v) { aplicarCreativos(cr.v); estado.creativos.producto = productoCr; marcarCopia(cr.t); } else cargarCreativos(); };
 
   const calcular = () => {
+    refiltrar();
     let pendientes = Object.keys(calcs);
     for (let vuelta = 0; vuelta < 10 && pendientes.length; vuelta++) {
       pendientes = pendientes.filter((id) => {
@@ -334,6 +453,26 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 .ag-top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; justify-content: space-between; }
 .ag-top h1 { margin: 0; font-family: var(--font-anthropic-serif); font-weight: 400; font-size: clamp(22px, 3vw, 30px); }
 .ag-take { margin: 4px 0 0; color: var(--ag-muted); font-size: 14px; }
+/* Pestañas de producto: Ambos / Arte / Peque */
+.prod-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 16px; padding: 4px; border: 1px solid var(--ag-line); border-radius: 12px; background: rgba(var(--tinta),.02); width: fit-content; max-width: 100%; }
+.prod-tabs[hidden] { display: none; }
+.prod-tabs button { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 7px 16px; border-radius: 9px; font-size: 14px; color: var(--ag-muted); border: 1px solid transparent; }
+.prod-tabs button[hidden] { display: none; }
+.prod-tabs button:hover { color: var(--ag-fg); background: rgba(var(--tinta),.04); }
+.prod-tabs button:focus-visible { outline: 2px solid var(--ag-gold); outline-offset: 2px; }
+.prod-tabs .pt-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ag-muted); }
+.prod-tabs [data-p="arte"] .pt-dot { background: #F5B800; }
+.prod-tabs [data-p="peque"] .pt-dot { background: #A3E635; }
+.prod-tabs [data-p="todos"] .pt-dot { background: linear-gradient(90deg, #F5B800 50%, #A3E635 50%); }
+.prod-tabs button[aria-selected="true"] { color: var(--ag-fg); font-weight: 600; background: var(--ag-panel); border-color: var(--ag-line); box-shadow: 0 1px 6px rgba(var(--hondo),.18); }
+.prod-tabs button[data-p="arte"][aria-selected="true"] { border-color: rgba(245,184,0,.55); }
+.prod-tabs button[data-p="peque"][aria-selected="true"] { border-color: rgba(163,230,53,.6); }
+.prod-tabs .pt-nota { font-size: 12px; color: var(--ag-muted); padding: 0 8px; }
+.prod-tabs .pt-nota:empty { display: none; }
+[data-prod="arte"] .solo-juntos, [data-prod="peque"] .solo-juntos { display: none !important; }
+.prod-aviso { margin: 10px 0 0; padding: 9px 12px; border-radius: 10px; font-size: 13px; color: var(--ag-muted); background: rgba(163,230,53,.07); border: 1px solid rgba(163,230,53,.25); }
+[data-prod="arte"] .prod-aviso { background: rgba(245,184,0,.07); border-color: rgba(245,184,0,.3); }
+[data-prod="todos"] .prod-aviso, .prod-aviso:empty { display: none; }
 .ag-range { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
 .ag-range label { display: grid; gap: 3px; font-size: 11px; color: var(--ag-muted); }
 .ag-in, .ag-sel { background: var(--ag-panel2); color: var(--ag-fg); border: 1px solid var(--ag-line); border-radius: 8px; padding: 7px 9px; font: inherit; font-size: 13px; color-scheme: var(--esquema, dark); }
@@ -622,7 +761,10 @@ tr.cd-vacio td { opacity: .45; }
 .cr-form .ag-in, .cr-form .ag-sel { width: 100%; }
 .cr-dur { margin: 0; font-size: 12.5px; color: var(--ag-gold); }
 /* Cuenta de creativos: solo ve este apartado */
-[data-rol="creativos"] #nav button:not([data-v="creativos"]):not([data-v="notas"]):not([data-v="producto"]) { display: none !important; }
+[data-rol="creativos"] #nav button:not([data-v="creativos"]):not([data-v="notas"]):not([data-v="producto"]):not(#nav-ony) { display: none !important; }
+/* ONY ya no flota: se abre desde «Ony» en el menú */
+#ony-vivo { display: none !important; }
+.ony-abierto #nav-ony { border-color: rgba(155,212,58,.6); background: rgba(155,212,58,.08); }
 [data-rol="creativos"] #rango, [data-rol="creativos"] #takeaway { display: none !important; }
 [data-rol="creativos"] .ag-session b::after { content: ''; }
 .f-res { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin: 10px 0 12px; }
@@ -907,9 +1049,11 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       <button type="button" data-v="campanas"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l6 5V5L7 10H4a1 1 0 0 0-1 1zM17 8a5 5 0 0 1 0 8"/></svg>Campañas</button>
       <button type="button" data-v="graficas"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Gráficas</button>
       <button type="button" data-v="paginas"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></svg>Fan pages</button>
+      <button type="button" data-v="numeros"><svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>Números</button>
       <button type="button" data-v="creativos"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6M15 9h.01"/></svg>Creativos</button>
       <button type="button" data-v="contabilidad"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"/></svg>Contabilidad</button>
       <button type="button" data-v="producto"><svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></svg>Producto</button>
+      <button type="button" id="nav-ony" aria-controls="ony-panel" title="Consultar a ONY, tu asistente"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M9 10h.01M12 10h.01M15 10h.01"/></svg>Ony</button>
       <button type="button" data-v="notas"><svg viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>Mis notas</button>
       <button type="button" data-v="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Configuración</button>
     </nav>
@@ -938,6 +1082,13 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       </div>
     </div>
 
+    <div class="prod-tabs" id="prod-tabs" role="tablist" aria-label="Producto" hidden>
+      <button type="button" role="tab" data-p="todos"><i class="pt-dot"></i>Ambos</button>
+      <button type="button" role="tab" data-p="arte"><i class="pt-dot"></i>Arte</button>
+      <button type="button" role="tab" data-p="peque"><i class="pt-dot"></i>Peque</button>
+      <span class="pt-nota" id="pt-nota"></span>
+    </div>
+
     <!-- INICIO -->
     <section class="ag-vista" id="inicio" data-vista="inicio">
       <div class="ini-hero">
@@ -959,7 +1110,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         <button type="button" class="ag-area" data-ir="resumen"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><b>Resumen</b><span>Ventas, pauta, utilidad, ROAS y conversaciones del periodo, por país.</span><em data-source="resumen" data-field="ganancia" data-where="clave=total|todos" id="a-res" class="dash-skeleton">—</em></button>
         <button type="button" class="ag-area" data-ir="campanas"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l6 5V5L7 10H4a1 1 0 0 0-1 1zM17 8a5 5 0 0 1 0 8"/></svg><b>Campañas</b><span>Diagnóstico de cada campaña y anuncio: escalar, mantener, bajar o apagar.</span><em id="a-camp">—</em></button>
         <button type="button" class="ag-area" data-ir="graficas"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><b>Gráficas</b><span>Día a día por país o campaña: ganancia, ROAS, pauta, ventas y conversaciones.</span></button>
-        <button type="button" class="ag-area" data-ir="paginas"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></svg><b>Fan pages</b><span>Tus páginas, cuáles están pautando y con qué campañas, y tus números de WhatsApp.</span><em id="a-pag">—</em></button>
+        <button type="button" class="ag-area" data-ir="paginas"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></svg><b>Fan pages</b><span>Tus páginas, cuáles están pautando y con qué campañas.</span><em id="a-pag">—</em></button>
+        <button type="button" class="ag-area" data-ir="numeros"><svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg><b>Números</b><span>Tus números de WhatsApp (B para Arte, P para Peque) y sus mensajes por día.</span></button>
         <button type="button" class="ag-area" data-ir="creativos"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6M15 9h.01"/></svg><b>Creativos</b><span>Imágenes y videos con su código (IMG, VD), estado y cuántos días duró cada uno.</span><em id="a-cr">—</em></button>
         <button type="button" class="ag-area" data-ir="contabilidad"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"/></svg><b>Contabilidad</b><span>Cierres quincenales y mensuales, reparto entre socios, nómina, proveedores y bitácora.</span></button>
         <button type="button" class="ag-area" data-ir="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg><b>Configuración</b><span>Porcentajes del reparto, equipo con acceso y cambios programados.</span></button>
@@ -1051,7 +1203,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     <section class="ag-vista" id="creativos" data-vista="creativos" hidden>
       <div class="ag-card">
         <p class="cr-hola" data-hola="" id="cr-hola"></p>
-        <div class="ag-top"><div><h2>Creativos</h2><p class="ag-note">Sube imágenes y videos: cada uno recibe su código consecutivo y queda guardado en Google Drive (carpeta «IdeaLab · Creativos»).</p></div>
+        <div class="ag-top"><div><h2 id="cr-titulo">Creativos</h2><p class="ag-note" id="cr-sub">Sube imágenes y videos: cada uno recibe su código consecutivo y queda guardado en Google Drive (carpeta «IdeaLab · Creativos»).</p></div>
           <div class="cr-next" id="cr-next" data-source="creativos"></div></div>
         <label class="cr-drop" id="cr-drop">
           <input type="file" id="cr-file" accept="image/*,video/*" multiple hidden>
@@ -1080,9 +1232,13 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         <div class="ag-scroll"><table class="ag-table" id="t-paginas" data-source="paginas_uso" data-row-key="page_id"></table></div>
         <p class="ag-msg" id="fp-msg"></p>
       </div>
-      <div class="ag-card" style="margin-top:14px">
+    </section>
+
+    <!-- NÚMEROS -->
+    <section class="ag-vista" id="numeros" data-vista="numeros" hidden>
+      <div class="ag-card">
         <h2>Números de WhatsApp (bots)</h2>
-        <p class="ag-note">El <b>código</b> se asigna solo (B1, B2, B3…). Un número nuevo entra en <b>CALENTAMIENTO</b>. El estado cambia solo: pasa a <b>ACTIVO</b> cuando Meta tiene anuncios activos que mandan a ese número y a <b>SIN USO</b> cuando se apagan. La fan page y las campañas donde se pauta también salen solas de Meta. PAUSADO y BLOQUEADO los pones tú y no cambian solos.</p>
+        <p class="ag-note">El <b>código</b> se asigna solo: B1, B2, B3… para Arte y P1, P2, P3… para Peque, cada uno con su propio conteo. Un número nuevo entra en <b>CALENTAMIENTO</b>. El estado cambia solo: pasa a <b>ACTIVO</b> cuando Meta tiene anuncios activos que mandan a ese número y a <b>SIN USO</b> cuando se apagan. La fan page y las campañas donde se pauta también salen solas de Meta. PAUSADO y BLOQUEADO los pones tú y no cambian solos.</p>
         <p class="ag-note"><b>Mensajes hoy</b> son las «conversaciones con mensajes iniciadas» de Meta Ads de los anuncios que mandan a ese número. La app detecta sola a qué número manda cada anuncio (lo lee de Meta), aunque varios números compartan la misma fan page; no tienes que asignar nada.</p>
         <div class="ag-scroll"><table class="ag-table" id="t-numeros" data-source="numeros_uso" data-row-key="codigo"></table></div>
         <p class="ag-empty" id="numeros-vacio" hidden>Todavía no hay números. Agrega el primero abajo.</p>
@@ -1093,6 +1249,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         <p class="ag-empty" id="mc-vacio" hidden>No hay campañas en este filtro.</p>
         <p class="ag-msg" id="mc-msg"></p>
         <div class="ag-form" id="f-num">
+          <label>Producto<select class="ag-sel" id="n-prod"><option value="B">Arte (códigos B1, B2…)</option><option value="P">Peque (códigos P1, P2…)</option></select></label>
           <label>Código<input class="ag-in" id="n-codigo" readonly title="Se asigna solo"></label>
           <label>Número business<input class="ag-in" id="n-numero" placeholder="300 000 0000"></label>
           <label>Celular<input class="ag-in" id="n-celular" placeholder="XIAOMI 4"></label>
@@ -1131,7 +1288,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           <div class="ag-kpi"><span class="lb">Gastos</span><span class="v" data-l="gastos" data-source="liquidacion" data-field="gastos">—</span></div>
           <div class="ag-kpi"><span class="lb">Utilidad total</span><span class="v" data-l="utilidad_total" data-source="liquidacion" data-field="utilidad_total">—</span><span class="s" id="liq-rent"></span></div>
         </div>
-        <div class="liq-guardar solo-socios" id="liq-guardar"></div>
+        <div class="liq-guardar solo-socios solo-juntos" id="liq-guardar"></div>
+        <p class="prod-aviso" id="liq-prod-aviso"></p>
       </div>
       <div style="margin-top:14px;min-width:0">
         <div class="ag-card">
@@ -1139,7 +1297,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           <p class="ag-note" id="rep-nota">Porcentajes de la pestaña Config.</p>
           <div class="ag-split" id="reparto" data-source="liquidacion"></div>
         </div>
-        <div class="ag-card solo-socios" style="margin-top:14px" id="meta-card">
+        <div class="ag-card solo-socios solo-juntos" style="margin-top:14px" id="meta-card">
           <div class="ag-top"><div><h2>Meta</h2><p class="ag-note">Meta de <b>utilidad libre para los socios</b>: lo que queda para Anthony y Alejandra después de gastos, pauta, proveedores, nómina y ahorro de la empresa. Gris = el camino para llegar a la meta; verde = lo que llevamos.</p></div>
             <div class="ag-chips" id="meta-modo"><button type="button" class="ag-btn" data-m="mes" aria-pressed="true">Mensual</button><button type="button" class="ag-btn" data-m="anio" aria-pressed="false">Anual</button><select class="ag-sel" id="meta-sel" aria-label="Mes o año de la meta"></select></div></div>
           <div class="meta-res" id="meta-res" data-source="liquidacion"></div>
@@ -1157,12 +1315,12 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           <div class="ag-scroll"><table class="ag-table" id="t-liq-paises" data-source="liquidacion_paises" data-row-key="clave"></table></div>
         </div>
       </div>
-      <div class="ag-card" style="margin-top:14px">
+      <div class="ag-card solo-juntos" style="margin-top:14px">
         <h2>Comprobantes para proveedores de cuentas</h2>
         <p class="ag-note">Uno por país con ventas, pauta o gastos en el periodo. Descárgalo en PDF o compártelo directo (por WhatsApp, correo…) desde el celular.</p>
         <div class="ag-recibos" id="recibos" data-source="liquidacion_paises"></div>
       </div>
-      <div class="ag-card solo-socios" style="margin-top:14px" id="avances-card">
+      <div class="ag-card solo-socios solo-juntos" style="margin-top:14px" id="avances-card">
         <div class="ag-top"><div><h2>Avances de proveedores</h2><p class="ag-note">Cada envío de dinero que te hace un proveedor. La cuenta del proveedor tiene lo que entró por ventas en su país; con cada avance baja. Al cierre: lo que queda en su cuenta − su comisión = lo que debe enviar.</p></div>
           <div class="ag-chips"><select class="ag-sel" id="av-periodo" aria-label="Cierre de los avances"></select></div></div>
         <div class="av-grid" id="av-saldos" data-source="avances"></div>
@@ -1192,6 +1350,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           <label class="g-usd" hidden>Valor en dólares (USD)<input class="ag-in" type="number" id="g-usd" min="0" step="0.01"></label>
           <label class="g-usd" hidden>Tasa (COP por 1 USD)<input class="ag-in" type="number" id="g-tasa" min="0" step="1"></label>
           <label>Valor en pesos (COP)<input class="ag-in" type="number" id="g-valor" min="0" step="1"></label>
+          <label>Producto<select class="ag-sel" id="g-producto"><option value="">Elige el producto…</option><option value="Arte">Arte</option><option value="Peque">Peque</option></select></label>
           <label>¿Se paga ya?<select class="ag-sel" id="g-estado"><option value="Pagado">Sí, ya se pagó</option><option value="Pendiente">No, queda pendiente de pago</option></select></label>
           <label id="g-fpago-l">Fecha de pago<input class="ag-in" type="date" id="g-fpago" min="2020-01-01" max="2099-12-31"></label>
           <div class="g-reparto">
@@ -1571,8 +1730,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   dash.loader('gastos', {
     description: 'La pestaña Gastos como filas: fecha, concepto, categoría, valor en COP, quién lo pagó y a qué país se carga (General si a ninguno) de cada gasto que no es pauta.',
     fn: ({ answer }) => ({
-      columns: ['fila', 'fecha', 'concepto', 'categoria', 'valor', 'pagado_por', 'nota', 'pais', 'estado_pago', 'fecha_pago'],
-      rows: valores(answer).slice(1).map((r, i) => ({ fila: i + 2, fecha: leerFecha(r[0]), concepto: String(r[1] || ''), categoria: String(r[2] || ''), valor: leerValor(r[3]), pagado_por: String(r[4] || ''), nota: String(r[5] || ''), pais: String(r[6] || '').trim() || 'General', estado_pago: /pagad/i.test(String(r[7] || '')) ? 'Pagado' : 'Pendiente', fecha_pago: leerFecha(r[8]) || '' }))
+      columns: ['fila', 'fecha', 'concepto', 'categoria', 'valor', 'pagado_por', 'nota', 'pais', 'estado_pago', 'fecha_pago', 'producto'],
+      rows: valores(answer).slice(1).map((r, i) => ({ fila: i + 2, fecha: leerFecha(r[0]), concepto: String(r[1] || ''), categoria: String(r[2] || ''), valor: leerValor(r[3]), pagado_por: String(r[4] || ''), nota: String(r[5] || ''), pais: String(r[6] || '').trim() || 'General', estado_pago: /pagad/i.test(String(r[7] || '')) ? 'Pagado' : 'Pendiente', fecha_pago: leerFecha(r[8]) || '', producto: String(r[9] || '').trim() || 'Arte' }))
         .filter((r) => r.fecha && r.valor),
     }),
   });
@@ -1900,8 +2059,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       if (w) { const c = porDig[ult10(w)]; return { codigo: c || '', digitos: w, fuente: 'meta' }; }
       // Código del número (B3) en el nombre del anuncio, del conjunto o de la campaña: «CHILE_VD5 QR B3», «VD5_B3»…
       for (const t of [r.anuncio, r.conjunto, nomSet[r.conjunto_id], r.campana, nomCamp[r.campana_id]]) {
-        const m = String(t || '').toUpperCase().match(/(?:^|[^A-Z0-9])B\d+(?![0-9])/g);
-        const c = m ? m.map((x) => x.replace(/^[^B]/, '')).find((x) => codigos.has(x)) : null;
+        const m = String(t || '').toUpperCase().match(/(?:^|[^A-Z0-9])[BP]\d+(?![0-9])/g);
+        const c = m ? m.map((x) => x.replace(/^[^BP]/, '')).find((x) => codigos.has(x)) : null;
         if (c) return { codigo: c, digitos: '', fuente: 'nombre' };
       }
       // Asignado a mano en la tabla de campañas (columna J de Numeros)
@@ -2173,9 +2332,10 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   const mostrar = (v) => {
     if (window.idealabRol === 'creativos' && v !== 'notas' && v !== 'producto') v = 'creativos';
     vista = v; window.idealabVista = () => vista;
+    if (window.idealabProducto) window.idealabProducto.vista(v);
     document.querySelectorAll('[data-vista]').forEach((s) => { s.hidden = s.dataset.vista !== v; });
     document.querySelectorAll('#nav button').forEach((b) => { if (b.dataset.v === v) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
-    $('rango').style.visibility = v === 'contabilidad' || v === 'config' || v === 'paginas' || v === 'creativos' || v === 'notas' || v === 'producto' ? 'hidden' : 'visible';
+    $('rango').style.visibility = v === 'contabilidad' || v === 'config' || v === 'paginas' || v === 'numeros' || v === 'creativos' || v === 'notas' || v === 'producto' ? 'hidden' : 'visible';
     if (v === 'notas' && window.idealabNotas) window.idealabNotas.abrir();
     if (v === 'producto' && window.idealabProductos) window.idealabProductos.abrir();
     dash.setLink(v);
@@ -2377,7 +2537,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     if (vista === 'resumen') dibujarResumen(filas, okR, sel, clave, ORDEN, rangoTxt);
     if (vista === 'campanas') dibujarCampanas(filas, okR, ORDEN, rangoTxt);
     if (vista === 'graficas') dibujarGraficas(ORDEN);
-    if (vista === 'paginas') dibujarPaginas();
+    if (vista === 'paginas' || vista === 'numeros') dibujarPaginas();
     if (vista === 'contabilidad') dibujarContabilidad();
     if (vista === 'config') dibujarConfig();
     if (vista === 'creativos') dibujarCreativos();
@@ -3287,11 +3447,14 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         const n = document.createElement('small'); n.textContent = 'Según las campañas hasta el ' + (L.hasta ? Number(L.hasta.slice(8, 10)) + ' ' + MESES[Number(L.hasta.slice(5, 7)) - 1] : 'último día') + '. Toca «✦ Analizar con ONY» en un creativo para ver su mensaje, dolor, solución y público.'; box.appendChild(n);
       }
     }
+    { const pq = window.idealabCreativos && window.idealabCreativos.producto() === 'peque';
+      $('cr-titulo').textContent = pq ? 'Creativos · Peque' : 'Creativos · Arte';
+      $('cr-sub').textContent = 'Sube imágenes y videos de ' + (pq ? 'Peque (Creciendo con Jesús)' : 'ArteTerapia') + ': cada uno recibe su código consecutivo y queda guardado en Google Drive (carpeta «' + (pq ? 'IdeaLab · Creativos Peque' : 'IdeaLab · Creativos') + '»).'; }
     const se = $('cr-est'); if (se.options.length === 1) CR_ESTADOS.forEach((e) => se.appendChild(new Option(e, e)));
     if (C.status === 'error') {
       nx.replaceChildren(); res.replaceChildren(); grid.replaceChildren();
       const e = document.createElement('p'); e.className = 'ag-note f-aviso';
-      e.textContent = C.message === 'sin_servidor' ? 'Para subir y ver los creativos hay que publicar en Apps Script la versión nueva del servidor (Código.gs).' : 'No se pudieron cargar los creativos: ' + C.message;
+      e.textContent = C.message === 'sin_servidor_peque' ? 'Los creativos de Peque se guardan aparte (su propia pestaña, su carpeta en Drive y su propio conteo). Para activarlo hay que publicar en Apps Script el servidor nuevo (Código.gs).' : C.message === 'sin_servidor' ? 'Para subir y ver los creativos hay que publicar en Apps Script la versión nueva del servidor (Código.gs).' : 'No se pudieron cargar los creativos: ' + C.message;
       grid.appendChild(e); return;
     }
     if (C.status !== 'ok') { grid.replaceChildren(); const e = document.createElement('span'); e.className = 'dash-skeleton'; e.textContent = 'Cargando creativos…'; grid.appendChild(e); return; }
@@ -3529,7 +3692,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
             del.disabled = true;
             try {
               if (f.tipo === 'factura') await escribir('batch_clear_values', { ranges: ['Facturas!A' + f.fila + ':I' + f.fila] });
-              else await escribir('batch_clear_values', { ranges: f.filas.map((n) => 'Gastos!A' + n + ':I' + n) });
+              else await escribir('batch_clear_values', { ranges: f.filas.map((n) => 'Gastos!A' + n + ':J' + n) });
               avisar('fa-msg', 'Eliminada: ' + f.concepto + '.', true); dash.refresh(f.tipo === 'factura' ? 'facturas' : 'gastos');
             } catch (e) { avisar('fa-msg', textoError(e), false); del.disabled = false; }
           });
@@ -3552,7 +3715,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           try {
             if (f.tipo === 'factura') {
               // Pasa a Gastos (con su fecha de creación, para que siga en la misma quincena) y la factura queda marcada
-              await escribir('append_values', { range: 'Gastos!A1:I1', values: [[f.creada || i1.value, f.concepto, '', f.valor, i2.value, 'Factura pagada' + (f.pagar_a ? ' a ' + f.pagar_a : '') + (f.nota ? ' · ' + f.nota : ''), 'General', 'Pagado', i1.value]] });
+              await escribir('append_values', { range: 'Gastos!A1:J1', values: [[f.creada || i1.value, f.concepto, '', f.valor, i2.value, 'Factura pagada' + (f.pagar_a ? ' a ' + f.pagar_a : '') + (f.nota ? ' · ' + f.nota : ''), 'General', 'Pagado', i1.value, 'Arte']] });
               await escribir('update_values', { range: 'Facturas!E' + f.fila + ':G' + f.fila, values: [['Pagado', i1.value, i2.value]] });
               dash.refresh('facturas');
             } else {
@@ -3866,7 +4029,10 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const t = paisCierre ? filasLP.find((r) => r.periodo === periodoSel && r.pais === paisCierre) || vacia(paisCierre) : tg;
     const fuente = paisCierre ? 'liquidacion_paises' : 'liquidacion';
     const enLocal = (v) => (paisCierre && t.moneda && t.moneda !== 'COP' && t.tasa ? ' · ' + fLocal(v / t.tasa, t.moneda) : '');
-    $('liq-titulo').textContent = paisCierre ? 'Cierre de ' + paisCierre : 'Cierre global';
+    const prodEf = window.idealabProducto ? window.idealabProducto.efectivo() : 'todos', prodNom = { arte: 'Arte', peque: 'Peque' }[prodEf];
+    $('liq-titulo').textContent = (paisCierre ? 'Cierre de ' + paisCierre : 'Cierre global') + (prodNom ? ' · ' + prodNom : '');
+    { const k = window.idealabProducto ? window.idealabProducto.pctCompartido() : 50, kp = prodEf === 'peque' ? k : 100 - k;
+      $('liq-prod-aviso').textContent = prodNom ? 'Solo ' + prodNom + ': sus ventas, su pauta (campañas ' + (prodEf === 'peque' ? 'con PEQ' : 'sin PEQ') + ' en el nombre) y sus propios gastos. El cierre oficial, los comprobantes, los avances y la meta se manejan en «Juntos».' : ''; }
     $('liq-nota').textContent = 'Del ' + fLarga(tg.desde) + ' al ' + fLarga(tg.hasta) + (tg.completo ? '.' : ' — en curso, cifras parciales.') + (tg.parcial ? ' La pauta día a día solo está desde el ' + fLarga(tg.datos_desde) + '.' : '') + (paisCierre ? ' Incluye solo los gastos cargados a ' + paisCierre + '; los gastos «General» van al cierre global.' : '');
     document.querySelectorAll('[data-l]').forEach((el) => { el.dataset.source = fuente; el.dataset.where = 'clave=' + enc(t.clave); el.textContent = fmt(el.dataset.l, t[el.dataset.l]); if (el.dataset.l === 'utilidad_total') el.className = 'v ' + (t.utilidad_total >= 0 ? 'ag-pos' : 'ag-neg'); });
     $('liq-rent').textContent = 'Rentabilidad sobre pauta: ' + fmt('rentabilidad', t.rentabilidad) + ' · ROAS ' + fmt('roas', t.roas) + enLocal(t.utilidad_total);
@@ -4008,7 +4174,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         bt.addEventListener('click', async () => {
           if (bt.dataset.seguro !== '1') { bt.dataset.seguro = '1'; bt.textContent = f.filas.length > 1 ? '¿Borrar los ' + f.filas.length + ' países? Toca otra vez' : '¿Seguro? Toca otra vez'; bt.style.color = 'var(--ag-bad)'; setTimeout(() => { bt.dataset.seguro = ''; bt.textContent = 'Eliminar'; bt.style.color = ''; }, 4000); return; }
           bt.disabled = true; bt.textContent = 'Eliminando…';
-          try { await escribir('batch_clear_values', { ranges: f.filas.map((n) => 'Gastos!A' + n + ':I' + n) }); avisar('g-msg', 'Gasto eliminado: ' + f.concepto + ' · ' + cop.format(f.valor) + '.', true); dash.refresh('gastos'); }
+          try { await escribir('batch_clear_values', { ranges: f.filas.map((n) => 'Gastos!A' + n + ':J' + n) }); avisar('g-msg', 'Gasto eliminado: ' + f.concepto + ' · ' + cop.format(f.valor) + '.', true); dash.refresh('gastos'); }
           catch (e) { avisar('g-msg', textoError(e), false); bt.disabled = false; bt.textContent = 'Eliminar'; }
         });
         td.appendChild(bt); return true;
@@ -4299,7 +4465,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     if ($('g-moneda').value === 'USD' && !(usd > 0 && tasaU > 0)) { avisar('g-msg', 'Pon el valor en dólares y la tasa del dólar.', false); return; }
     const notaUsd = usd ? 'USD ' + dec.format(usd) + ' × ' + num.format(tasaU) : '';
     let filasG;
-    if (!gSel.length) filasG = [[fecha, concepto, '', valor, quien, notaUsd || 'desde el dashboard', 'General', pagado ? 'Pagado' : 'Pendiente', fpago]];
+    const prodG = $('g-producto').value;
+    if (!prodG) { avisar('g-msg', 'Elige de qué producto es la factura: Arte o Peque. Cada uno lleva sus propios gastos.', false); return; }
+    if (!gSel.length) filasG = [[fecha, concepto, '', valor, quien, notaUsd || 'desde el dashboard', 'General', pagado ? 'Pagado' : 'Pendiente', fpago, prodG]];
     else {
       const pc = pctsDe();
       const total = gSel.reduce((s, x) => s + (Number.isFinite(pc[x]) ? pc[x] : NaN), 0);
@@ -4307,12 +4475,12 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       if (Math.abs(total - 100) > 0.01) { avisar('g-msg', 'Los porcentajes suman ' + dec.format(total) + '%: deben sumar 100%.', false); return; }
       const partes = repartir(valor, gSel.map((x) => pc[x]));
       const nota = (gSel.length > 1 ? 'Repartido de ' + cop.format(valor) + ': ' + gSel.map((x) => x + ' ' + num.format(pc[x]) + '%').join(' · ') : 'desde el dashboard') + (notaUsd ? ' · ' + notaUsd : '');
-      filasG = gSel.map((x, i) => [fecha, concepto, '', partes[i], quien, nota, x, pagado ? 'Pagado' : 'Pendiente', fpago]);
+      filasG = gSel.map((x, i) => [fecha, concepto, '', partes[i], quien, nota, x, pagado ? 'Pagado' : 'Pendiente', fpago, prodG]);
     }
     ocupado(ev.target, true); avisar('g-msg', 'Guardando…', true);
     try {
-      await escribir('append_values', { range: 'Gastos!A1:I1', values: filasG });
-      avisar('g-msg', (pagado ? 'Pagada y guardada en «Pagos efectuados»: ' : 'Guardada en «Pendiente de pago»: ') + concepto + ' · ' + cop.format(valor) + ' · ' + (filasG.length > 1 ? filasG.map((f) => f[6] + ' ' + cop.format(f[3])).join(' · ') : 'cargado a ' + filasG[0][6]) + '.', true);
+      await escribir('append_values', { range: 'Gastos!A1:J1', values: filasG });
+      avisar('g-msg', (pagado ? 'Pagada y guardada en «Pagos efectuados»: ' : 'Guardada en «Pendiente de pago»: ') + concepto + ' · ' + cop.format(valor) + ' · ' + 'de ' + prodG + ' · ' + (filasG.length > 1 ? filasG.map((f) => f[6] + ' ' + cop.format(f[3])).join(' · ') : 'cargado a ' + filasG[0][6]) + '.', true);
       $('g-concepto').value = ''; $('g-valor').value = ''; $('g-usd').value = ''; gSel = []; gPct = {}; pintarRepartoGasto();
       dash.refresh('gastos');
     } catch (e) { avisar('g-msg', textoError(e), false); }
@@ -4398,11 +4566,13 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 
   // Números
   let enEdicion = null;
-  const siguienteCodigo = () => { const N = dash.data('numeros'); const usados = N.status === 'ok' ? N.data.map((x) => Number(String(x.codigo).replace(/\D/g, '')) || 0) : []; return 'B' + (Math.max(0, ...usados) + 1); };
+  // Arte usa B1, B2…; Peque usa P1, P2… (cada uno con su propio conteo)
+  const siguienteCodigo = () => { const pref = $('n-prod').value === 'P' ? 'P' : 'B'; const todosN = window.idealabProducto && window.idealabProducto.crudo('numeros'); const N = todosN ? { status: 'ok', data: todosN } : dash.data('numeros'); const usados = N.status === 'ok' ? N.data.filter((x) => String(x.codigo).trim().toUpperCase().startsWith(pref)).map((x) => Number(String(x.codigo).replace(/\D/g, '')) || 0) : []; return pref + (Math.max(0, ...usados) + 1); };
+  $('n-prod').addEventListener('change', () => { if (!enEdicion) $('n-codigo').value = siguienteCodigo(); });
   // Las campañas de un número ya no se marcan a mano (se detectan solas); se conserva lo que haya en la columna J
   let nCamps = new Set();
   const limpiarNum = () => {
-    enEdicion = null; nCamps = new Set();
+    enEdicion = null; nCamps = new Set(); $('n-prod').disabled = false;
     ['n-numero', 'n-celular', 'n-pais', 'n-portafolio', 'n-nota'].forEach((id) => { $(id).value = ''; });
     $('n-estado').value = 'CALENTAMIENTO'; $('n-inicio').value = HOY; $('n-codigo').value = siguienteCodigo();
     document.querySelectorAll('.n-ed').forEach((l) => { l.hidden = true; });
@@ -4410,6 +4580,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   };
   function editarNumero(f) {
     enEdicion = f;
+    $('n-prod').value = /^P/i.test(f.codigo) ? 'P' : 'B'; $('n-prod').disabled = true;
     $('n-codigo').value = f.codigo; $('n-numero').value = f.numero; $('n-celular').value = f.celular; $('n-pais').value = f.pais; $('n-portafolio').value = f.portafolio;
     $('n-estado').value = f.estado_hoja || 'CALENTAMIENTO'; $('n-inicio').value = /^\d{4}-\d{2}-\d{2}$/.test(f.inicio) ? f.inicio : ''; $('n-nota').value = f.nota || '';
     nCamps = new Set(f.campanas_asig || []);
@@ -4607,7 +4778,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   pintarTema();
   const ini = (location.hash || '').slice(1);
   window.idealabIrA = mostrar;
-  mostrar(['inicio', 'resumen', 'campanas', 'graficas', 'paginas', 'creativos', 'contabilidad', 'config'].includes(ini) ? ini : 'inicio');
+  mostrar(['inicio', 'resumen', 'campanas', 'graficas', 'paginas', 'numeros', 'creativos', 'contabilidad', 'config'].includes(ini) ? ini : 'inicio');
 })();
 </script>
 
@@ -4721,7 +4892,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   const enviar = (b) => window.idealabEnviar(b);
   const D = (id) => { const x = window.dash && window.dash.data(id); return x && x.status === 'ok' ? x.data : []; };
   const r2 = (v) => (v === null || v === undefined || !Number.isFinite(Number(v)) ? null : Math.round(Number(v) * 100) / 100);
-  const NOMBRES_VISTA = { inicio: 'Inicio', resumen: 'Resumen', campanas: 'Campañas', graficas: 'Gráficas', paginas: 'Fan pages', creativos: 'Creativos', contabilidad: 'Contabilidad', config: 'Configuración' };
+  const NOMBRES_VISTA = { inicio: 'Inicio', resumen: 'Resumen', campanas: 'Campañas', graficas: 'Gráficas', paginas: 'Fan pages', numeros: 'Números', creativos: 'Creativos', contabilidad: 'Contabilidad', config: 'Configuración' };
 
   // ---------- Lo que ONY ve de la app ----------
   const contexto = () => {
@@ -4810,6 +4981,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   $('ony-fab').addEventListener('click', () => { reaccionar($('ony-fab').querySelector('.ony-bot')); setTimeout(() => abrir(), 380); });
   $('ony-bot-h').addEventListener('click', () => reaccionar($('ony-bot-h')));
   $('ony-cerrar').addEventListener('click', () => abrir(false));
+  $('nav-ony').addEventListener('click', () => abrir(panel.hidden));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && abierto) abrir(false); });
 
   const bajarScroll = () => { lista.scrollTop = lista.scrollHeight; };
