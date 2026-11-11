@@ -79,7 +79,8 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
   let producto = PRODS.includes(LS.get('idealab_producto')) ? LS.get('idealab_producto') : 'todos';
   let productoCr = LS.get('idealab_producto_cr') === 'peque' ? 'peque' : 'arte';
   let vistaProd = 'inicio';
-  const VISTAS_PROD = ['resumen', 'campanas', 'graficas', 'paginas', 'numeros', 'contabilidad'];
+  // Fan pages y Números no se filtran por producto: cada número y página ya trae su campo «Producto» (Arte, Peque o Ambos)
+  const VISTAS_PROD = ['resumen', 'campanas', 'graficas', 'contabilidad'];
   const efectivo = () => (vistaProd === 'creativos' ? productoCr : VISTAS_PROD.includes(vistaProd) ? producto : 'todos');
   const esPeqTxt = (s) => /(^|[^A-Z0-9])PEQ(UE)?([^A-Z]|$)/i.test(String(s || ''));
   const esPeqProd = (s) => /peq|creciendo|niñ|nin[oa]s|infantil/i.test(String(s || ''));
@@ -1254,7 +1255,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     <section class="ag-vista" id="numeros" data-vista="numeros" hidden>
       <div class="ag-card">
         <h2>Números de WhatsApp (bots)</h2>
-        <p class="ag-note">El <b>código</b> se asigna solo y es el mismo conteo para los dos productos: B1, B2, B3… En <b>Producto</b> eliges si el número es de Arte, de Peque o de ambos (Peque/Arte); lo puedes cambiar cuando quieras, por ejemplo si un bot de Arte queda libre y lo pasas a Peque. Los que marques como ambos salen en las pestañas Arte y Peque. Un número nuevo entra en <b>CALENTAMIENTO</b>. El estado cambia solo: pasa a <b>ACTIVO</b> cuando Meta tiene anuncios activos que mandan a ese número y a <b>SIN USO</b> cuando se apagan. La fan page y las campañas donde se pauta también salen solas de Meta. PAUSADO y BLOQUEADO los pones tú y no cambian solos.</p>
+        <p class="ag-note">El <b>código</b> se asigna solo y es el mismo conteo para los dos productos: B1, B2, B3… En <b>Producto</b> eliges si el número es de Arte, de Peque o de ambos (Peque/Arte); lo puedes cambiar cuando quieras, por ejemplo si un bot de Arte queda libre y lo pasas a Peque. Aquí ves todos los números juntos, sin importar el producto. Un número nuevo entra en <b>CALENTAMIENTO</b>. El estado cambia solo: pasa a <b>ACTIVO</b> cuando Meta tiene anuncios activos que mandan a ese número y a <b>SIN USO</b> cuando se apagan. La fan page y las campañas donde se pauta también salen solas de Meta. PAUSADO y BLOQUEADO los pones tú y no cambian solos.</p>
         <p class="ag-note"><b>Mensajes hoy</b> son las «conversaciones con mensajes iniciadas» de Meta Ads de los anuncios que mandan a ese número. La app detecta sola a qué número manda cada anuncio (lo lee de Meta), aunque varios números compartan la misma fan page; no tienes que asignar nada.</p>
         <div class="ag-scroll"><table class="ag-table" id="t-numeros" data-source="numeros_uso" data-row-key="codigo"></table></div>
         <p class="ag-empty" id="numeros-vacio" hidden>Todavía no hay números. Agrega el primero abajo.</p>
