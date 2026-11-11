@@ -71,7 +71,8 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
   const HOJAS = { meta_diario: 'meta_diario', paises: 'productos', tasas: 'tasas', config: 'config', gastos: 'gastos', cierres: 'cierres', cambios: 'cambios', numeros: 'numeros', fan_pages: 'fan_pages', tasas_cierre: 'tasas_cierre', cierres_paises: 'cierres_paises', avances: 'avances', metas: 'metas' };
 
   // ---- Productos: Arte (ArteTerapia) y Peque (Creciendo con Jesús). Cada vista muestra «Ambos», «Arte» o «Peque».
-  // Campañas de Peque: llevan PEQ en el nombre (ej. VZLA_PEQ_TEST1_CMP P1). Números de Peque: códigos P1, P2…
+  // Campañas de Peque: llevan PEQ en el nombre (ej. VZLA_PEQ_TEST1_CMP B5). Números y fan pages: columna «Producto»
+  // (Arte, Peque o Ambos). Todos los números nuevos van con B (B1, B2…); los P1, P2… viejos siguen siendo de Peque.
   // Ventas de Peque: las de las hojas que en la pestaña Productos tienen producto «Peque» / «Creciendo con Jesús».
   // Gastos: columna J de Gastos = Arte, Peque o Compartido (vacío = Arte). Lo compartido se reparte con el % de Config.
   const PRODS = ['todos', 'arte', 'peque'];
@@ -83,6 +84,11 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
   const esPeqTxt = (s) => /(^|[^A-Z0-9])PEQ(UE)?([^A-Z]|$)/i.test(String(s || ''));
   const esPeqProd = (s) => /peq|creciendo|niñ|nin[oa]s|infantil/i.test(String(s || ''));
   const esPeqNum = (cod) => /^P\d+$/i.test(String(cod || '').trim());
+  // Producto elegido a mano (columna «Producto» de Numeros y de Fan_pages): Arte, Peque o Ambos (Peque/Arte)
+  const leerProd = (s) => { const t = String(s || '').trim().toLowerCase(); if (!t) return ''; if (/ambos|\/|juntos|los dos/.test(t)) return 'ambos'; if (/^pe|creciendo|niñ|infantil/.test(t)) return 'peque'; if (/^ar/.test(t)) return 'arte'; return ''; };
+  const prodNum = (n) => leerProd(n && n.producto) || (esPeqNum(n && n.codigo) ? 'peque' : 'arte');
+  const vaEn = (prod, p) => p === 'todos' || prod === 'ambos' || prod === p;
+  const NOMBRE_PROD = { arte: 'Arte', peque: 'Peque', ambos: 'Ambos (Peque/Arte)' };
   const prodGasto = (g) => { const p = String(g.producto || '').trim().toLowerCase(); return p.startsWith('pe') ? 'peque' : p.startsWith('co') ? 'compartido' : 'arte'; };
   const crudo = {};
   const pctCompartidoPeque = () => {
@@ -95,7 +101,7 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
     const peq = new Set(), art = new Set();
     const camp = {}; ((crudo.meta_campanas && crudo.meta_campanas.data) || []).forEach((c) => { camp[c.campana_id] = c.campana; });
     ((crudo.meta_creativos && crudo.meta_creativos.data) || []).forEach((a) => { if (!a.page_id) return; (esPeqTxt(a.campana || camp[a.campana_id]) ? peq : art).add(a.page_id); });
-    ((crudo.numeros && crudo.numeros.data) || []).forEach((n) => { if (!n.fan_page) return; (esPeqNum(n.codigo) ? peq : art).add(String(n.fan_page).trim().toLowerCase()); });
+    ((crudo.numeros && crudo.numeros.data) || []).forEach((n) => { if (!n.fan_page) return; const pr = prodNum(n), k = String(n.fan_page).trim().toLowerCase(); if (pr !== 'arte') peq.add(k); if (pr !== 'peque') art.add(k); });
     return { peq, art };
   };
   const filtrarFuente = (id, data, p) => {
@@ -111,12 +117,15 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
       case 'meta_wa': return data.filter((r) => quiere(camp[r.campana_id] ? esPeqTxt(camp[r.campana_id]) : esPeqNum(r.whatsapp)));
       case 'ventas': return data.filter((v) => quiere(esPeqProd(v.producto) || esPeqProd(v.hoja)));
       case 'paises': { const f = data.filter((x) => quiere(esPeqProd(x.producto))); return f.length ? f : data; }
-      case 'numeros': return data.filter((n) => quiere(esPeqNum(n.codigo)));
+      case 'numeros': return data.filter((n) => vaEn(prodNum(n), p));
       case 'meta_paginas': case 'fan_pages': {
         const { peq, art } = paginasDe();
+        // Si en Fan pages elegiste el producto de la página, manda eso
+        const elegido = {}; ((crudo.fan_pages && crudo.fan_pages.data) || []).forEach((f) => { const pr = leerProd(f.producto); if (!pr) return; if (f.page_id) elegido['id:' + f.page_id] = pr; if (f.pagina) elegido['n:' + f.pagina.trim().toLowerCase()] = pr; });
+        const prElegido = (x) => leerProd(x.producto) || elegido['id:' + x.page_id] || elegido['n:' + String(x.pagina || '').trim().toLowerCase()] || '';
         const dePeq = (x) => peq.has(String(x.page_id)) || peq.has(String(x.pagina || '').trim().toLowerCase()) || esPeqProd(x.pagina) || esPeqProd(x.nota);
         const deArte = (x) => art.has(String(x.page_id)) || art.has(String(x.pagina || '').trim().toLowerCase());
-        return data.filter((x) => (p === 'peque' ? dePeq(x) : deArte(x) || !dePeq(x)));
+        return data.filter((x) => { const pr = prElegido(x); return pr ? vaEn(pr, p) : p === 'peque' ? dePeq(x) : deArte(x) || !dePeq(x); });
       }
       case 'gastos': {
         const k = p === 'peque' ? pctCompartidoPeque() : 100 - pctCompartidoPeque();
@@ -264,7 +273,7 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
       b.hidden = vistaProd === 'creativos' && p === 'todos';
       if (p === 'todos') b.lastChild.textContent = vistaProd === 'contabilidad' ? 'Juntos' : 'Ambos';
     });
-    const np = document.getElementById('n-prod'); if (np && vistaProd === 'numeros' && !np.disabled && ef !== 'todos') { const v = ef === 'peque' ? 'P' : 'B'; if (np.value !== v) { np.value = v; np.dispatchEvent(new Event('change')); } }
+    const np = document.getElementById('n-prod'); if (np && vistaProd === 'numeros' && !np.dataset.editando && ef !== 'todos') np.value = ef === 'peque' ? 'Peque' : 'Arte';
     const gp = document.getElementById('g-producto'); if (gp && vistaProd === 'contabilidad') gp.value = { arte: 'Arte', peque: 'Peque' }[ef] || '';
     const bar = document.getElementById('prod-tabs'); if (bar) bar.hidden = !(VISTAS_PROD.includes(vistaProd) || vistaProd === 'creativos');
   };
@@ -277,7 +286,7 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
   window.idealabProducto = {
     actual: () => producto, creativos: () => productoCr, efectivo,
     crudo: (id) => (crudo[id] ? crudo[id].data : null),
-    pctCompartido: pctCompartidoPeque,
+    pctCompartido: pctCompartidoPeque, leerProd, prodNum, NOMBRE_PROD,
     elegir: (p) => {
       if (vistaProd === 'creativos') { if (p === 'todos' || p === productoCr) return; productoCr = p; LS.set('idealab_producto_cr', p); pintarProducto(); calcular(); cambiarCreativos(); return; }
       if (!PRODS.includes(p) || p === producto) return; producto = p; LS.set('idealab_producto', p); pintarProducto(); calcular();
@@ -1118,7 +1127,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         <button type="button" class="ag-area" data-ir="campanas"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l6 5V5L7 10H4a1 1 0 0 0-1 1zM17 8a5 5 0 0 1 0 8"/></svg><b>Campañas</b><span>Diagnóstico de cada campaña y anuncio: escalar, mantener, bajar o apagar.</span><em id="a-camp">—</em></button>
         <button type="button" class="ag-area" data-ir="graficas"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><b>Gráficas</b><span>Día a día por país o campaña: ganancia, ROAS, pauta, ventas y conversaciones.</span></button>
         <button type="button" class="ag-area" data-ir="paginas"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></svg><b>Fan pages</b><span>Tus páginas, cuáles están pautando y con qué campañas.</span><em id="a-pag">—</em></button>
-        <button type="button" class="ag-area" data-ir="numeros"><svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg><b>Números</b><span>Tus números de WhatsApp (B para Arte, P para Peque) y sus mensajes por día.</span></button>
+        <button type="button" class="ag-area" data-ir="numeros"><svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg><b>Números</b><span>Tus números de WhatsApp (B1, B2…) con su producto (Arte, Peque o ambos) y sus mensajes por día.</span></button>
         <button type="button" class="ag-area" data-ir="creativos"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6M15 9h.01"/></svg><b>Creativos</b><span>Imágenes y videos con su código (IMG, VD), estado y cuántos días duró cada uno.</span><em id="a-cr">—</em></button>
         <button type="button" class="ag-area" data-ir="contabilidad"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"/></svg><b>Contabilidad</b><span>Cierres quincenales y mensuales, reparto entre socios, nómina, proveedores y bitácora.</span></button>
         <button type="button" class="ag-area" data-ir="config"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg><b>Configuración</b><span>Porcentajes del reparto, equipo con acceso y cambios programados.</span></button>
@@ -1234,7 +1243,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     <section class="ag-vista" id="paginas" data-vista="paginas" hidden>
       <div class="ag-card">
         <div class="ag-top"><div><h2>Fan pages</h2>
-        <p class="ag-note">«Pautando ahora» = tiene al menos un anuncio activo en Meta en este momento; se ven sus campañas, países y la cuenta publicitaria.</p></div>
+        <p class="ag-note">«Pautando ahora» = tiene al menos un anuncio activo en Meta en este momento; se ven sus campañas, países y la cuenta publicitaria. En <b>Producto</b> eliges si la página vende Arte, Peque o ambos (Peque/Arte); las de ambos salen en las dos pestañas.</p></div>
           <div class="ag-chips" id="fp-filtro"><button type="button" class="ag-btn" data-f="si" aria-pressed="true">Pautando ahora</button><button type="button" class="ag-btn" data-f="no">Sin pautar</button><button type="button" class="ag-btn" data-f="todas">Todas</button></div></div>
         <div class="ag-scroll"><table class="ag-table" id="t-paginas" data-source="paginas_uso" data-row-key="page_id"></table></div>
         <p class="ag-msg" id="fp-msg"></p>
@@ -1245,7 +1254,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     <section class="ag-vista" id="numeros" data-vista="numeros" hidden>
       <div class="ag-card">
         <h2>Números de WhatsApp (bots)</h2>
-        <p class="ag-note">El <b>código</b> se asigna solo: B1, B2, B3… para Arte y P1, P2, P3… para Peque, cada uno con su propio conteo. Un número nuevo entra en <b>CALENTAMIENTO</b>. El estado cambia solo: pasa a <b>ACTIVO</b> cuando Meta tiene anuncios activos que mandan a ese número y a <b>SIN USO</b> cuando se apagan. La fan page y las campañas donde se pauta también salen solas de Meta. PAUSADO y BLOQUEADO los pones tú y no cambian solos.</p>
+        <p class="ag-note">El <b>código</b> se asigna solo y es el mismo conteo para los dos productos: B1, B2, B3… En <b>Producto</b> eliges si el número es de Arte, de Peque o de ambos (Peque/Arte); lo puedes cambiar cuando quieras, por ejemplo si un bot de Arte queda libre y lo pasas a Peque. Los que marques como ambos salen en las pestañas Arte y Peque. Un número nuevo entra en <b>CALENTAMIENTO</b>. El estado cambia solo: pasa a <b>ACTIVO</b> cuando Meta tiene anuncios activos que mandan a ese número y a <b>SIN USO</b> cuando se apagan. La fan page y las campañas donde se pauta también salen solas de Meta. PAUSADO y BLOQUEADO los pones tú y no cambian solos.</p>
         <p class="ag-note"><b>Mensajes hoy</b> son las «conversaciones con mensajes iniciadas» de Meta Ads de los anuncios que mandan a ese número. La app detecta sola a qué número manda cada anuncio (lo lee de Meta), aunque varios números compartan la misma fan page; no tienes que asignar nada.</p>
         <div class="ag-scroll"><table class="ag-table" id="t-numeros" data-source="numeros_uso" data-row-key="codigo"></table></div>
         <p class="ag-empty" id="numeros-vacio" hidden>Todavía no hay números. Agrega el primero abajo.</p>
@@ -1256,7 +1265,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         <p class="ag-empty" id="mc-vacio" hidden>No hay campañas en este filtro.</p>
         <p class="ag-msg" id="mc-msg"></p>
         <div class="ag-form" id="f-num">
-          <label>Producto<select class="ag-sel" id="n-prod"><option value="B">Arte (códigos B1, B2…)</option><option value="P">Peque (códigos P1, P2…)</option></select></label>
+          <label>Producto<select class="ag-sel" id="n-prod"><option value="Arte">Arte</option><option value="Peque">Peque</option><option value="Ambos">Ambos (Peque/Arte)</option></select></label>
           <label>Código<input class="ag-in" id="n-codigo" readonly title="Se asigna solo"></label>
           <label>Número business<input class="ag-in" id="n-numero" placeholder="300 000 0000"></label>
           <label>Celular<input class="ag-in" id="n-celular" placeholder="XIAOMI 4"></label>
@@ -1724,13 +1733,13 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   });
   dash.loader('fan_pages', {
     description: 'La pestaña Fan_pages: el país al que está dedicada cada página, aparte de dónde esté pautando.',
-    fn: ({ answer }) => ({ columns: ['fila', 'page_id', 'pagina', 'pais', 'nota'], rows: valores(answer).slice(1).map((r, i) => ({ fila: i + 2, page_id: String(r[0] || '').trim(), pagina: String(r[1] || '').trim(), pais: String(r[2] || '').trim(), nota: String(r[3] || '') })).filter((r) => r.page_id || r.pagina) }),
+    fn: ({ answer }) => ({ columns: ['fila', 'page_id', 'pagina', 'pais', 'nota', 'producto'], rows: valores(answer).slice(1).map((r, i) => ({ fila: i + 2, page_id: String(r[0] || '').trim(), pagina: String(r[1] || '').trim(), pais: String(r[2] || '').trim(), nota: String(r[3] || ''), producto: String(r[4] || '').trim() })).filter((r) => r.page_id || r.pagina) }),
   });
   dash.loader('numeros', {
     description: 'La pestaña Numeros como filas: cada número de WhatsApp (bot) con su código, celular, país, portafolio, estado, fecha de inicio y la fan page a la que está vinculado.',
     fn: ({ answer }) => ({
-      columns: ['fila', 'codigo', 'numero', 'celular', 'pais', 'portafolio', 'estado', 'inicio', 'fan_page', 'nota', 'campanas_asig'],
-      rows: valores(answer).slice(1).map((r, i) => ({ fila: i + 2, codigo: String(r[0] || '').trim(), numero: String(r[1] || '').trim(), celular: String(r[2] || '').trim(), pais: String(r[3] || '').trim(), portafolio: String(r[4] || '').trim(), estado: String(r[5] || '').trim().toUpperCase(), inicio: leerFecha(r[6]) || String(r[6] || ''), fan_page: String(r[7] || '').trim(), nota: String(r[8] || ''), campanas_asig: String(r[9] || '').split(/[,;\s]+/).map((x) => x.trim()).filter((x) => /^\d{6,}$/.test(x)) }))
+      columns: ['fila', 'codigo', 'numero', 'celular', 'pais', 'portafolio', 'estado', 'inicio', 'fan_page', 'nota', 'campanas_asig', 'producto'],
+      rows: valores(answer).slice(1).map((r, i) => ({ fila: i + 2, codigo: String(r[0] || '').trim(), numero: String(r[1] || '').trim(), celular: String(r[2] || '').trim(), pais: String(r[3] || '').trim(), portafolio: String(r[4] || '').trim(), estado: String(r[5] || '').trim().toUpperCase(), inicio: leerFecha(r[6]) || String(r[6] || ''), fan_page: String(r[7] || '').trim(), nota: String(r[8] || ''), campanas_asig: String(r[9] || '').split(/[,;\s]+/).map((x) => x.trim()).filter((x) => /^\d{6,}$/.test(x)), producto: String(r[10] || '').trim() }))
         .filter((r) => r.codigo && (r.numero || r.celular)),
     }),
   });
@@ -2040,6 +2049,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       });
       return Object.values(pags).map((p) => ({
         page_id: p.page_id, pagina: p.pagina, pautando: p.anuncios > 0 ? 'Sí' : 'No', anuncios: p.anuncios, conv_hoy: p.conv_hoy || 0,
+        producto_asig: leerProd((asig[p.page_id] || fan_pages.find((f) => !f.page_id && f.pagina === p.pagina) || {}).producto),
         pais_asignado: asig[p.page_id] ? asig[p.page_id].pais : (fan_pages.find((f) => !f.page_id && f.pagina === p.pagina) || {}).pais || '', fila_asig: asig[p.page_id] ? asig[p.page_id].fila : (fan_pages.find((f) => !f.page_id && f.pagina === p.pagina) || {}).fila || null,
         cuenta: p.cuentas.size ? [...p.cuentas].join(', ') : p.registrada_en || '—',
         campanas: [...p.campanas].sort().join(', '), camp_ids: [...(p.camp_ids || [])], paises: [...p.paises].sort().join(', '),
@@ -2990,6 +3000,10 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   }
 
   const fpGuardadas = {};
+  // Pone el título «Producto» en la columna nueva de la hoja (una sola vez por sesión)
+  const titulosPuestos = {};
+  const ponerTitulo = async (celda) => { if (titulosPuestos[celda]) return; await escribir('update_values', { range: celda, values: [['Producto']] }); titulosPuestos[celda] = true; };
+  const valProd = (pr) => ({ arte: 'Arte', peque: 'Peque', ambos: 'Ambos' }[pr] || 'Arte');
   let fpFiltro = 'si', mcFiltro = 'act';
   $('fp-filtro').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (b) { fpFiltro = b.dataset.f; dibujarPaginas(); } });
   $('mc-filtro').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (b) { mcFiltro = b.dataset.f; dibujarMsgCampanas(); } });
@@ -2998,11 +3012,28 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const t = $('t-paginas');
     if (fallaEn(t, ['paginas_uso']) === 'ok' || P.status === 'ok') {
       document.querySelectorAll('#fp-filtro [data-f]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.f === fpFiltro)));
-      tabla(t, [['pagina', 'Página'], ['pais_asignado', 'País de la página'], ['cuenta', 'Cuenta publicitaria'], ['pautando', 'Pautando ahora'], ['campanas', 'Campañas'], ['paises', 'Países']],
+      tabla(t, [['pagina', 'Página'], ['producto_asig', 'Producto'], ['pais_asignado', 'País de la página'], ['cuenta', 'Cuenta publicitaria'], ['pautando', 'Pautando ahora'], ['campanas', 'Campañas'], ['paises', 'Países']],
         P.data.filter((x) => fpFiltro === 'todas' || (fpFiltro === 'si') === (x.pautando === 'Sí')).sort((x, y) => (y.pautando === 'Sí') - (x.pautando === 'Sí') || x.pagina.localeCompare(y.pagina)),
         { key: 'page_id', celda: (td, c, f) => {
           if (c === 'pautando') { const sp = document.createElement('span'); sp.className = 'ag-pill ' + (f.pautando === 'Sí' ? 'r-Escalar' : 'r-Sin'); sp.textContent = f.pautando; td.appendChild(sp); return true; }
           if (c === 'campanas') { td.textContent = f.campanas || '—'; td.style.whiteSpace = 'normal'; td.style.minWidth = '220px'; return true; }
+          if (c === 'producto_asig') {
+            const se = document.createElement('select'); se.className = 'ag-sel fp-pais'; se.setAttribute('aria-label', 'Producto de ' + f.pagina);
+            se.appendChild(new Option('— Elegir —', '')); [['Arte', 'Arte'], ['Peque', 'Peque'], ['Ambos', 'Ambos (Peque/Arte)']].forEach(([v, n]) => se.appendChild(new Option(n, v)));
+            se.value = { arte: 'Arte', peque: 'Peque', ambos: 'Ambos' }[f.producto_asig] || '';
+            se.addEventListener('change', async () => {
+              se.disabled = true;
+              try {
+                if (!f.fila_asig && fpGuardadas[f.page_id]) { avisar('fp-msg', 'Un momento: todavía se está guardando ' + f.pagina + '.', false); se.disabled = false; return; }
+                await ponerTitulo('Fan_pages!E1');
+                if (f.fila_asig) await escribir('update_values', { range: 'Fan_pages!E' + f.fila_asig, values: [[se.value]] });
+                else { fpGuardadas[f.page_id] = true; await escribir('append_values', { range: 'Fan_pages!A1:E1', values: [[f.page_id, f.pagina, f.pais_asignado || '', '', se.value]] }); }
+                avisar('fp-msg', f.pagina + (se.value ? ' quedó para ' + (se.value === 'Ambos' ? 'Peque y Arte' : se.value) + '.' : ' quedó sin producto elegido.'), true);
+                dash.refresh('fan_pages');
+              } catch (e) { avisar('fp-msg', textoError(e), false); se.disabled = false; se.value = { arte: 'Arte', peque: 'Peque', ambos: 'Ambos' }[f.producto_asig] || ''; }
+            });
+            td.appendChild(se); return true;
+          }
           if (c === 'pais_asignado') {
             const se = document.createElement('select'); se.className = 'ag-sel fp-pais'; se.setAttribute('aria-label', 'País de ' + f.pagina);
             const PA = dash.data('paises'); const lista = PA.status === 'ok' ? [...new Set(PA.data.map((x) => x.pais))] : [];
@@ -3011,11 +3042,11 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
             se.addEventListener('change', async () => {
               se.disabled = true;
               try {
-                const fila = [f.page_id, f.pagina, se.value, ''];
+                const fila = [f.page_id, f.pagina, se.value, '', { arte: 'Arte', peque: 'Peque', ambos: 'Ambos' }[f.producto_asig] || ''];
                 if (!f.fila_asig && fpGuardadas[f.page_id]) { avisar('fp-msg', 'Un momento: todavía se está guardando ' + f.pagina + '.', false); se.disabled = false; return; }
                 if (!f.fila_asig) fpGuardadas[f.page_id] = true;
                 if (f.fila_asig) await escribir('update_values', { range: 'Fan_pages!A' + f.fila_asig + ':C' + f.fila_asig, values: [fila.slice(0, 3)] });
-                else await escribir('append_values', { range: 'Fan_pages!A1:D1', values: [fila] });
+                else await escribir('append_values', { range: 'Fan_pages!A1:E1', values: [fila] });
                 avisar('fp-msg', f.pagina + (se.value ? ' quedó dedicada a ' + se.value + '.' : ' quedó sin país asignado.'), true);
                 dash.refresh('fan_pages');
               } catch (e) { avisar('fp-msg', textoError(e), false); se.disabled = false; se.value = f.pais_asignado || ''; }
@@ -3034,9 +3065,21 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     $('numeros-vacio').hidden = N.data.length > 0;
     if (!enEdicion) { $('n-codigo').value = siguienteCodigo(); if (!$('n-inicio').value) $('n-inicio').value = HOY; }
     dibujarMsgCampanas(); dibujarMsgDias();
-    tabla(tn, [['codigo', 'Código'], ['numero', 'Business'], ['celular', 'Celular'], ['pais', 'País'], ['portafolio', 'Portafolio'], ['estado', 'Estado (cámbialo aquí)'], ['inicio', 'Agregado'], ['pagina', 'Fan page'], ['msg_hoy', 'Mensajes hoy', 'num'], ['campanas', 'Campañas que lo usan'], ['disponible', '¿Disponible? / dónde se pauta'], ['editar', '']], N.data, {
+    tabla(tn, [['codigo', 'Código'], ['producto', 'Producto'], ['numero', 'Business'], ['celular', 'Celular'], ['pais', 'País'], ['portafolio', 'Portafolio'], ['estado', 'Estado (cámbialo aquí)'], ['inicio', 'Agregado'], ['pagina', 'Fan page'], ['msg_hoy', 'Mensajes hoy', 'num'], ['campanas', 'Campañas que lo usan'], ['disponible', '¿Disponible? / dónde se pauta'], ['editar', '']], N.data, {
       key: 'codigo',
       celda: (td, c, f) => {
+        if (c === 'producto') {
+          const se = document.createElement('select'); se.className = 'ag-sel'; se.style.cssText = 'padding:3px 6px;font-size:11.5px'; se.setAttribute('aria-label', 'Producto de ' + f.codigo);
+          [['Arte', 'Arte'], ['Peque', 'Peque'], ['Ambos', 'Ambos (Peque/Arte)']].forEach(([v, n]) => se.appendChild(new Option(n, v)));
+          const antes = valProd(window.idealabProducto.prodNum(f)); se.value = antes;
+          se.addEventListener('change', async () => {
+            se.disabled = true;
+            try { await ponerTitulo('Numeros!K1'); await escribir('update_values', { range: 'Numeros!K' + f.fila, values: [[se.value]] }); avisar('n-msg', f.codigo + ' quedó para ' + (se.value === 'Ambos' ? 'Peque y Arte' : se.value) + '.', true); dash.refresh('numeros'); }
+            catch (e) { avisar('n-msg', textoError(e), false); se.value = antes; }
+            se.disabled = false;
+          });
+          td.appendChild(se); return true;
+        }
         if (c === 'estado') {
           const sp = document.createElement('span'); sp.className = 'ag-pill ' + (f.estado === 'ACTIVO' ? 'r-Escalar' : f.estado === 'CALENTAMIENTO' ? 'r-Mantener' : f.estado === 'BLOQUEADO' ? 'r-Apagar' : 'r-Sin'); sp.textContent = f.estado || '—'; td.appendChild(sp);
           const se = document.createElement('select'); se.className = 'ag-sel'; se.style.cssText = 'margin-left:6px;padding:3px 6px;font-size:11.5px'; se.setAttribute('aria-label', 'Cambiar estado de ' + f.codigo);
@@ -4577,13 +4620,13 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 
   // Números
   let enEdicion = null;
-  // Arte usa B1, B2…; Peque usa P1, P2… (cada uno con su propio conteo)
-  const siguienteCodigo = () => { const pref = $('n-prod').value === 'P' ? 'P' : 'B'; const todosN = window.idealabProducto && window.idealabProducto.crudo('numeros'); const N = todosN ? { status: 'ok', data: todosN } : dash.data('numeros'); const usados = N.status === 'ok' ? N.data.filter((x) => String(x.codigo).trim().toUpperCase().startsWith(pref)).map((x) => Number(String(x.codigo).replace(/\D/g, '')) || 0) : []; return pref + (Math.max(0, ...usados) + 1); };
-  $('n-prod').addEventListener('change', () => { if (!enEdicion) $('n-codigo').value = siguienteCodigo(); });
+  // Un solo conteo para los dos productos: B1, B2, B3… (el producto va aparte, en la columna K)
+  const siguienteCodigo = () => { const pref = 'B'; const todosN = window.idealabProducto && window.idealabProducto.crudo('numeros'); const N = todosN ? { status: 'ok', data: todosN } : dash.data('numeros'); const usados = N.status === 'ok' ? N.data.filter((x) => String(x.codigo).trim().toUpperCase().startsWith(pref)).map((x) => Number(String(x.codigo).replace(/\D/g, '')) || 0) : []; return pref + (Math.max(0, ...usados) + 1); };
   // Las campañas de un número ya no se marcan a mano (se detectan solas); se conserva lo que haya en la columna J
   let nCamps = new Set();
   const limpiarNum = () => {
-    enEdicion = null; nCamps = new Set(); $('n-prod').disabled = false;
+    enEdicion = null; nCamps = new Set(); delete $('n-prod').dataset.editando;
+    { const ef = window.idealabProducto.efectivo(); $('n-prod').value = ef === 'peque' ? 'Peque' : 'Arte'; }
     ['n-numero', 'n-celular', 'n-pais', 'n-portafolio', 'n-nota'].forEach((id) => { $(id).value = ''; });
     $('n-estado').value = 'CALENTAMIENTO'; $('n-inicio').value = HOY; $('n-codigo').value = siguienteCodigo();
     document.querySelectorAll('.n-ed').forEach((l) => { l.hidden = true; });
@@ -4591,7 +4634,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   };
   function editarNumero(f) {
     enEdicion = f;
-    $('n-prod').value = /^P/i.test(f.codigo) ? 'P' : 'B'; $('n-prod').disabled = true;
+    $('n-prod').value = valProd(window.idealabProducto.prodNum(f)); $('n-prod').dataset.editando = '1';
     $('n-codigo').value = f.codigo; $('n-numero').value = f.numero; $('n-celular').value = f.celular; $('n-pais').value = f.pais; $('n-portafolio').value = f.portafolio;
     $('n-estado').value = f.estado_hoja || 'CALENTAMIENTO'; $('n-inicio').value = /^\d{4}-\d{2}-\d{2}$/.test(f.inicio) ? f.inicio : ''; $('n-nota').value = f.nota || '';
     nCamps = new Set(f.campanas_asig || []);
@@ -4611,11 +4654,12 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     if (!numero) { avisar('n-msg', 'Escribe el número business.', false); return; }
     if (!$('n-celular').value.trim()) { avisar('n-msg', 'Escribe en qué celular está.', false); return; }
     const codigo = enEdicion ? enEdicion.codigo : siguienteCodigo();
-    const fila = [codigo, numero, $('n-celular').value.trim(), $('n-pais').value.trim().toUpperCase(), $('n-portafolio').value.trim().toUpperCase(), enEdicion ? $('n-estado').value : 'CALENTAMIENTO', $('n-inicio').value || HOY, enEdicion ? enEdicion.fan_page || '' : '', $('n-nota').value.trim(), [...nCamps].join(', ')];
+    const fila = [codigo, numero, $('n-celular').value.trim(), $('n-pais').value.trim().toUpperCase(), $('n-portafolio').value.trim().toUpperCase(), enEdicion ? $('n-estado').value : 'CALENTAMIENTO', $('n-inicio').value || HOY, enEdicion ? enEdicion.fan_page || '' : '', $('n-nota').value.trim(), [...nCamps].join(', '), $('n-prod').value];
     ocupado(ev.target, true); avisar('n-msg', 'Guardando…', true);
     try {
-      if (enEdicion) await escribir('update_values', { range: 'Numeros!A' + enEdicion.fila + ':J' + enEdicion.fila, values: [fila] });
-      else await escribir('append_values', { range: 'Numeros!A1:J1', values: [fila] });
+      await ponerTitulo('Numeros!K1');
+      if (enEdicion) await escribir('update_values', { range: 'Numeros!A' + enEdicion.fila + ':K' + enEdicion.fila, values: [fila] });
+      else await escribir('append_values', { range: 'Numeros!A1:K1', values: [fila] });
       avisar('n-msg', (enEdicion ? 'Cambios guardados en ' : 'Número agregado como ') + codigo + (enEdicion ? '.' : ' en CALENTAMIENTO.'), true);
       limpiarNum();
       dash.refresh('numeros');
@@ -4931,7 +4975,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     D('meta_dias').forEach((r) => { if (r.conjunto_id) adConj[r.ad_id] = r.conjunto_id; if (r.fecha >= desde7 && conjAct.has(r.conjunto_id)) { const k = r.conjunto_id + '|' + r.fecha; (gc[k] = gc[k] || { j: r.conjunto_id, f: r.fecha, g: 0, v: 0, c: 0 }); gc[k].g += r.gasto; gc[k].c += r.conversaciones || 0; } });
     D('ventas_cop').forEach((v) => { const j = adConj[v.ad_id]; if (j && v.fecha >= desde7 && conjAct.has(j) && v.valor_cop) { const k = j + '|' + v.fecha; (gc[k] = gc[k] || { j, f: v.fecha, g: 0, v: 0, c: 0 }); gc[k].v += v.valor_cop; } });
     const dias_conjunto = {}; Object.values(gc).sort((a, b) => a.f.localeCompare(b.f)).forEach((x) => { const k = nomConj[x.j] + ' (' + x.j + ')'; (dias_conjunto[k] = dias_conjunto[k] || []).push([x.f, null, Math.round(x.v), Math.round(x.g * 1.19), Math.round(x.v - x.g * 1.19), x.g > 0 ? r2(x.v / (x.g * 1.19)) : null, x.c]); });
-    const bots = D('numeros_uso').map((n) => ({ codigo: n.codigo, estado: n.estado, mensajes_hoy: n.msg_hoy, campanas: n.campanas, pagina: n.pagina }));
+    const bots = D('numeros_uso').map((n) => ({ codigo: n.codigo, producto: window.idealabProducto.NOMBRE_PROD[window.idealabProducto.prodNum(n)], estado: n.estado, mensajes_hoy: n.msg_hoy, campanas: n.campanas, pagina: n.pagina }));
     const estadoDatos = {}; ['meta_rango', 'meta_hoy', 'meta_campanas', 'ventas', 'resumen', 'diario', 'meta_dias'].forEach((id) => { const x = window.dash.data(id); estadoDatos[id] = x ? x.status + (x.status === 'ok' ? ' (' + (x.data || []).length + ' filas)' : x.message ? ': ' + x.message : '') : 'sin cargar'; });
     return { estado_de_los_datos: estadoDatos, hoy: resDia(hoy), ayer: resDia(sumar(hoy, -1)), periodo: { desde: P.desde, hasta: P.hasta }, paises_del_periodo: paises, campanas, conjuntos_activos: conjuntos, anuncios, dias_columnas: ['fecha', 'n_ventas', 'facturacion', 'gasto_ads_con_iva', 'utilidad', 'roas', 'conversaciones'], dias_pais, dias_campana, dias_conjunto, bots, creativos: crs.slice(0, 40), linea_creativos: rendG };
   };
