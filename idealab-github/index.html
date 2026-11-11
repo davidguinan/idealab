@@ -18,6 +18,8 @@ html, body { margin: 0; background: #0A1120; min-height: 100%; }
 .dash-skeleton { color: transparent !important; background: linear-gradient(90deg, rgba(255,255,255,.05), rgba(255,255,255,.12), rgba(255,255,255,.05)); background-size: 200% 100%; animation: sk 1.4s infinite; border-radius: 6px; min-width: 3ch; display: inline-block; }
 @keyframes sk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px; bottom: 14px; background: #18233A; color: #E8EDF7; border: 1px solid rgba(255,255,255,.14); padding: 8px 12px; border-radius: 10px; font: 13px Inter, sans-serif; z-index: 50; }
+body.cargando[data-copia]::after { content: "Actualizando… · viendo " attr(data-copia); }
+body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opacity: .55; transition: opacity .3s; }
 #ag-login { position: fixed; inset: 0; background: rgba(5,9,18,.92); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; font-family: Inter, sans-serif; color: #E8EDF7; }
 #ag-login[hidden] { display: none; }
 #ag-login .box { width: min(420px, 100%); background: #101A2D; border: 1px solid rgba(255,255,255,.1); border-radius: 18px; padding: 24px; display: grid; gap: 12px; }
@@ -300,9 +302,10 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
   const marcarCopia = (t) => {
     const hoyB = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date()), dB = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date(t));
     const el = document.getElementById('ag-actualizado'); if (el) el.textContent = 'Datos guardados de ' + horaTxt(t);
+    document.body.dataset.copia = 'datos de ' + horaTxt(t);
     ['actualizar', 'actualizar2'].forEach((id) => { const b = document.getElementById(id); if (b) { b.classList.add('ag-viejo'); b.classList.toggle('ag-muy-viejo', dB !== hoyB); b.title = 'Estás viendo los datos guardados de ' + horaTxt(t) + '. Toca para traer lo último.'; } });
   };
-  const marcarFresco = () => { ['actualizar', 'actualizar2'].forEach((id) => { const b = document.getElementById(id); if (b) { b.classList.remove('ag-viejo', 'ag-muy-viejo'); b.title = 'Traer los datos más recientes'; } }); };
+  const marcarFresco = () => { delete document.body.dataset.copia; ['actualizar', 'actualizar2'].forEach((id) => { const b = document.getElementById(id); if (b) { b.classList.remove('ag-viejo', 'ag-muy-viejo'); b.title = 'Traer los datos más recientes'; } }); };
   const iniciarDesdeCopia = async () => {
     const c = await cacheLeer('datos');
     if (!c || !c.v || !c.v.j) return false;
@@ -353,7 +356,7 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
     } catch (e) {
       if (String(e.message) === 'sin_login' || /Clave incorrecta/.test(e.message)) { mostrarLogin(/Clave/.test(e.message) ? 'La clave no es correcta.' : ''); }
       else Object.keys(estado).forEach((id) => { if (estado[id].status !== 'ok') fijar(id, { status: 'error', data: [], message: String(e.message || e) }); });
-      document.getElementById('ag-actualizado').textContent = 'No se pudo cargar: ' + e.message;
+      document.getElementById('ag-actualizado').textContent = 'No se pudo cargar: ' + e.message + (document.body.dataset.copia ? ' · viendo ' + document.body.dataset.copia : '');
       avisar();
     }
     document.body.classList.remove('cargando');
@@ -485,6 +488,9 @@ body.cargando::after { content: "Actualizando…"; position: fixed; right: 14px;
 .ag-card h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
 .ag-note { margin: 0 0 12px; color: var(--ag-muted); font-size: 12.5px; line-height: 1.45; }
 .ag-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); }
+@media (min-width: 600px) { #resumen .ag-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1400px) { #resumen .ag-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+#resumen .ag-kpi { min-height: 92px; }
 .ag-grid2 { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); }
 .ag-kpi { display: grid; gap: 6px; align-content: start; min-height: 104px; }
 .ag-kpi .lb { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ag-muted); }
@@ -764,6 +770,7 @@ tr.cd-vacio td { opacity: .45; }
 [data-rol="creativos"] #nav button:not([data-v="creativos"]):not([data-v="notas"]):not([data-v="producto"]):not(#nav-ony) { display: none !important; }
 /* ONY ya no flota: se abre desde «Ony» en el menú */
 #ony-vivo { display: none !important; }
+.ony-abierto .ag-nav button[aria-current="page"]:not(#nav-ony) { border-color: transparent; background: none; box-shadow: none; }
 .ony-abierto #nav-ony { border-color: rgba(155,212,58,.6); background: rgba(155,212,58,.08); }
 [data-rol="creativos"] #rango, [data-rol="creativos"] #takeaway { display: none !important; }
 [data-rol="creativos"] .ag-session b::after { content: ''; }
@@ -812,7 +819,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 .ony-panel[hidden] { display: none; }
 .ony-h { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--ag-line); background: linear-gradient(90deg, rgba(245,184,0,.1), transparent); }
 .ony-h div { display: grid; flex: 1; min-width: 0; } .ony-h b { font-size: 15px; letter-spacing: .08em; } .ony-h span { font-size: 11.5px; color: var(--ag-muted); }
-.ony-x { all: unset; cursor: pointer; font-size: 24px; line-height: 1; padding: 2px 8px; color: var(--ag-muted); border-radius: 8px; } .ony-x:hover { color: var(--ag-fg); }
+.ony-x { all: unset; cursor: pointer; font-size: 28px; line-height: 1; width: 40px; height: 40px; display: grid; place-items: center; flex: none; color: var(--ag-fg); border-radius: 10px; background: rgba(var(--tinta),.06); } .ony-x:hover, .ony-x:focus-visible { color: var(--ag-gold); background: rgba(var(--tinta),.12); }
 .ony-msgs { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .ony-m { max-width: 92%; padding: 10px 12px; border-radius: 14px; font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere; }
 .ony-m.yo { align-self: flex-end; background: rgba(245,184,0,.14); border: 1px solid rgba(245,184,0,.3); border-bottom-right-radius: 4px; white-space: pre-wrap; }
@@ -829,7 +836,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 .ony-acc.hecho { opacity: .7; border-color: var(--ag-line); }
 .ony-acc-t { font-size: 13px; } .ony-acc-b { display: flex; gap: 10px; align-items: center; }
 .ony-sub { font-size: 12px; color: var(--ag-muted); margin: 0; }
-.ony-chips { display: flex; gap: 6px; overflow-x: auto; padding: 0 12px 8px; scrollbar-width: none; }
+.ony-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 8px; }
 .ony-chips button { all: unset; cursor: pointer; white-space: nowrap; font-size: 12px; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--ag-line); color: var(--ag-fg); background: var(--ag-panel2); }
 .ony-chips button:hover { border-color: var(--ag-gold); color: var(--ag-gold); }
 [data-rol="creativos"] .solo-socios { display: none !important; }
@@ -2331,11 +2338,13 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   let vista = 'inicio';
   const mostrar = (v) => {
     if (window.idealabRol === 'creativos' && v !== 'notas' && v !== 'producto') v = 'creativos';
+    const cambia = vista !== v;
     vista = v; window.idealabVista = () => vista;
+    if (cambia) { window.scrollTo(0, 0); if (window.idealabOny) window.idealabOny.cerrar(); }
     if (window.idealabProducto) window.idealabProducto.vista(v);
     document.querySelectorAll('[data-vista]').forEach((s) => { s.hidden = s.dataset.vista !== v; });
     document.querySelectorAll('#nav button').forEach((b) => { if (b.dataset.v === v) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
-    $('rango').style.visibility = v === 'contabilidad' || v === 'config' || v === 'paginas' || v === 'numeros' || v === 'creativos' || v === 'notas' || v === 'producto' ? 'hidden' : 'visible';
+    $('rango').style.display = v === 'contabilidad' || v === 'config' || v === 'paginas' || v === 'numeros' || v === 'creativos' || v === 'notas' || v === 'producto' ? 'none' : '';
     if (v === 'notas' && window.idealabNotas) window.idealabNotas.abrir();
     if (v === 'producto' && window.idealabProductos) window.idealabProductos.abrir();
     dash.setLink(v);
@@ -2518,13 +2527,15 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const tk = $('takeaway'); tk.replaceChildren();
     // Con un país elegido, la frase de arriba habla solo de ese país; sin país, del total
     const tkf = paisSel ? sel : tot;
+    const tkProd = { arte: 'Arte', peque: 'Peque' }[window.idealabProducto ? window.idealabProducto.efectivo() : ''] || '';
+    const tkPre = [tkProd, paisSel].filter(Boolean).join(' · ');
     if (okR && tkf && (tkf.gasto > 0 || tkf.ventas_total_cop > 0)) {
-      tk.append((paisSel ? paisSel + ': ' : '') + (tkf.ganancia >= 0 ? 'vas en positivo ' : 'vas en pérdida ').replace(/^v/, paisSel ? 'v' : 'V') + rangoTxt + ': utilidad de ');
+      tk.append((tkPre ? tkPre + ': ' : '') + (tkf.ganancia >= 0 ? 'vas en positivo ' : 'vas en pérdida ').replace(/^v/, tkPre ? 'v' : 'V') + rangoTxt + ': utilidad de ');
       const s = document.createElement('b'); s.dataset.source = 'resumen'; s.dataset.field = 'ganancia'; s.dataset.where = 'clave=' + enc(clave); s.textContent = cop.format(tkf.ganancia); s.className = tkf.ganancia >= 0 ? 'ag-pos' : 'ag-neg'; tk.append(s);
       tk.append(' con ROAS de ');
       const r2 = document.createElement('b'); r2.dataset.source = 'resumen'; r2.dataset.field = 'roas'; r2.dataset.where = 'clave=' + enc(clave); r2.textContent = fmt('roas', tkf.roas); tk.append(r2);
       tk.append('.');
-    } else if (okR) tk.textContent = 'Sin gasto en Meta ' + (paisSel ? 'en ' + paisSel + ' ' : '') + rangoTxt + '.';
+    } else if (okR) tk.textContent = (tkProd ? tkProd + ': s' : 'S') + 'in gasto en Meta ' + (paisSel ? 'en ' + paisSel + ' ' : '') + rangoTxt + '.';
     else { const s = document.createElement('span'); s.className = 'dash-skeleton'; s.textContent = '—'; tk.append(s); }
 
     // Inicio
@@ -5172,7 +5183,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   };
   const vigilar = setInterval(() => { if (saludoHecho) { clearInterval(vigilar); return; } if (!document.getElementById('ag-login') || document.getElementById('ag-login').hidden) intentarSaludo(); }, 1500);
 
-  window.idealabOny = { abrir, preguntar, analizarCreativo };
+  window.idealabOny = { abrir, preguntar, analizarCreativo, cerrar: () => { if (abierto) abrir(false); } };
 })();
 </script>
 
