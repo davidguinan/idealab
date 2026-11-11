@@ -2049,7 +2049,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       });
       return Object.values(pags).map((p) => ({
         page_id: p.page_id, pagina: p.pagina, pautando: p.anuncios > 0 ? 'Sí' : 'No', anuncios: p.anuncios, conv_hoy: p.conv_hoy || 0,
-        producto_asig: leerProd((asig[p.page_id] || fan_pages.find((f) => !f.page_id && f.pagina === p.pagina) || {}).producto),
+        producto_asig: window.idealabProducto.leerProd((asig[p.page_id] || fan_pages.find((f) => !f.page_id && f.pagina === p.pagina) || {}).producto),
         pais_asignado: asig[p.page_id] ? asig[p.page_id].pais : (fan_pages.find((f) => !f.page_id && f.pagina === p.pagina) || {}).pais || '', fila_asig: asig[p.page_id] ? asig[p.page_id].fila : (fan_pages.find((f) => !f.page_id && f.pagina === p.pagina) || {}).fila || null,
         cuenta: p.cuentas.size ? [...p.cuentas].join(', ') : p.registrada_en || '—',
         campanas: [...p.campanas].sort().join(', '), camp_ids: [...(p.camp_ids || [])], paises: [...p.paises].sort().join(', '),
