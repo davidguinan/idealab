@@ -209,7 +209,17 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
 
   // ---- convertir la respuesta del servidor en las fuentes del dashboard
   const filasMeta = (filas) => ({ columns: [], rows: filas.map((r) => ({ ...r, moneda: r.moneda || 'COP', estado: r.estado || '' })) });
+  // Nombres actuales de las cuentas publicitarias (el servidor aún puede mandar los viejos)
+  const NOMBRE_CUENTA = { Vzla: 'ARTE', COLOMBIA: 'PEQUE', '833750669763474': 'ARTE', '985534177360479': 'PEQUE' };
+  const renombrarCuentas = (o) => {
+    if (Array.isArray(o)) { o.forEach(renombrarCuentas); return; }
+    if (!o || typeof o !== 'object') return;
+    if (typeof o.cuenta === 'string') o.cuenta = NOMBRE_CUENTA[String(o.cuenta_id || '')] || NOMBRE_CUENTA[o.cuenta] || o.cuenta;
+    if (Array.isArray(o.cuentas)) o.cuentas = o.cuentas.map((c) => (typeof c === 'string' ? (NOMBRE_CUENTA[c] || c) : c));
+    Object.keys(o).forEach((k) => { const x = o[k]; if (x && typeof x === 'object') renombrarCuentas(x); });
+  };
   const cargarTodo = (j) => {
+    try { if (j && j.meta) renombrarCuentas(j.meta); } catch (e) {}
     Object.entries(HOJAS).forEach(([id, h]) => {
       try { const out = loaders[id].fn({ answer: { values: j.hojas[h] || [] } }); fijar(id, { status: 'ok', data: out.rows || out, columns: out.columns || [] }); }
       catch (e) { fijar(id, { status: 'error', data: [], message: String(e.message || e) }); }
