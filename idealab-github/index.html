@@ -92,6 +92,14 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
   const NOMBRE_PROD = { arte: 'Arte', peque: 'Peque', ambos: 'Ambos (Peque/Arte)' };
   const prodGasto = (g) => { const p = String(g.producto || '').trim().toLowerCase(); return p.startsWith('pe') ? 'peque' : p.startsWith('co') ? 'compartido' : 'arte'; };
   const crudo = {};
+  // Cuenta publicitaria PEQUE: todo lo que venga de ella cuenta como producto Peque (aunque la campaña no diga PEQ)
+  const CUENTA_PEQUE = '985534177360479';
+  const esCtaPeq = (r) => {
+    if (!r) return false;
+    if (String(r.cuenta_id || '') === CUENTA_PEQUE) return true;
+    const c = ((crudo.meta_campanas && crudo.meta_campanas.data) || []).find((x) => x.campana_id === r.campana_id);
+    return !!(c && String(c.cuenta_id || '') === CUENTA_PEQUE);
+  };
   const pctCompartidoPeque = () => {
     const C = crudo.config ? crudo.config.data : [];
     const f = (C || []).find((c) => c.tipo === 'porcentaje' && /compartid/i.test(c.parametro));
@@ -101,7 +109,7 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
   const paginasDe = () => {
     const peq = new Set(), art = new Set();
     const camp = {}; ((crudo.meta_campanas && crudo.meta_campanas.data) || []).forEach((c) => { camp[c.campana_id] = c.campana; });
-    ((crudo.meta_creativos && crudo.meta_creativos.data) || []).forEach((a) => { if (!a.page_id) return; (esPeqTxt(a.campana || camp[a.campana_id]) ? peq : art).add(a.page_id); });
+    ((crudo.meta_creativos && crudo.meta_creativos.data) || []).forEach((a) => { if (!a.page_id) return; (esCtaPeq(a) || esPeqTxt(a.campana || camp[a.campana_id]) ? peq : art).add(a.page_id); });
     ((crudo.numeros && crudo.numeros.data) || []).forEach((n) => { if (!n.fan_page) return; const pr = prodNum(n), k = String(n.fan_page).trim().toLowerCase(); if (pr !== 'arte') peq.add(k); if (pr !== 'peque') art.add(k); });
     return { peq, art };
   };
@@ -112,10 +120,10 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
     const camp = {}; ((crudo.meta_campanas && crudo.meta_campanas.data) || []).forEach((c) => { camp[c.campana_id] = c.campana; });
     switch (id) {
       case 'meta_rango': case 'meta_hoy': case 'meta_diario': case 'meta_creativos':
-        return data.filter((r) => quiere(esPeqTxt(r.campana || camp[r.campana_id])));
-      case 'meta_campanas': return data.filter((r) => quiere(esPeqTxt(r.campana)));
-      case 'meta_conjuntos': return data.filter((r) => quiere(esPeqTxt(camp[r.campana_id] || r.conjunto)));
-      case 'meta_wa': return data.filter((r) => quiere(camp[r.campana_id] ? esPeqTxt(camp[r.campana_id]) : esPeqNum(r.whatsapp)));
+        return data.filter((r) => quiere(esCtaPeq(r) || esPeqTxt(r.campana || camp[r.campana_id])));
+      case 'meta_campanas': return data.filter((r) => quiere(esCtaPeq(r) || esPeqTxt(r.campana)));
+      case 'meta_conjuntos': return data.filter((r) => quiere(esCtaPeq(r) || esPeqTxt(camp[r.campana_id] || r.conjunto)));
+      case 'meta_wa': return data.filter((r) => quiere(esCtaPeq(r) || (camp[r.campana_id] ? esPeqTxt(camp[r.campana_id]) : esPeqNum(r.whatsapp))));
       case 'ventas': return data.filter((v) => quiere(esPeqProd(v.producto) || esPeqProd(v.hoja)));
       case 'paises': { const f = data.filter((x) => quiere(esPeqProd(x.producto))); return f.length ? f : data; }
       case 'numeros': return data.filter((n) => vaEn(prodNum(n), p));
@@ -1495,7 +1503,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 <script>
 /* Lectura de datos y cálculos */
 (function () {
-  const CUENTAS = [['833750669763474', 'Vzla'], ['2453307908465571', 'VENEZUELA'], ['985534177360479', 'COLOMBIA'], ['2675892466135634', 'testeo1'], ['998190215723784', 'Europa (EUR)']];
+  const CUENTAS = [['833750669763474', 'ARTE'], ['2453307908465571', 'VENEZUELA'], ['985534177360479', 'PEQUE'], ['2675892466135634', 'testeo1'], ['998190215723784', 'Europa (EUR)']];
   const ESTADOS_TODOS = ['ACTIVE', 'PAUSED', 'DELETED', 'ARCHIVED', 'CAMPAIGN_PAUSED', 'ADSET_PAUSED', 'WITH_ISSUES', 'DISAPPROVED', 'IN_PROCESS', 'PENDING_REVIEW', 'PREAPPROVED', 'PENDING_BILLING_INFO'];
   const comoObjeto = (a) => {
     let x = typeof a === 'string' ? JSON.parse(a) : a;
@@ -4087,7 +4095,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const prodEf = window.idealabProducto ? window.idealabProducto.efectivo() : 'todos', prodNom = { arte: 'Arte', peque: 'Peque' }[prodEf];
     $('liq-titulo').textContent = (paisCierre ? 'Cierre de ' + paisCierre : 'Cierre global') + (prodNom ? ' · ' + prodNom : '');
     { const k = window.idealabProducto ? window.idealabProducto.pctCompartido() : 50, kp = prodEf === 'peque' ? k : 100 - k;
-      $('liq-prod-aviso').textContent = prodNom ? 'Solo ' + prodNom + ': sus ventas, su pauta (campañas ' + (prodEf === 'peque' ? 'con PEQ' : 'sin PEQ') + ' en el nombre) y sus propios gastos. El cierre oficial, los comprobantes, los avances y la meta se manejan en «Juntos».' : ''; }
+      $('liq-prod-aviso').textContent = prodNom ? 'Solo ' + prodNom + ': sus ventas, su pauta (campañas ' + (prodEf === 'peque' ? 'de la cuenta PEQUE o con PEQ en el nombre' : 'sin PEQ en el nombre') + ') y sus propios gastos. El cierre oficial, los comprobantes, los avances y la meta se manejan en «Juntos».' : ''; }
     $('liq-nota').textContent = 'Del ' + fLarga(tg.desde) + ' al ' + fLarga(tg.hasta) + (tg.completo ? '.' : ' — en curso, cifras parciales.') + (tg.parcial ? ' La pauta día a día solo está desde el ' + fLarga(tg.datos_desde) + '.' : '') + (paisCierre ? ' Incluye solo los gastos cargados a ' + paisCierre + '; los gastos «General» van al cierre global.' : '');
     document.querySelectorAll('[data-l]').forEach((el) => { el.dataset.source = fuente; el.dataset.where = 'clave=' + enc(t.clave); el.textContent = fmt(el.dataset.l, t[el.dataset.l]); if (el.dataset.l === 'utilidad_total') el.className = 'v ' + (t.utilidad_total >= 0 ? 'ag-pos' : 'ag-neg'); });
     $('liq-rent').textContent = 'Rentabilidad sobre pauta: ' + fmt('rentabilidad', t.rentabilidad) + ' · ROAS ' + fmt('roas', t.roas) + enLocal(t.utilidad_total);
