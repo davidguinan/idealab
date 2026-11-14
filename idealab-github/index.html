@@ -591,6 +591,10 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
 .ea-fechas { align-items: end; gap: 8px; }
 .ea-lb { display: grid; gap: 3px; font-size: 11px; color: var(--ag-muted); }
 .ea-lb .ag-in { min-width: 140px; }
+.ea-ad { font-weight: 600; text-align: left; }
+.ea-sel > td { background: rgba(45,212,191,.08); }
+.ea-dia { border-color: rgba(163,230,53,.3); margin: 4px 0 10px; }
+.ea-dia .cd-h b { color: #A3E635; }
 .ea-sub { display: block; font-size: 11px; color: var(--ag-muted); font-weight: 400; }
 .ea-aviso, .ag-aviso-datos { margin: 0; padding: 8px 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.4; background: rgba(251,191,36,.12); border: 1px solid rgba(251,191,36,.35); color: var(--ag-warn); }
 .ag-aviso-datos { margin: 0 0 12px; }
@@ -2914,7 +2918,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   const inicioCampana = (campId) => { const D = dash.data('meta_dias'); const fs = D.status === 'ok' ? D.data.filter((r) => r.campana_id === campId && r.gasto > 0).map((r) => r.fecha).sort() : []; return fs[0] || null; };
   const correrEvalAds = async (f, desde, hasta) => {
     const id = f.campana_id;
-    evalAds[id] = { desde, hasta, estado: 'cargando' }; dibujar();
+    const abiertoAntes = evalAds[id] && evalAds[id].abierto;
+    evalAds[id] = { desde, hasta, estado: 'cargando', abierto: abiertoAntes }; dibujar();
     try {
       const j = await window.idealabPedir({ accion: 'meta_dia', desde, hasta });
       const filasDia = (j.filas || []).filter((r) => String(r.campana_id) === String(id));
@@ -2922,12 +2927,14 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       let sinTasa = false;
       filasDia.forEach((r) => {
         const t = tasaDel(r.moneda || 'COP', r.fecha); if (t === null) sinTasa = true;
-        const a = (ads[r.ad_id] = ads[r.ad_id] || { clave: r.ad_id, ad_id: r.ad_id, nombre: r.anuncio, conjunto: r.conjunto, gasto: 0, conversaciones: 0, dias: new Set(), primero: null, ultimo: null });
-        a.gasto += (Number(r.gasto) || 0) * (t || 0); a.conversaciones += Number(r.conversaciones) || 0;
+        const a = (ads[r.ad_id] = ads[r.ad_id] || { clave: r.ad_id, ad_id: r.ad_id, nombre: r.anuncio, conjunto: r.conjunto, gasto: 0, conversaciones: 0, dias: new Set(), primero: null, ultimo: null, porDia: {} });
+        const gCop = (Number(r.gasto) || 0) * (t || 0), cv = Number(r.conversaciones) || 0;
+        a.gasto += gCop; a.conversaciones += cv;
+        if (r.fecha) { const x = (a.porDia[r.fecha] = a.porDia[r.fecha] || { gasto: 0, conversaciones: 0, ventas_n: 0, ventas_cop: 0 }); x.gasto += gCop; x.conversaciones += cv; }
         if (Number(r.gasto) > 0 && r.fecha) { a.dias.add(r.fecha); if (!a.primero || r.fecha < a.primero) a.primero = r.fecha; if (!a.ultimo || r.fecha > a.ultimo) a.ultimo = r.fecha; }
       });
       const V = dash.data('ventas_cop');
-      (V.status === 'ok' ? V.data : []).filter((v) => v.ad_id && ads[v.ad_id] && v.fecha >= desde && v.fecha <= hasta && v.valor_cop).forEach((v) => { const a = ads[v.ad_id]; a.ventas_n = (a.ventas_n || 0) + 1; a.ventas_cop = (a.ventas_cop || 0) + v.valor_cop; });
+      (V.status === 'ok' ? V.data : []).filter((v) => v.ad_id && ads[v.ad_id] && v.fecha >= desde && v.fecha <= hasta && v.valor_cop).forEach((v) => { const a = ads[v.ad_id]; a.ventas_n = (a.ventas_n || 0) + 1; a.ventas_cop = (a.ventas_cop || 0) + v.valor_cop; const x = (a.porDia[v.fecha] = a.porDia[v.fecha] || { gasto: 0, conversaciones: 0, ventas_n: 0, ventas_cop: 0 }); x.ventas_n += 1; x.ventas_cop += v.valor_cop; });
       const IVA = 1.19;
       const REGLA = (roas, gasto) => (gasto < 20000 && (roas === null || roas < 1.8) ? 'Datos insuficientes' : roas >= 2 ? 'Escalar' : roas >= 1.8 ? 'Mantener' : roas >= 1 ? 'Bajar presupuesto' : 'Apagar');
       const filas = Object.values(ads).map((a) => {
@@ -2935,9 +2942,52 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         const roas = giva > 0 ? Math.round((vc / giva) * 100) / 100 : null;
         return { ...a, dias_n: a.dias.size, gasto: g, gasto_iva: giva, ventas_n: vn, ventas_cop: vc, ganancia: vc - giva, roas, pct_conv: a.conversaciones > 0 ? Math.round((vn / a.conversaciones) * 1000) / 10 : null, costo_conv: a.conversaciones > 0 ? Math.round(giva / a.conversaciones) : null, costo_compra: vn > 0 ? Math.round(giva / vn) : null, recomendacion: REGLA(roas, g) };
       }).sort((a, b) => b.gasto - a.gasto);
-      evalAds[id] = { desde, hasta, estado: 'ok', filas, avisos: (j.avisos || []).filter((a) => !/sin permiso/i.test(a)).concat(sinTasa ? ['Falta la tasa de cambio de una moneda en la pestaña Tasas: ese gasto no se pudo pasar a pesos.'] : []), hora: new Date() };
+      evalAds[id] = { desde, hasta, estado: 'ok', filas, abierto: abiertoAntes, avisos: (j.avisos || []).filter((a) => !/sin permiso/i.test(a)).concat(sinTasa ? ['Falta la tasa de cambio de una moneda en la pestaña Tasas: ese gasto no se pudo pasar a pesos.'] : []), hora: new Date() };
     } catch (e) { evalAds[id] = { desde, hasta, estado: 'error', msg: String(e.message || e) }; }
     dibujar();
+  };
+  // Día a día de UN anuncio: cada día por separado (gasto, conversaciones, ventas, ROAS…), del rango elegido
+  const diaADiaAnuncio = (tbody, a, st, ncols) => {
+    const IVA = 1.19;
+    const tr = tbody.insertRow(); tr.className = 'sub det';
+    const td = tr.insertCell(); td.colSpan = ncols;
+    const box = document.createElement('div'); box.className = 'cd-box ea-dia'; td.appendChild(box);
+    const dias = [];
+    for (let d = st.desde; d <= st.hasta; d = sumar(d, 1)) {
+      const x = a.porDia[d] || { gasto: 0, conversaciones: 0, ventas_n: 0, ventas_cop: 0 };
+      const giva = Math.round(x.gasto * IVA), vc = Math.round(x.ventas_cop);
+      dias.push({ fecha: d, gasto: Math.round(x.gasto), gasto_iva: giva, conversaciones: x.conversaciones, costo_conv: x.conversaciones > 0 ? Math.round(giva / x.conversaciones) : null, ventas_n: x.ventas_n, pct_conv: x.conversaciones > 0 ? Math.round((x.ventas_n / x.conversaciones) * 1000) / 10 : null, costo_compra: x.ventas_n > 0 ? Math.round(giva / x.ventas_n) : null, ventas_cop: vc, ganancia: vc - giva, roas: giva > 0 ? Math.round((vc / giva) * 100) / 100 : null });
+    }
+    // Solo desde el primer día que pautó hasta el último (sin días vacíos al principio ni al final)
+    const conAlgo = dias.filter((d) => d.gasto > 0 || d.conversaciones > 0 || d.ventas_n > 0);
+    const ini = conAlgo.length ? conAlgo[0].fecha : st.desde, fin = conAlgo.length ? conAlgo[conAlgo.length - 1].fecha : st.hasta;
+    const serie = dias.filter((d) => d.fecha >= ini && d.fecha <= fin);
+    const h = document.createElement('div'); h.className = 'cd-h';
+    const t1 = document.createElement('b'); t1.textContent = 'Día a día · ' + a.nombre;
+    const t2 = document.createElement('span'); t2.textContent = fLarga(ini) + ' al ' + fLarga(fin) + ' · Ad ID ' + a.ad_id;
+    h.append(t1, t2); box.appendChild(h);
+    if (serie.length > 1) {
+      const ley = document.createElement('div'); ley.className = 'ag-legend'; ley.innerHTML = '<span><i style="background:var(--ag-gold)"></i>Pauta con IVA</span><span><i style="background:var(--ag-teal)"></i>Utilidad</span><span><i style="background:#A3E635"></i>ROAS</span>'; box.appendChild(ley);
+      const ch = document.createElement('div'); ch.className = 'ag-chart'; box.appendChild(ch);
+      requestAnimationFrame(() => { try { combo(ch, serie); } catch (e) { console.error(e); } });
+    }
+    // Lectura de los días
+    const conG = serie.filter((d) => d.gasto > 0);
+    const lec = document.createElement('div'); lec.className = 'ag-lectura'; const lb = document.createElement('b'); lb.textContent = 'LECTURA'; const sp = document.createElement('span'); lec.append(lb, sp);
+    if (conG.length) {
+      const pos = conG.filter((d) => d.ganancia > 0).length;
+      const mejor = [...conG].sort((x, y) => y.ganancia - x.ganancia)[0], peor = [...conG].sort((x, y) => x.ganancia - y.ganancia)[0];
+      const masConv = [...conG].sort((x, y) => y.conversaciones - x.conversaciones)[0];
+      const u3 = conG.slice(-3), g3 = u3.reduce((s2, x) => s2 + x.gasto_iva, 0), v3 = u3.reduce((s2, x) => s2 + x.ventas_cop, 0);
+      sp.textContent = 'Pautó ' + num.format(conG.length) + ' días y ' + num.format(pos) + ' cerraron en positivo. Mejor día: ' + fLarga(mejor.fecha) + ' (' + cop.format(mejor.ganancia) + ', ROAS ' + fmt('roas', mejor.roas) + ').' + (peor !== mejor ? ' Peor día: ' + fLarga(peor.fecha) + ' (' + cop.format(peor.ganancia) + ').' : '') + ' Más conversaciones: ' + fLarga(masConv.fecha) + ' (' + num.format(masConv.conversaciones) + ').' + (conG.length >= 3 ? ' Últimos 3 días con gasto: ROAS ' + (g3 > 0 ? dec.format(v3 / g3) + 'x' : '—') + '.' : '');
+    } else sp.textContent = 'No tuvo gasto en estos días.';
+    box.appendChild(lec);
+    const sc = document.createElement('div'); sc.className = 'ag-scroll'; const t = document.createElement('table'); t.className = 'ag-table'; sc.appendChild(t); box.appendChild(sc);
+    tabla(t, [['fecha', 'Día'], ['gasto_iva', 'Pauta IVA', 'num'], ['conversaciones', 'Conv.', 'num'], ['costo_conv', 'Costo/conv.', 'num'], ['ventas_n', 'Ventas', 'num'], ['pct_conv', '% conv.', 'num'], ['costo_compra', 'Costo/compra', 'num'], ['ventas_cop', 'Facturación COP', 'num'], ['ganancia', 'Utilidad', 'num'], ['roas', 'ROAS', 'num']], [...serie].reverse(), {
+      key: 'fecha',
+      celda: (c, cc, d) => { if (cc === 'fecha') { c.textContent = fCorta(d.fecha) + ' · ' + ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'][new Date(d.fecha + 'T12:00:00Z').getUTCDay()] + (d.fecha === HOY ? ' (hoy, en curso)' : ''); return true; } return false; },
+      rowClass: (d) => (d.gasto > 0 ? '' : 'cd-vacio'),
+    });
   };
   const evaluarAnuncios = (tb, f, ncols) => {
     const tr = tb.insertRow(); tr.className = 'sub det';
@@ -2969,16 +3019,23 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const rs = st.filas;
     if (!rs.length) { res.textContent = 'Ningún anuncio de esta campaña tuvo gasto del ' + fLarga(st.desde) + ' al ' + fLarga(st.hasta) + '.'; box.appendChild(res); return; }
     const conG = rs.filter((a) => a.gasto > 0), mejor = [...conG].sort((a, b) => (b.roas || 0) - (a.roas || 0))[0], peor = [...conG].sort((a, b) => (a.roas || 0) - (b.roas || 0))[0];
-    res.textContent = 'Del ' + fLarga(st.desde) + ' al ' + fLarga(st.hasta) + ' (consultado a las ' + st.hora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) + '): ' + num.format(conG.length) + ' anuncio' + (conG.length === 1 ? '' : 's') + ' con gasto.' + (mejor && conG.length > 1 ? ' Mejor: ' + mejor.nombre + ' (ROAS ' + fmt('roas', mejor.roas) + ', ' + num.format(mejor.ventas_n) + ' ventas).' : '') + (peor && peor !== mejor && conG.length > 1 ? ' Más flojo: ' + peor.nombre + ' (ROAS ' + fmt('roas', peor.roas) + ').' : '') + ' Solo cuentan las ventas que traen el Ad ID del anuncio.';
+    res.textContent = 'Del ' + fLarga(st.desde) + ' al ' + fLarga(st.hasta) + ' (consultado a las ' + st.hora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) + '): ' + num.format(conG.length) + ' anuncio' + (conG.length === 1 ? '' : 's') + ' con gasto.' + (mejor && conG.length > 1 ? ' Mejor: ' + mejor.nombre + ' (ROAS ' + fmt('roas', mejor.roas) + ', ' + num.format(mejor.ventas_n) + ' ventas).' : '') + (peor && peor !== mejor && conG.length > 1 ? ' Más flojo: ' + peor.nombre + ' (ROAS ' + fmt('roas', peor.roas) + ').' : '') + ' Solo cuentan las ventas que traen el Ad ID del anuncio. Toca un anuncio para ver su día a día.';
     box.appendChild(res);
     const sc = document.createElement('div'); sc.className = 'ag-scroll'; const t = document.createElement('table'); t.className = 'ag-table'; sc.appendChild(t); box.appendChild(sc);
     tabla(t, [['nombre', 'Anuncio'], ['dias_n', 'Días con gasto', 'num'], ['gasto_iva', 'Pauta IVA', 'num'], ['conversaciones', 'Conv.', 'num'], ['costo_conv', 'Costo/conv.', 'num'], ['ventas_n', 'Ventas', 'num'], ['pct_conv', '% conv.', 'num'], ['costo_compra', 'Costo/compra', 'num'], ['ventas_cop', 'Facturación COP', 'num'], ['ganancia', 'Utilidad', 'num'], ['roas', 'ROAS', 'num'], ['recomendacion', 'Acción']], rs, {
       key: 'clave',
       celda: (c, cc, a) => {
-        if (cc === 'nombre') { const b = document.createElement('b'); b.textContent = a.nombre; const s = document.createElement('span'); s.className = 'ea-sub'; s.textContent = a.conjunto + ' · ' + a.ad_id + (a.primero ? ' · ' + fCorta(a.primero) + (a.ultimo !== a.primero ? '–' + fCorta(a.ultimo) : '') : ''); c.append(b, s); return true; }
+        if (cc === 'nombre') {
+          const b = document.createElement('button'); b.type = 'button'; b.className = 'ag-x ea-ad'; b.textContent = (st.abierto === a.ad_id ? '▾ ' : '▸ ') + a.nombre;
+          b.title = 'Ver el día a día de este anuncio';
+          b.addEventListener('click', () => { st.abierto = st.abierto === a.ad_id ? null : a.ad_id; dibujar(); });
+          const s = document.createElement('span'); s.className = 'ea-sub'; s.textContent = a.conjunto + ' · ' + a.ad_id + (a.primero ? ' · ' + fCorta(a.primero) + (a.ultimo !== a.primero ? '–' + fCorta(a.ultimo) : '') : ''); c.append(b, s); return true;
+        }
         if (cc === 'recomendacion') { c.appendChild(pill(a.recomendacion)); return true; }
         return false;
       },
+      rowClass: (a) => (st.abierto === a.ad_id ? 'ea-sel' : ''),
+      despues: (r, a, tbody) => { if (st.abierto === a.ad_id) diaADiaAnuncio(tbody, a, st, 12); },
     });
   };
 
