@@ -720,28 +720,6 @@ tr.cd-vacio td { opacity: .45; }
 .ag [data-dash-source-state=empty] { color: transparent; }
 [hidden] { display: none !important; }
 .ag-mapbox { max-width: 720px; margin: 0 auto; }
-/* Mundo 3D */
-.mundo-card { padding-bottom: 12px; }
-.mundo-host { position: relative; margin-top: 10px; display: grid; gap: 10px; color: var(--ag-muted); font-size: 13px; }
-.mundo-lienzo { position: relative; height: min(72vh, 680px); min-height: 380px; border-radius: 14px; overflow: hidden; background: #bfe6f7; touch-action: none; }
-.mundo-lienzo canvas { display: block; width: 100% !important; height: 100% !important; cursor: grab; }
-.mundo-lienzo canvas:active { cursor: grabbing; }
-.mundo-zoom { position: absolute; right: 10px; top: 10px; z-index: 4; display: grid; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.35); background: #fff; }
-.mundo-zoom button { width: 36px; height: 34px; border: 0; background: #fff; color: #3c4043; font-size: 18px; cursor: pointer; }
-.mundo-zoom button + button { border-top: 1px solid #e3e3e3; }
-.mundo-aviso { position: absolute; left: 50%; top: 12px; transform: translate(-50%, -8px); z-index: 4; max-width: 86%; padding: 7px 12px; border-radius: 999px; background: rgba(32,33,36,.85); color: #fff; font-size: 12.5px; opacity: 0; transition: opacity .3s, transform .3s; pointer-events: none; text-align: center; }
-.mundo-aviso.ver { opacity: 1; transform: translate(-50%, 0); }
-.mundo-barra { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-.mundo-barra button { display: grid; justify-items: center; gap: 1px; min-width: 62px; padding: 6px 8px; border-radius: 10px; border: 1px solid var(--ag-line); background: var(--ag-panel2); color: var(--ag-fg); cursor: pointer; }
-.mundo-barra button span { font-size: 20px; line-height: 1.1; }
-.mundo-barra button em { font-style: normal; font-size: 10.5px; color: var(--ag-muted); }
-.mundo-barra button.on { border-color: var(--ag-gold); background: rgba(245,184,0,.14); }
-.mundo-barra button.on em { color: var(--ag-gold); }
-.map-tip { position: absolute; z-index: 5; pointer-events: none; min-width: 150px; padding: 8px 11px; border-radius: 8px; background: #fff; color: #202124; font-size: 12.5px; line-height: 1.45; box-shadow: 0 2px 8px rgba(0,0,0,.28); transform: translate(-50%, calc(-100% - 12px)); white-space: nowrap; }
-.map-tip b { display: block; font-size: 13.5px; margin-bottom: 2px; }
-.map-tip span { display: block; color: #5f6368; }
-.map-tip em { font-style: normal; font-weight: 600; color: #202124; }
-.map-tip .pos { color: #188038; } .map-tip .neg { color: #d93025; }
 .ag-form { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); align-items: end; margin-top: 12px; padding: 12px; border: 1px dashed rgba(245,184,0,.35); border-radius: 12px; }
 .ag-form label { display: grid; gap: 4px; font-size: 11px; color: var(--ag-muted); }
 .ag-form .ag-in, .ag-form .ag-sel { width: 100%; }
@@ -1143,7 +1121,6 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       <button type="button" data-v="resumen"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>Resumen</button>
       <button type="button" data-v="campanas"><svg viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l6 5V5L7 10H4a1 1 0 0 0-1 1zM17 8a5 5 0 0 1 0 8"/></svg>Campañas</button>
       <button type="button" data-v="graficas"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Gráficas</button>
-      <button type="button" data-v="mundo"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>Mundo</button>
       <button type="button" data-v="paginas"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h8"/></svg>Fan pages</button>
       <button type="button" data-v="numeros"><svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>Números</button>
       <button type="button" data-v="creativos"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6M15 9h.01"/></svg>Creativos</button>
@@ -1279,13 +1256,6 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     </section>
 
     <!-- GRÁFICAS -->
-    <section class="ag-vista" id="mundo" data-vista="mundo" hidden>
-      <div class="ag-card mundo-card">
-        <div class="ag-top"><div><h2>Mundo</h2><p class="ag-note">Tu mapa en 3D con el relieve real. Toca un país para acercarte; al pasar el puntero ves su ROAS y sus ventas del periodo. Cada venta levanta una casita en su país. Con la barra de abajo construyes casas, cultivos, árboles, personas, barcos (arrástralos), puentes, nubes y tormentas: lo que construyas lo ven los dos socios.</p></div></div>
-        <div class="mundo-host" id="mundo-host"></div>
-      </div>
-    </section>
-
     <section class="ag-vista" id="graficas" data-vista="graficas" hidden>
       <div class="ag-card">
         <div class="ag-top"><div><h2>Día a día</h2><p class="ag-note" id="g-nota">Pauta con IVA, utilidad y ROAS de cada día, igual que en el Resumen.</p></div>
@@ -2445,11 +2415,6 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     $('rango').style.display = v === 'contabilidad' || v === 'config' || v === 'paginas' || v === 'numeros' || v === 'creativos' || v === 'notas' || v === 'producto' ? 'none' : '';
     if (v === 'notas' && window.idealabNotas) window.idealabNotas.abrir();
     if (v === 'producto' && window.idealabProductos) window.idealabProductos.abrir();
-    // Mundo 3D: se carga solo cuando se abre (es pesado) y se pausa al salir
-    if (v === 'mundo') {
-      const abrirMundo = () => window.idealabMundo && window.idealabMundo.abrir($('mundo-host'));
-      if (window.idealabMundo) abrirMundo(); else if (!document.getElementById('mundo-js')) { const sc = document.createElement('script'); sc.id = 'mundo-js'; sc.src = 'mundo.js?v=2'; sc.onload = abrirMundo; sc.onerror = () => { $('mundo-host').textContent = 'No se pudo cargar el Mundo. Revisa tu conexión.'; }; document.head.appendChild(sc); }
-    } else if (window.idealabMundo) window.idealabMundo.cerrar();
     dash.setLink(v);
     dibujar();
   };
