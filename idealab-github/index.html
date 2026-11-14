@@ -2935,7 +2935,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         const roas = giva > 0 ? Math.round((vc / giva) * 100) / 100 : null;
         return { ...a, dias_n: a.dias.size, gasto: g, gasto_iva: giva, ventas_n: vn, ventas_cop: vc, ganancia: vc - giva, roas, pct_conv: a.conversaciones > 0 ? Math.round((vn / a.conversaciones) * 1000) / 10 : null, costo_conv: a.conversaciones > 0 ? Math.round(giva / a.conversaciones) : null, costo_compra: vn > 0 ? Math.round(giva / vn) : null, recomendacion: REGLA(roas, g) };
       }).sort((a, b) => b.gasto - a.gasto);
-      evalAds[id] = { desde, hasta, estado: 'ok', filas, avisos: (j.avisos || []).concat(sinTasa ? ['Falta la tasa de cambio de una moneda en la pestaña Tasas: ese gasto no se pudo pasar a pesos.'] : []), hora: new Date() };
+      evalAds[id] = { desde, hasta, estado: 'ok', filas, avisos: (j.avisos || []).filter((a) => !/sin permiso/i.test(a)).concat(sinTasa ? ['Falta la tasa de cambio de una moneda en la pestaña Tasas: ese gasto no se pudo pasar a pesos.'] : []), hora: new Date() };
     } catch (e) { evalAds[id] = { desde, hasta, estado: 'error', msg: String(e.message || e) }; }
     dibujar();
   };
