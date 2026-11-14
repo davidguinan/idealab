@@ -593,7 +593,8 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
 .ea-lb .ag-in { min-width: 140px; }
 .ea-ad { font-weight: 600; text-align: left; }
 .ea-sel > td { background: rgba(45,212,191,.08); }
-.ea-dia { border-color: rgba(163,230,53,.3); margin: 4px 0 10px; }
+.ea-dia { position: static; border-color: rgba(163,230,53,.3); margin: 4px 0 0; }
+.ea-box > .ag-scroll { max-height: none; }
 .ea-dia .cd-h b { color: #A3E635; }
 .ea-sub { display: block; font-size: 11px; color: var(--ag-muted); font-weight: 400; }
 .ea-aviso, .ag-aviso-datos { margin: 0; padding: 8px 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.4; background: rgba(251,191,36,.12); border: 1px solid rgba(251,191,36,.35); color: var(--ag-warn); }
@@ -2947,11 +2948,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     dibujar();
   };
   // Día a día de UN anuncio: cada día por separado (gasto, conversaciones, ventas, ROAS…), del rango elegido
-  const diaADiaAnuncio = (tbody, a, st, ncols) => {
+  const diaADiaAnuncio = (padre, a, st) => {
     const IVA = 1.19;
-    const tr = tbody.insertRow(); tr.className = 'sub det';
-    const td = tr.insertCell(); td.colSpan = ncols;
-    const box = document.createElement('div'); box.className = 'cd-box ea-dia'; td.appendChild(box);
+    const box = document.createElement('div'); box.className = 'cd-box ea-dia'; padre.appendChild(box);
     const dias = [];
     for (let d = st.desde; d <= st.hasta; d = sumar(d, 1)) {
       const x = a.porDia[d] || { gasto: 0, conversaciones: 0, ventas_n: 0, ventas_cop: 0 };
@@ -3035,8 +3034,10 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         return false;
       },
       rowClass: (a) => (st.abierto === a.ad_id ? 'ea-sel' : ''),
-      despues: (r, a, tbody) => { if (st.abierto === a.ad_id) diaADiaAnuncio(tbody, a, st, 12); },
     });
+    // Día a día del anuncio elegido, debajo de la tabla (con todo el ancho para leerlo cómodo)
+    const elegido = rs.find((a) => a.ad_id === st.abierto);
+    if (elegido) diaADiaAnuncio(box, elegido, st);
   };
 
   // Facturación en la moneda del país (para COP no se repite)
