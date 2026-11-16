@@ -1049,7 +1049,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 .bd-mesa.llena h4 .cupo { color: var(--ag-ok); } .bd-mesa.pasada { border-color: var(--ag-bad); } .bd-mesa.pasada h4 .cupo { color: var(--ag-bad); }
 .bd-mesa h4 input { all: unset; font-weight: 600; min-width: 0; width: 100%; border-bottom: 1px dashed transparent; } .bd-mesa h4 input:focus { border-bottom-color: var(--ag-gold); }
 .bd-mesa .cupo { font-size: 12px; color: var(--ag-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.bd-mesa .cap { all: unset; width: 26px; text-align: center; border-bottom: 1px dashed var(--ag-line); }
+.bd-puestos { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--ag-muted); margin: 2px 0 6px; cursor: default; }
+.bd-puestos .ag-btn { padding: 2px 9px; font-size: 14px; line-height: 1.2; }
+.bd-puestos .ag-in { width: 44px; padding: 3px 4px; text-align: center; }
 .bd-sillas { display: flex; flex-wrap: wrap; gap: 3px; margin: 2px 0 8px; } .bd-sillas i { width: 9px; height: 9px; border-radius: 50%; background: rgba(var(--tinta),.12); } .bd-sillas i.on { background: var(--ag-gold); } .bd-sillas i.extra { background: var(--ag-bad); }
 .bd-grupo { border: 1px solid var(--ag-line); border-radius: 10px; padding: 5px 7px; background: var(--ag-panel); cursor: grab; }
 .bd-grupo.sel { border-color: var(--ag-gold); box-shadow: 0 0 0 2px rgba(245,184,0,.3); }
@@ -1573,10 +1575,10 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       </div>
 
       <div class="ag-card" style="margin-top:14px">
-        <div class="ag-top"><div><h2>Mesas · simulación</h2><p class="ag-note">Toca una invitación (o una persona) de «Sin mesa» y luego toca la mesa donde la quieres; en computador también puedes arrastrar. Las familias de una misma invitación se mueven juntas. Nada se guarda hasta que pulses <b>Guardar acomodación</b>.</p></div></div>
+        <div class="ag-top"><div><h2>Mesas · simulación</h2><p class="ag-note">Cada mesa tiene sus propios <b>puestos</b> (cámbialos con − y + en la mesa, o escribe una lista como «7, 10, 18» y pulsa Crear mesas). Toca una invitación (o una persona) de «Sin mesa» y luego toca la mesa donde la quieres; en computador también puedes arrastrar. Las familias de una misma invitación se mueven juntas. Nada se guarda hasta que pulses <b>Guardar acomodación</b>.</p></div></div>
         <div class="bd-mesa-ctrl">
           <label>Mesas<input class="ag-in" type="number" id="bd-n-mesas" min="1" max="60" value="8"></label>
-          <label>Puestos por mesa<input class="ag-in" type="number" id="bd-cap" min="1" max="30" value="10"></label>
+          <label>Puestos (mesas nuevas)<input class="ag-in" type="text" inputmode="numeric" id="bd-cap" value="10" title="Un número para todas las mesas nuevas, o una lista para cada mesa: 7, 10, 18" style="width:130px"></label>
           <button type="button" class="ag-btn" id="bd-crear">Crear mesas</button>
           <button type="button" class="ag-btn" id="bd-mas">+ Mesa</button>
           <label class="bd-chk"><input type="checkbox" id="bd-solo-conf"> Solo confirmados</label>
@@ -6383,7 +6385,7 @@ if ('serviceWorker' in navigator) {
   const gruposDe = (lista) => { const G = {}; lista.forEach((g) => { const k = norm(g.invitacion || g.nombre); (G[k] = G[k] || { k, titulo: g.invitacion || lindo(g.nombre), gente: [] }).gente.push(g); }); return Object.values(G); };
   const ocupados = (id) => candidatos().filter((g) => asig[clave(g)] === id).length;
   const ensuciar = () => { sucio = true; $('bd-guardar').textContent = 'Guardar acomodación •'; };
-  const nuevaMesa = (cap) => { let n = mesas.length + 1; const usados = new Set(mesas.map((m) => m.id)); while (usados.has('m' + n)) n++; const m = { id: 'm' + n, nombre: 'Mesa ' + (mesas.length + 1), capacidad: cap || Number($('bd-cap').value) || 10 }; mesas.push(m); return m; };
+  const nuevaMesa = (cap) => { let n = mesas.length + 1; const usados = new Set(mesas.map((m) => m.id)); while (usados.has('m' + n)) n++; const m = { id: 'm' + n, nombre: 'Mesa ' + (mesas.length + 1), capacidad: cap || 10 }; mesas.push(m); return m; };
   const mover = (personas, mesaId) => { personas.forEach((g) => { if (mesaId) asig[clave(g)] = mesaId; else delete asig[clave(g)]; }); sel = null; ensuciar(); pintarMesas(); pintarInvitados(); };
   const seleccion = () => { if (!sel) return []; const C = candidatos(); return sel.tipo === 'grupo' ? C.filter((g) => norm(g.invitacion || g.nombre) === sel.k && (asig[clave(g)] || '') === sel.desde) : C.filter((g) => clave(g) === sel.k); };
 
@@ -6432,11 +6434,16 @@ if ('serviceWorker' in navigator) {
       const b = el('div', 'bd-mesa' + (n > m.capacidad ? ' pasada' : n === m.capacidad ? ' llena' : '') + (sel && (sel.desde || '') !== m.id ? ' destino' : ''));
       const h4 = el('h4');
       const nm = el('input'); nm.value = m.nombre; nm.setAttribute('aria-label', 'Nombre de la mesa'); nm.addEventListener('click', (e) => e.stopPropagation()); nm.addEventListener('change', () => { m.nombre = nm.value.trim() || 'Mesa ' + (idx + 1); ensuciar(); pintarInvitados(); });
-      const cupo = el('span', 'cupo'); cupo.append(document.createTextNode(n + ' / '));
-      const cap = el('input', 'cap'); cap.value = m.capacidad; cap.inputMode = 'numeric'; cap.setAttribute('aria-label', 'Puestos de ' + m.nombre); cap.addEventListener('click', (e) => e.stopPropagation()); cap.addEventListener('change', () => { m.capacidad = Math.max(1, Number(cap.value) || m.capacidad); ensuciar(); pintarMesas(); });
-      cupo.appendChild(cap);
+      const cupo = el('span', 'cupo', n + ' / ' + m.capacidad);
+      // Puestos de esta mesa (cada mesa puede tener los suyos: 7, 10, 18…)
+      const pu = el('div', 'bd-puestos'); pu.addEventListener('click', (e) => e.stopPropagation());
+      const fijar = (v) => { m.capacidad = Math.max(1, Math.min(99, Math.round(v) || m.capacidad)); ensuciar(); pintarMesas(); };
+      const menos = el('button', 'ag-btn', '−'); menos.type = 'button'; menos.setAttribute('aria-label', 'Un puesto menos en ' + m.nombre); menos.addEventListener('click', () => fijar(m.capacidad - 1));
+      const cap = el('input', 'ag-in'); cap.value = m.capacidad; cap.inputMode = 'numeric'; cap.setAttribute('aria-label', 'Puestos de ' + m.nombre); cap.addEventListener('change', () => fijar(Number(cap.value)));
+      const mas = el('button', 'ag-btn', '+'); mas.type = 'button'; mas.setAttribute('aria-label', 'Un puesto más en ' + m.nombre); mas.addEventListener('click', () => fijar(m.capacidad + 1));
+      pu.append(el('span', '', 'Puestos'), menos, cap, mas);
       const del = el('button', 'bd-x', '×'); del.type = 'button'; del.title = 'Quitar mesa (sus invitados vuelven a «Sin mesa»)'; del.addEventListener('click', (e) => { e.stopPropagation(); mesas = mesas.filter((x) => x.id !== m.id); Object.keys(asig).forEach((k) => { if (asig[k] === m.id) delete asig[k]; }); ensuciar(); pintarMesas(); pintarInvitados(); });
-      h4.append(nm, cupo, del); b.appendChild(h4);
+      h4.append(nm, cupo, del); b.append(h4, pu);
       const si = el('div', 'bd-sillas'); for (let i = 0; i < Math.max(m.capacidad, n); i++) si.appendChild(el('i', i < n ? (i >= m.capacidad ? 'extra' : 'on') : '')); b.appendChild(si);
       gruposDe(gente).forEach((gr) => b.appendChild(tarjetaGrupo(gr, m.id)));
       if (n > m.capacidad) b.appendChild(el('div', 'bd-aviso', 'Hay ' + (n - m.capacidad) + ' de más en esta mesa.'));
@@ -6450,13 +6457,16 @@ if ('serviceWorker' in navigator) {
   }
 
   $('bd-crear').addEventListener('click', () => {
-    const n = Math.max(1, Math.min(60, Number($('bd-n-mesas').value) || 1)), cap = Math.max(1, Number($('bd-cap').value) || 10);
-    while (mesas.length < n) nuevaMesa(cap);
-    mesas.forEach((m) => { m.capacidad = cap; });
+    // «Puestos» puede ser un número (para las mesas nuevas) o una lista para cada mesa: 7, 10, 18
+    const lista = String($('bd-cap').value).split(/[,;\s]+/).map(Number).filter((x) => x > 0);
+    const cap = Math.max(1, lista[0] || 10);
+    const n = lista.length > 1 ? lista.length : Math.max(1, Math.min(60, Number($('bd-n-mesas').value) || 1));
+    while (mesas.length < n) nuevaMesa(lista.length > 1 ? lista[mesas.length] : cap);
+    if (lista.length > 1) { mesas.forEach((m, i) => { if (lista[i]) m.capacidad = lista[i]; }); $('bd-n-mesas').value = n; }
     if (mesas.length > n) { const quitar = new Set(mesas.slice(n).map((m) => m.id)); mesas = mesas.slice(0, n); Object.keys(asig).forEach((k) => { if (quitar.has(asig[k])) delete asig[k]; }); }
     ensuciar(); pintarMesas(); pintarInvitados();
   });
-  $('bd-mas').addEventListener('click', () => { nuevaMesa(); ensuciar(); pintarMesas(); });
+  $('bd-mas').addEventListener('click', () => { const c = String($('bd-cap').value).split(/[,;\s]+/).map(Number).filter((x) => x > 0); nuevaMesa(c[0] || 10); ensuciar(); pintarMesas(); });
   $('bd-solo-conf').addEventListener('change', () => { pintarMesas(); });
   $('bd-vaciar').addEventListener('click', () => { asig = {}; ensuciar(); pintarMesas(); pintarInvitados(); });
   // Acomoda a los que no tienen mesa: invitaciones completas, de la más grande a la más pequeña, en la mesa donde mejor quepan
@@ -6464,7 +6474,7 @@ if ('serviceWorker' in navigator) {
     const C = candidatos(), ids = new Set(mesas.map((m) => m.id));
     const sin = C.filter((g) => !ids.has(asig[clave(g)] || ''));
     if (!sin.length) { avisar('bd-mesa-msg', 'Todos ya tienen mesa.', true); return; }
-    const cap0 = Number($('bd-cap').value) || 10;
+    const cap0 = String($('bd-cap').value).split(/[,;\s]+/).map(Number).filter((x) => x > 0)[0] || 10;
     const libre = (m) => m.capacidad - C.filter((g) => asig[clave(g)] === m.id).length;
     gruposDe(sin).sort((a, b) => b.gente.length - a.gente.length).forEach((gr) => {
       let resto = [...gr.gente];
