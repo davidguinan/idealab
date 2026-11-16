@@ -17,6 +17,7 @@ const BODA_INVITADOS = 'Hoja 1';
 const BODA_TABS = {
   proveedores: ['APP PROVEEDORES', ['ID', 'Proveedor', 'Categoría', 'Costo total', 'Fecha límite', 'Contacto', 'Nota', 'Actualizado']],
   abonos: ['APP ABONOS', ['ID', 'Proveedor ID', 'Fecha', 'Valor', 'Nota', 'Registrado por', 'Registrado']],
+  sobrecostos: ['APP SOBRECOSTOS', ['ID', 'Proveedor ID', 'Fecha', 'Valor', 'Descripción', 'Registrado por', 'Registrado']],
   mesas: ['APP MESAS', ['Mesa', 'Nombre', 'Capacidad']],
   acomodacion: ['APP ACOMODACION', ['Clave', 'Invitado', 'Invitación', 'Mesa']],
 };
@@ -38,6 +39,7 @@ function boda_(body) {
     case 'proveedor_eliminar': {
       bodaBorrar_(libro, 'proveedores', (r) => r[0] === String(body.id));
       bodaBorrar_(libro, 'abonos', (r) => r[1] === String(body.id));
+      bodaBorrar_(libro, 'sobrecostos', (r) => r[1] === String(body.id));
       break;
     }
     case 'abono_guardar': {
@@ -47,6 +49,15 @@ function boda_(body) {
       bodaUpsert_(libro, 'abonos', [a.id || bodaId_(), String(a.proveedor_id), String(a.fecha || ahora.slice(0, 10)), bodaNum_(a.valor), String(a.nota || ''), quien, ahora]);
       break;
     }
+    case 'sobrecosto_guardar': {
+      const a = body.sobrecosto || {};
+      if (!a.proveedor_id) throw new Error('Falta el proveedor del sobrecosto');
+      if (!(bodaNum_(a.valor) > 0)) throw new Error('El valor del sobrecosto debe ser mayor a 0');
+      if (!String(a.descripcion || '').trim()) throw new Error('Escribe de qué fue el sobrecosto');
+      bodaUpsert_(libro, 'sobrecostos', [a.id || bodaId_(), String(a.proveedor_id), String(a.fecha || ahora.slice(0, 10)), bodaNum_(a.valor), String(a.descripcion).trim(), quien, ahora]);
+      break;
+    }
+    case 'sobrecosto_eliminar': bodaBorrar_(libro, 'sobrecostos', (r) => r[0] === String(body.id)); break;
     case 'abono_eliminar': bodaBorrar_(libro, 'abonos', (r) => r[0] === String(body.id)); break;
     case 'mesas_guardar': {
       const mesas = (body.mesas || []).map((m) => [String(m.id), String(m.nombre || ''), Number(m.capacidad) || 0]);
@@ -65,9 +76,10 @@ function bodaLeer_(libro) {
   const tab = (k) => { const v = bodaHoja_(libro, k).getDataRange().getDisplayValues(); return v.slice(1).filter((r) => String(r[0]).trim()); };
   const proveedores = tab('proveedores').map((r) => ({ id: r[0], proveedor: r[1], categoria: r[2], costo: bodaNum_(r[3]), fecha_limite: bodaFecha_(r[4]), contacto: r[5], nota: r[6], actualizado: r[7] }));
   const abonos = tab('abonos').map((r) => ({ id: r[0], proveedor_id: r[1], fecha: bodaFecha_(r[2]), valor: bodaNum_(r[3]), nota: r[4], quien: r[5], registrado: r[6] }));
+  const sobrecostos = tab('sobrecostos').map((r) => ({ id: r[0], proveedor_id: r[1], fecha: bodaFecha_(r[2]), valor: bodaNum_(r[3]), descripcion: r[4], quien: r[5], registrado: r[6] }));
   const mesas = tab('mesas').map((r) => ({ id: r[0], nombre: r[1], capacidad: bodaNum_(r[2]) }));
   const acomodacion = tab('acomodacion').map((r) => ({ clave: r[0], nombre: r[1], invitacion: r[2], mesa: r[3] }));
-  return { proveedores, abonos, mesas, acomodacion, invitados: bodaInvitados_(libro) };
+  return { proveedores, abonos, sobrecostos, mesas, acomodacion, invitados: bodaInvitados_(libro) };
 }
 
 /** Lee la Hoja 1 tal cual (solo lectura). Cada bloque empieza con una fila de títulos: N | INVITADOS… | GRUPO | INVITACIÓN | CONFIRMACIÓN… | MESA … */
@@ -126,7 +138,7 @@ function bodaHoja_(libro, k) {
     h.getRange(1, 1, 1, titulos.length).setValues([titulos]).setFontWeight('bold');
     h.setFrozenRows(1);
     h.getRange('A:A').setNumberFormat('@');
-    if (k === 'abonos') h.getRange('B:B').setNumberFormat('@');
+    if (k === 'abonos' || k === 'sobrecostos') h.getRange('B:B').setNumberFormat('@');
     if (k === 'proveedores') {
       const hoy = Utilities.formatDate(new Date(), 'America/Bogota', 'yyyy-MM-dd HH:mm');
       h.getRange(2, 1, 3, titulos.length).setValues([

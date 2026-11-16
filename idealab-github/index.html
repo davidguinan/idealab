@@ -1028,6 +1028,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 .bd-limite { font-size: 12px; } .bd-limite.alerta { color: var(--ag-warn); } .bd-limite.vencido { color: var(--ag-bad); }
 .bd-abonos { display: grid; gap: 4px; font-size: 13px; }
 .bd-abono { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px; align-items: center; padding: 5px 8px; border-radius: 8px; background: rgba(var(--tinta),.04); }
+.bd-sub { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ag-muted); margin-top: 6px; }
+.bd-sobre .val { color: var(--ag-warn); } .bd-sobre .n { white-space: normal; color: var(--ag-fg); }
 .bd-abono .f { color: var(--ag-muted); font-variant-numeric: tabular-nums; } .bd-abono .n { color: var(--ag-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .bd-abono .val { font-variant-numeric: tabular-nums; }
 .bd-x { all: unset; cursor: pointer; color: var(--ag-muted); padding: 0 4px; font-size: 14px; } .bd-x:hover { color: var(--ag-bad); }
 .bd-fila { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .bd-fila .ag-in { flex: 1 1 110px; min-width: 0; }
@@ -1561,7 +1563,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       </div>
 
       <div class="ag-card" style="margin-top:14px">
-        <div class="ag-top"><div><h2>Pagos y proveedores</h2><p class="ag-note">Cuánto cuesta cada cosa, los abonos que le hacemos (con su fecha), cuánto falta y qué % ya está pagado.</p></div>
+        <div class="ag-top"><div><h2>Pagos y proveedores</h2><p class="ag-note">Cuánto cuesta cada cosa (precio inicial + los <b>sobrecostos</b> por cambios, con su descripción), los abonos que le hacemos con su fecha, cuánto falta y qué % ya está pagado.</p></div>
           <div class="ag-chips"><button type="button" class="ag-btn pri" id="bd-prov-nuevo">+ Proveedor</button></div></div>
         <div class="bd-prov-form" id="bd-prov-form" hidden></div>
         <div class="bd-provs" id="bd-provs"></div>
@@ -6254,12 +6256,12 @@ if ('serviceWorker' in navigator) {
   const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
   const CATS = ['Wedding planner', 'Finca / lugar', 'Ceremonia', 'Comida / catering', 'Fotografía y video', 'Música', 'Decoración', 'Vestido / traje', 'Pastel', 'Otro'];
 
-  let D = { proveedores: [], abonos: [], mesas: [], acomodacion: [], invitados: [] }, cargado = false;
+  let D = { proveedores: [], abonos: [], sobrecostos: [], mesas: [], acomodacion: [], invitados: [] }, cargado = false;
   let mesas = [], asig = {}, sucio = false, sel = null, editProv = null, filtroInv = 'todos';
 
   const pedir = async (body) => {
     const r = await window.idealabEnviar({ accion: 'boda', quien: quien(), ...body });
-    D = { proveedores: r.proveedores || [], abonos: r.abonos || [], mesas: r.mesas || [], acomodacion: r.acomodacion || [], invitados: r.invitados || [] };
+    D = { proveedores: r.proveedores || [], abonos: r.abonos || [], sobrecostos: r.sobrecostos || [], mesas: r.mesas || [], acomodacion: r.acomodacion || [], invitados: r.invitados || [] };
     if (!cargado || body.op === 'mesas_guardar' || !sucio) cargarMesas();
     cargado = true; pintar();
   };
@@ -6276,8 +6278,8 @@ if ('serviceWorker' in navigator) {
     const k = $('bd-kpis'); k.replaceChildren();
     const d = dias(FECHA_BODA);
     $('bd-cuenta').textContent = '21 de agosto de 2027 · Pereira · ' + (d > 0 ? 'faltan ' + d.toLocaleString('es-CO') + ' días' : d === 0 ? '¡es hoy!' : 'ya pasó');
-    const costo = D.proveedores.reduce((s, p) => s + (p.costo || 0), 0), pagado = D.abonos.reduce((s, a) => s + (a.valor || 0), 0);
-    const debe = D.proveedores.reduce((s, p) => s + Math.max((p.costo || 0) - pagadoDe(p.id), 0), 0);
+    const costo = D.proveedores.reduce((s, p) => s + totalDe(p), 0), pagado = D.abonos.reduce((s, a) => s + (a.valor || 0), 0);
+    const debe = D.proveedores.reduce((s, p) => s + Math.max(totalDe(p) - pagadoDe(p.id), 0), 0);
     const pres = D.invitados.filter((g) => !g.virtual), vir = D.invitados.filter((g) => g.virtual);
     const c = (e) => pres.filter((g) => g.estado === e).length;
     const kpi = (lb, v, sub, barra) => { const b = el('div', 'bd-kpi'); b.append(el('span', 'lb', lb), el('span', 'v', v)); if (sub) b.appendChild(el('small', '', sub)); if (barra !== undefined) { const br = el('div', 'bd-barra'); const i = el('i'); i.style.width = Math.min(100, barra * 100) + '%'; br.appendChild(i); b.appendChild(br); } k.appendChild(b); };
@@ -6287,6 +6289,9 @@ if ('serviceWorker' in navigator) {
     kpi('Confirmados', c('CONFIRMADA') + ' / ' + pres.length, c('PENDIENTE') + ' pendientes · ' + c('NO ASISTE') + ' no asisten', pres.length ? c('CONFIRMADA') / pres.length : 0);
     kpi('Videollamada', vir.filter((g) => g.estado === 'CONFIRMADA').length + ' / ' + vir.length, 'conectados confirmados');
   }
+  // Lo que cuesta de verdad: precio inicial + sobrecostos (cambios que lo hicieron subir)
+  const extrasDe = (id) => D.sobrecostos.filter((a) => a.proveedor_id === id).reduce((s, a) => s + (a.valor || 0), 0);
+  const totalDe = (p) => (p.costo || 0) + extrasDe(p.id);
   const pagadoDe = (id) => D.abonos.filter((a) => a.proveedor_id === id).reduce((s, a) => s + (a.valor || 0), 0);
 
   // ---------- Proveedores y abonos
@@ -6296,7 +6301,7 @@ if ('serviceWorker' in navigator) {
     const inp = (v, ph, type) => { const i = el('input', 'ag-in'); i.value = v ?? ''; if (ph) i.placeholder = ph; if (type) i.type = type; return i; };
     const nom = campo('Proveedor', inp(p.proveedor, 'Ej. Wedding planner'));
     const cat = el('select', 'ag-sel'); [...new Set([...CATS, p.categoria || 'Otro'])].forEach((x) => cat.appendChild(new Option(x, x))); cat.value = p.categoria || 'Otro'; campo('Categoría', cat);
-    const costo = campo('Costo total (COP)', inp(p.costo ? Math.round(p.costo) : '', 'Ej. 8000000')); costo.inputMode = 'numeric';
+    const costo = campo('Precio inicial (COP)', inp(p.costo ? Math.round(p.costo) : '', 'Ej. 15500000')); costo.inputMode = 'numeric';
     const lim = campo('Pagar todo antes de', inp(p.fecha_limite, '', 'date'));
     const con = campo('Contacto', inp(p.contacto, 'Teléfono o nombre'));
     const nota = campo('Nota', inp(p.nota, 'Qué incluye, acuerdos…'));
@@ -6317,7 +6322,8 @@ if ('serviceWorker' in navigator) {
     if (!D.proveedores.length) { box.appendChild(el('p', 'ag-empty', 'Aún no hay proveedores. Agrega la wedding planner, la finca, el pastor…')); return; }
     D.proveedores.forEach((p) => {
       const ab = D.abonos.filter((a) => a.proveedor_id === p.id).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
-      const pag = ab.reduce((s, a) => s + (a.valor || 0), 0), debe = Math.max((p.costo || 0) - pag, 0), pc = p.costo > 0 ? pag / p.costo : null;
+      const sc = D.sobrecostos.filter((a) => a.proveedor_id === p.id).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+      const tot = totalDe(p), pag = ab.reduce((s, a) => s + (a.valor || 0), 0), debe = Math.max(tot - pag, 0), pc = tot > 0 ? pag / tot : null;
       const c = el('div', 'bd-prov');
       const top = el('div', 'bd-fila'); top.style.justifyContent = 'space-between';
       const t = el('div'); t.append(el('h3', '', p.proveedor), el('div', 'cat', (p.categoria || '') + (p.contacto ? ' · ' + p.contacto : '')));
@@ -6327,13 +6333,39 @@ if ('serviceWorker' in navigator) {
       del.addEventListener('click', async () => { if (del.dataset.seguro !== '1') { del.dataset.seguro = '1'; del.textContent = '¿Eliminar? toca otra vez'; setTimeout(() => { del.dataset.seguro = ''; del.textContent = '🗑'; }, 4000); return; } try { await pedir({ op: 'proveedor_eliminar', id: p.id }); avisar('bd-msg', p.proveedor + ' eliminado.', true); } catch (e) { error(e); } });
       bts.append(ed, del); top.append(t, bts); c.appendChild(top);
       const cf = el('div', 'bd-cifras');
-      [['Cuesta', p.costo ? cop.format(p.costo) : 'Sin costo'], ['Pagado', cop.format(pag)], ['Debemos', cop.format(debe)]].forEach(([a, b]) => { const d = el('div', '', a); d.appendChild(el('b', '', b)); cf.appendChild(d); });
+      [['Cuesta', tot ? cop.format(tot) : 'Sin costo'], ['Pagado', cop.format(pag)], ['Debemos', cop.format(debe)]].forEach(([a, b]) => { const d = el('div', '', a); d.appendChild(el('b', '', b)); cf.appendChild(d); });
       c.appendChild(cf);
       const br = el('div', 'bd-barra'); const i = el('i'); i.style.width = Math.min(100, (pc || 0) * 100) + '%'; br.appendChild(i); c.appendChild(br);
-      c.appendChild(el('div', 'cat', pc === null ? 'Pon el costo total para ver el % pagado' : pct(pc) + ' pagado' + (debe === 0 && p.costo > 0 ? ' · ¡pagado completo! ✓' : '')));
+      c.appendChild(el('div', 'cat', pc === null ? 'Pon el costo total para ver el % pagado' : pct(pc) + ' pagado' + (debe === 0 && tot > 0 ? ' · ¡pagado completo! ✓' : '')));
       if (p.fecha_limite && debe > 0) { const d = dias(p.fecha_limite); c.appendChild(el('div', 'bd-limite' + (d < 0 ? ' vencido' : d <= 30 ? ' alerta' : ''), 'Pagar antes del ' + fCorta(p.fecha_limite) + (d < 0 ? ' · venció hace ' + -d + ' días' : ' · faltan ' + d + ' días'))); }
       if (p.nota) c.appendChild(el('div', 'cat', p.nota));
+      // Sobrecostos: lo que se sumó al precio inicial, con su descripción
+      const S = el('div', 'bd-abonos');
+      S.appendChild(el('div', 'bd-sub', 'Precio inicial ' + cop.format(p.costo || 0) + (sc.length ? ' + sobrecostos ' + cop.format(tot - (p.costo || 0)) + ' = ' + cop.format(tot) : '')));
+      sc.forEach((a) => {
+        const r = el('div', 'bd-abono bd-sobre'); r.append(el('span', 'f', fCorta(a.fecha)), el('span', 'n', a.descripcion), el('span', 'val', '+ ' + cop.format(a.valor)));
+        r.title = a.descripcion + (a.quien ? ' · lo agregó ' + a.quien : '');
+        const x = el('button', 'bd-x', '×'); x.type = 'button'; x.title = 'Eliminar sobrecosto';
+        x.addEventListener('click', async () => { if (x.dataset.seguro !== '1') { x.dataset.seguro = '1'; x.textContent = '¿?'; setTimeout(() => { x.dataset.seguro = ''; x.textContent = '×'; }, 3000); return; } try { await pedir({ op: 'sobrecosto_eliminar', id: a.id }); } catch (e) { error(e); } });
+        r.appendChild(x); S.appendChild(r);
+      });
+      const sf = el('div', 'bd-fila');
+      const sd = el('input', 'ag-in'); sd.placeholder = '¿De qué fue? Ej. 2 horas más de fotografía';
+      const sv = el('input', 'ag-in'); sv.placeholder = 'Valor'; sv.inputMode = 'numeric';
+      const sfe = el('input', 'ag-in'); sfe.type = 'date'; sfe.value = hoy();
+      const sb = el('button', 'ag-btn', '+ Sobrecosto'); sb.type = 'button';
+      sb.addEventListener('click', async () => {
+        const v = leerNum(sv.value);
+        if (!sd.value.trim()) { avisar('bd-msg', 'Escribe de qué fue el sobrecosto de ' + p.proveedor + '.', false); sd.focus(); return; }
+        if (!(v > 0)) { avisar('bd-msg', 'Escribe el valor del sobrecosto.', false); sv.focus(); return; }
+        sb.disabled = true;
+        try { await pedir({ op: 'sobrecosto_guardar', sobrecosto: { proveedor_id: p.id, valor: v, fecha: sfe.value || hoy(), descripcion: sd.value.trim() } }); avisar('bd-msg', 'Sobrecosto de ' + cop.format(v) + ' agregado a ' + p.proveedor + '.', true); }
+        catch (e) { error(e); sb.disabled = false; }
+      });
+      sd.style.flexBasis = '100%'; sf.append(sd, sv, sfe, sb); S.appendChild(sf);
+      c.appendChild(S);
       const L = el('div', 'bd-abonos');
+      L.appendChild(el('div', 'bd-sub', 'Abonos' + (ab.length ? '' : ': todavía ninguno')));
       ab.forEach((a) => {
         const r = el('div', 'bd-abono'); r.append(el('span', 'f', fCorta(a.fecha)), el('span', 'n', a.nota || (a.quien ? 'por ' + a.quien : '')), el('span', 'val', cop.format(a.valor)));
         const x = el('button', 'bd-x', '×'); x.type = 'button'; x.title = 'Eliminar abono';
@@ -6367,13 +6399,13 @@ if ('serviceWorker' in navigator) {
     const filas = D.invitados.filter((g) => (filtroInv === 'virtual' ? g.virtual : !g.virtual && (filtroInv === 'todos' || g.estado === filtroInv)) && (!q || norm(g.nombre + ' ' + g.invitacion).includes(q)));
     const pases = {}; D.invitados.forEach((g) => { const k = (g.virtual ? 'v|' : 'p|') + norm(g.invitacion || g.nombre); pases[k] = (pases[k] || 0) + 1; });
     const t = $('bd-t-inv'); t.replaceChildren();
-    const th = t.createTHead().insertRow(); ['N', 'Invitado', 'Invitación', 'Pases', 'Estado', 'Confirmó', filtroInv === 'virtual' ? '' : 'Mesa'].forEach((h) => th.appendChild(el('th', '', h)));
+    const th = t.createTHead().insertRow(); ['N', 'Invitado', 'Invitación', 'Estado', 'Confirmó', filtroInv === 'virtual' ? '' : 'Mesa'].forEach((h) => th.appendChild(el('th', '', h)));
     const tb = t.createTBody();
-    if (!filas.length) { const r = tb.insertRow(); const c = r.insertCell(); c.colSpan = 7; c.textContent = cargado ? 'No hay invitados en este filtro.' : 'Cargando…'; return; }
+    if (!filas.length) { const r = tb.insertRow(); const c = r.insertCell(); c.colSpan = 6; c.textContent = cargado ? 'No hay invitados en este filtro.' : 'Cargando…'; return; }
     filas.forEach((g) => {
       const r = tb.insertRow();
-      r.insertCell().textContent = g.n; r.insertCell().textContent = lindo(g.nombre); r.insertCell().textContent = g.invitacion || '—';
-      const cp = r.insertCell(); cp.className = 'num'; cp.textContent = pases[(g.virtual ? 'v|' : 'p|') + norm(g.invitacion || g.nombre)];
+      r.insertCell().textContent = g.n; r.insertCell().textContent = lindo(g.nombre);
+      { const np = pases[(g.virtual ? 'v|' : 'p|') + norm(g.invitacion || g.nombre)]; const ci = r.insertCell(); ci.textContent = g.invitacion || '—'; if (np > 1) { const sm = el('small', 'cat', ' · ' + np + ' pases (1 por persona)'); sm.style.whiteSpace = 'nowrap'; ci.appendChild(sm); } }
       const ce = r.insertCell(); ce.appendChild(el('span', 'bd-est ' + (g.estado.split(' ')[0]), g.estado === 'CONFIRMADA' ? '✓ Confirmado' : lindo(g.estado)));
       r.insertCell().textContent = g.fecha ? g.fecha + (g.por && norm(g.por) !== norm(g.nombre) ? ' · por ' + lindo(g.por) : '') : '—';
       r.insertCell().textContent = g.virtual ? '' : nomMesa[asig[clave(g)]] || '—';
