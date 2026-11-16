@@ -6287,8 +6287,12 @@ if ('serviceWorker' in navigator) {
     const r = await window.idealabEnviar({ accion: 'boda', quien: quien(), ...body });
     D = { proveedores: r.proveedores || [], abonos: r.abonos || [], sobrecostos: r.sobrecostos || [], mesas: r.mesas || [], acomodacion: r.acomodacion || [], invitados: r.invitados || [] };
     if (!cargado || body.op === 'mesas_guardar' || !sucio) cargarMesas();
-    cargado = true; pintar();
+    cargado = true; guardarCache(); pintar();
   };
+  // Copia local de lo último que llegó del Excel: la Boda abre al instante con esos datos y se actualiza por detrás
+  const CACHE_BODA = 'idealab_boda_cache';
+  let cacheT = 0;
+  const guardarCache = () => { cacheT = Date.now(); try { localStorage.setItem(CACHE_BODA, JSON.stringify({ t: cacheT, D })); } catch (e) {} };
   const cargarMesas = () => {
     mesas = D.mesas.map((m) => ({ id: String(m.id), nombre: m.nombre || 'Mesa ' + m.id, capacidad: Number(m.capacidad) || 10, x: m.x == null || m.x === '' ? null : Number(m.x), y: m.y == null || m.y === '' ? null : Number(m.y) }));
     asig = {}; const ids = new Set(mesas.map((m) => m.id));
@@ -6648,11 +6652,19 @@ if ('serviceWorker' in navigator) {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sel) { sel = null; pintarMesas(); } });
 
   function pintar() { pintarKpis(); pintarProveedores(); pintarInvitados(); pintarMesas(); }
+  let pidiendo = null;
+  const leer = () => pidiendo || (pidiendo = pedir({ op: 'leer' }).finally(() => { pidiendo = null; }));
   const abrir = () => {
     if (!window.idealabEnviar) return;
-    if (!cargado) { avisar('bd-msg', 'Cargando…', true); pintar(); }
-    pedir({ op: 'leer' }).then(() => { if ($('bd-msg').textContent === 'Cargando…') $('bd-msg').textContent = ''; }).catch((e) => error(e));
+    if (!cargado) { avisar('bd-msg', 'Cargando…', true); pintar(); } else pintar();
+    leer().then(() => { if ($('bd-msg').textContent === 'Cargando…') $('bd-msg').textContent = ''; }).catch((e) => { if (!cargado) error(e); });
   };
+  // Al abrir la app: pinta con la copia guardada y, si es vieja o no hay, la trae del Excel en segundo plano
+  try {
+    const c = JSON.parse(localStorage.getItem(CACHE_BODA) || 'null');
+    if (c && c.D && Array.isArray(c.D.invitados)) { D = { proveedores: [], abonos: [], sobrecostos: [], mesas: [], acomodacion: [], invitados: [], ...c.D }; cacheT = c.t || 0; cargarMesas(); cargado = true; pintar(); }
+  } catch (e) {}
+  setTimeout(() => { if (window.idealabEnviar && Date.now() - cacheT > 30 * 60 * 1000) leer().catch(() => {}); }, 4000);
   $('bd-recargar').addEventListener('click', () => { if (sucio && $('bd-recargar').dataset.seguro !== '1') { $('bd-recargar').dataset.seguro = '1'; avisar('bd-msg', 'Tienes mesas sin guardar; toca Recargar otra vez para descartarlas.', false); setTimeout(() => { $('bd-recargar').dataset.seguro = ''; }, 5000); return; } sucio = false; abrir(); });
   window.addEventListener('beforeunload', (e) => { if (sucio) { e.preventDefault(); e.returnValue = ''; } });
   window.idealabBoda = { abrir };
