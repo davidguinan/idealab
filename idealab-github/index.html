@@ -1372,7 +1372,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           <div class="ag-split" id="reparto" data-source="liquidacion"></div>
         </div>
         <div class="ag-card solo-socios solo-juntos" style="margin-top:14px" id="meta-card">
-          <div class="ag-top"><div><h2>Meta</h2><p class="ag-note">Meta de <b>utilidad libre para los socios</b>: lo que queda para Anthony y Alejandra después de gastos, pauta, proveedores, nómina y ahorro de la empresa. Gris = el camino para llegar a la meta; verde = lo que llevamos.</p></div>
+          <div class="ag-top"><div><h2>Meta</h2><p class="ag-note">Meta de <b>utilidad libre para los socios</b>: lo que queda para Anthony y Alejandra después de gastos, pauta, proveedores, nómina, ahorro de la empresa y diezmo. Gris = el camino para llegar a la meta; verde = lo que llevamos.</p></div>
             <div class="ag-chips" id="meta-modo"><button type="button" class="ag-btn" data-m="mes" aria-pressed="true">Mensual</button><button type="button" class="ag-btn" data-m="anio" aria-pressed="false">Anual</button><select class="ag-sel" id="meta-sel" aria-label="Mes o año de la meta"></select></div></div>
           <div class="meta-res" id="meta-res" data-source="liquidacion"></div>
           <div class="ag-legend"><span><i style="background:#94A3B8"></i>Camino a la meta</span><span><i style="background:#22C55E"></i>Lo que llevamos</span><span><i style="background:#22C55E;opacity:.45"></i>Si seguimos a este ritmo</span></div>
@@ -1504,6 +1504,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
             <label>Proveedores (% utilidad por país)<input class="ag-in" type="number" id="c-prov" min="0" max="100" step="0.5"></label>
             <label id="c-trab-l">Trabajadoras (% utilidad total)<input class="ag-in" type="number" id="c-trab" min="0" max="100" step="0.5"></label>
             <label>Empresa (% utilidad total)<input class="ag-in" type="number" id="c-emp" min="0" max="100" step="0.5"></label>
+            <label>Diezmo (% tras proveedores y trabajadoras)<input class="ag-in" type="number" id="c-diez" min="0" max="100" step="0.5"></label>
             <label>Anthony Guiñan (% del resto)<input class="ag-in" type="number" id="c-s1" min="0" max="100" step="0.5"></label>
             <label>Alejandra Acosta (% del resto)<input class="ag-in" type="number" id="c-s2" min="0" max="100" step="0.5"></label>
             <button type="button" class="ag-btn pri" id="c-guardar">Guardar porcentajes</button>
@@ -2221,7 +2222,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 
   dash.calc('liquidacion', {
     title: 'Cierres por quincena y mes',
-    description: 'Por periodo (filas total) y por periodo y país (filas pais, también en moneda local con la tasa de Tasas al cierre del periodo): ventas, pauta con IVA, utilidad de países, gastos, utilidad total, comisión de proveedores (% de la utilidad de cada país, si es positiva), nómina (% de la utilidad total; si hay trabajadores en Config, la suma de sus % y una fila trabajador por persona con su pago), empresa (% de la utilidad total) y lo que queda para cada socio, con los porcentajes de la pestaña Config.',
+    description: 'Por periodo (filas total) y por periodo y país (filas pais, también en moneda local con la tasa de Tasas al cierre del periodo): ventas, pauta con IVA, utilidad de países, gastos, utilidad total, comisión de proveedores (% de la utilidad de cada país, si es positiva), nómina (% de la utilidad total; si hay trabajadores en Config, la suma de sus % y una fila trabajador por persona con su pago), empresa (% de la utilidad total), diezmo (% de la utilidad después de proveedores y nómina, 10 % por defecto) y lo que queda para cada socio, con los porcentajes de la pestaña Config.',
     inputs: ['meta_dias', 'ventas', 'gastos', 'config', 'paises', 'tasas_aj', 'facturas_cont', 'tasas_cierre', 'cierres', 'cierres_paises'],
     fn: (meta_dias, ventas_raw, gastos0, config, paises, tasas, facturas_cont, tasas_cierre, cierres, cierres_paises) => {
       // Gastos pagados y pendientes + facturas por pagar: todos se descuentan en la quincena de su fecha de creación
@@ -2244,7 +2245,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         const fechasT = tasas.map((t) => t.fecha).sort();
         const tasaAl = (mon, f, real) => { if (mon === 'COP') return 1; const d = fechasT.filter((x) => x <= f).reverse().find((x) => { const t = tasas.find((y) => y.fecha === x); return t && t[mon]; }); const t = d && tasas.find((y) => y.fecha === d); return t ? (real ? t[mon + '_real'] || t[mon] : t[mon]) : null; };
         const r2 = (n) => Math.round(n * 100) / 100;
-        const P_PROV = pct(config, /proveedor/i, 10), P_TRAB0 = pct(config, /trabajador/i, 15), P_EMP = pct(config, /empresa/i, 10);
+        const P_PROV = pct(config, /proveedor/i, 10), P_TRAB0 = pct(config, /trabajador/i, 15), P_EMP = pct(config, /empresa/i, 10), P_DIEZ = pct(config, /diezmo/i, 10);
         const trabajadores = config.filter((c) => c.tipo === 'trabajador' && c.valor > 0);
         const P_TRAB = trabajadores.length ? Math.round(trabajadores.reduce((x, c) => x + c.valor, 0) * 100) / 100 : P_TRAB0;
         const pagos = [];
@@ -2291,9 +2292,10 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
             const comision_local = utilidad_local === null ? null : utilidad_local > 0 ? r2((utilidad_local * P_PROV) / 100) : 0;
             const base_p = Math.max(util, 0);
             const nom_p = Math.round((base_p * P_TRAB) / 100), emp_p = Math.round((base_p * P_EMP) / 100);
-            const resto_p = util - com - nom_p - emp_p;
+            const diez_p = Math.round((Math.max(util - com - nom_p, 0) * P_DIEZ) / 100); // diezmo: después de pagar proveedor y trabajadoras
+            const resto_p = util - com - nom_p - emp_p - diez_p;
             if (x.gasto || x.ventas_n || g_p) pai.push({ clave: p.periodo + '|' + x.pais, periodo: p.periodo, tipo: p.tipo, pais: x.pais, desde: p.desde, hasta: p.hasta, completo: p.hasta < hoy, ventas: ventasCop, ventas_n: x.ventas_n, pauta_iva, utilidad: util, pct_prov: P_PROV, comision: com, conversaciones: x.conversaciones,
-              gastos: g_p, utilidad_total: util, utilidad_final: ut_fin, proveedores: com, pct_trab: P_TRAB, nomina: nom_p, pct_emp: P_EMP, empresa: emp_p, pct_s1: S1, pct_s2: S2, socio1: Math.round((resto_p * S1) / 100), socio2: Math.round((resto_p * S2) / 100),
+              gastos: g_p, utilidad_total: util, utilidad_final: ut_fin, proveedores: com, pct_trab: P_TRAB, nomina: nom_p, pct_emp: P_EMP, empresa: emp_p, pct_diezmo: P_DIEZ, diezmo: diez_p, pct_s1: S1, pct_s2: S2, socio1: Math.round((resto_p * S1) / 100), socio2: Math.round((resto_p * S2) / 100),
               rentabilidad: pauta_iva > 0 ? Math.round((util / pauta_iva) * 1000) / 10 : null, roas: x.gasto > 0 ? Math.round((ventasCop / (x.gasto * IVA)) * 100) / 100 : null,
               moneda, tasa, tasa_real, tasa_auto, tasa_manual: !!manual, tasa_quien: manual ? manual.quien : '', fecha_tasa: fCierre, colchon_tasa: colchonTasa(), ventas_local, pauta_local, gastos_local, utilidad_local, comision_local, utilidad_final_local: utilidad_local === null ? null : r2(utilidad_local - comision_local) });
           });
@@ -2301,13 +2303,14 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           const util_total = util_p - gasto_total;
           const base = Math.max(util_total, 0);
           const nomina = Math.round((base * P_TRAB) / 100), empresa = Math.round((base * P_EMP) / 100);
+          const diezmo = Math.round((Math.max(util_total - prov - nomina, 0) * P_DIEZ) / 100); // diezmo: después de pagar proveedores y trabajadoras
           trabajadores.forEach((w) => pagos.push({ nivel: 'trabajador', clave: p.periodo + '|trab|' + w.nombre, periodo: p.periodo, nombre: w.nombre, pct: w.valor, pago: Math.round((base * w.valor) / 100) }));
-          const resto = util_total - prov - nomina - empresa;
-          const detalle_gastos = gs.map((g) => (g.concepto || 'Gasto') + ' (' + (g.pais || 'General') + '): $' + Math.round(g.valor).toLocaleString('es-CO')).join('; ') + (trabajadores.length ? '; Nómina: ' + trabajadores.map((w) => w.nombre + ' $' + Math.round((base * w.valor) / 100).toLocaleString('es-CO')).join('; ') : '');
+          const resto = util_total - prov - nomina - empresa - diezmo;
+          const detalle_gastos = gs.map((g) => (g.concepto || 'Gasto') + ' (' + (g.pais || 'General') + '): $' + Math.round(g.valor).toLocaleString('es-CO')).join('; ') + (diezmo > 0 ? '; Diezmo (' + P_DIEZ + '%): $' + diezmo.toLocaleString('es-CO') : '') + (trabajadores.length ? '; Nómina: ' + trabajadores.map((w) => w.nombre + ' $' + Math.round((base * w.valor) / 100).toLocaleString('es-CO')).join('; ') : '');
           tot.push({
             periodo: p.periodo, tipo: p.tipo, desde: p.desde, hasta: p.hasta, completo: p.hasta < hoy, datos_desde: datosDesde, parcial: p.desde < datosDesde,
             ventas: Math.round(ventas), ventas_n: n, conversaciones: conv, pauta_iva: pauta, utilidad_paises: util_p, gastos: gasto_total, utilidad_total: util_total,
-            pct_prov: P_PROV, proveedores: prov, pct_trab: P_TRAB, nomina, pct_emp: P_EMP, empresa, pct_s1: S1, pct_s2: S2,
+            pct_prov: P_PROV, proveedores: prov, pct_trab: P_TRAB, nomina, pct_emp: P_EMP, empresa, pct_diezmo: P_DIEZ, diezmo, pct_s1: S1, pct_s2: S2,
             socio1: Math.round((resto * S1) / 100), socio2: Math.round((resto * S2) / 100),
             rentabilidad: pauta > 0 ? Math.round((util_total / pauta) * 1000) / 10 : null,
             roas: pauta > 0 ? Math.round((ventas / pauta) * 100) / 100 : null, detalle_gastos,
@@ -2320,6 +2323,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           t.calculado = { ...t };
           PCT_KEYS.forEach((k) => { if (c[k] !== null && c[k] !== undefined && c[k] !== '') t[k] = c[k]; });
           t.guardado = true; t.registrado = c.registrado;
+          { const dz = String(c.detalle_gastos || '').split('Nómina:')[0].match(/Diezmo \(([\d.,]+)%\):\s*\$\s*([\d.,]+)/); t.pct_diezmo = dz ? leerValor(dz[1]) : 0; t.diezmo = dz ? leerValor(dz[2]) : 0; }
           // pagos a trabajadores guardados en el detalle («Nómina: Nombre $x; …»)
           const m = String(c.detalle_gastos || '').split('Nómina:')[1];
           if (m) { for (let i = pagos.length - 1; i >= 0; i--) if (pagos[i].periodo === c.id) pagos.splice(i, 1); m.split(';').forEach((z) => { const mm = z.trim().match(/^(.+?)\s*\$\s*([\d.,]+)$/); if (mm) pagos.push({ nivel: 'trabajador', clave: c.id + '|trab|' + mm[1].trim(), periodo: c.id, nombre: mm[1].trim(), pct: null, pago: leerValor(mm[2]) }); }); const mios = pagos.filter((x) => x.periodo === c.id); mios.forEach((x) => { x.pct = c.pct_trab && mios.length ? Math.round((c.pct_trab / mios.length) * 100) / 100 : null; }); }
@@ -2335,7 +2339,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   });
   dash.calc('liquidacion_paises', {
     title: 'Cierres por país',
-    description: 'Las filas por país del cálculo de cierres: el cierre de cada país con sus ventas, pauta con IVA, gastos cargados a ese país, utilidad, comisión del proveedor, nómina, empresa y socios, también en moneda local.',
+    description: 'Las filas por país del cálculo de cierres: el cierre de cada país con sus ventas, pauta con IVA, gastos cargados a ese país, utilidad, comisión del proveedor, nómina, empresa, diezmo y socios, también en moneda local.',
     inputs: ['liquidacion'],
     fn: (liquidacion) => liquidacion.filter((r) => r.nivel === 'pais'),
   });
@@ -2354,7 +2358,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   const MESES_L = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   const fCorta = (f) => (f ? Number(f.slice(8, 10)) + ' ' + MESES[Number(f.slice(5, 7)) - 1] : '');
   const fLarga = (f) => (f ? Number(f.slice(8, 10)) + ' de ' + MESES_L[Number(f.slice(5, 7)) - 1] : '');
-  const DINERO = ['gasto', 'gasto_iva', 'ventas_cop', 'ventas_total_cop', 'ganancia', 'costo_conv', 'presupuesto', 'ganancia_3d', 'ventas', 'pauta_iva', 'utilidad', 'comision', 'gastos', 'utilidad_total', 'utilidad_paises', 'proveedores', 'nomina', 'empresa', 'socio1', 'socio2', 'valor', 'sin_atrib_cop', 'costo_compra'];
+  const DINERO = ['gasto', 'gasto_iva', 'ventas_cop', 'ventas_total_cop', 'ganancia', 'costo_conv', 'presupuesto', 'ganancia_3d', 'ventas', 'pauta_iva', 'utilidad', 'comision', 'gastos', 'utilidad_total', 'utilidad_paises', 'proveedores', 'nomina', 'empresa', 'diezmo', 'socio1', 'socio2', 'valor', 'sin_atrib_cop', 'costo_compra'];
   const fmt = (campo, v) => {
     if (v === null || v === undefined || v === '' || (typeof v === 'number' && !Number.isFinite(v))) return '—';
     if (DINERO.includes(campo)) return cop.format(v);
@@ -4271,7 +4275,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     if (sv.options.length !== ORD.length + 1) sv.replaceChildren(new Option('Global (todos los países)', ''), ...ORD.map((x) => new Option('Cierre de ' + x, x)));
     sv.value = paisCierre || '';
     const filasLP = LP.status === 'ok' ? LP.data : [];
-    const vacia = (pais) => ({ clave: periodoSel + '|' + pais, pais, ventas: 0, ventas_n: 0, pauta_iva: 0, gastos: 0, utilidad_total: 0, proveedores: 0, nomina: 0, empresa: 0, socio1: 0, socio2: 0, rentabilidad: null, roas: null, pct_prov: tg.pct_prov, pct_trab: tg.pct_trab, pct_emp: tg.pct_emp, pct_s1: tg.pct_s1, pct_s2: tg.pct_s2, moneda: 'COP', tasa: 1 });
+    const vacia = (pais) => ({ clave: periodoSel + '|' + pais, pais, ventas: 0, ventas_n: 0, pauta_iva: 0, gastos: 0, utilidad_total: 0, proveedores: 0, nomina: 0, empresa: 0, diezmo: 0, socio1: 0, socio2: 0, rentabilidad: null, roas: null, pct_prov: tg.pct_prov, pct_trab: tg.pct_trab, pct_emp: tg.pct_emp, pct_diezmo: tg.pct_diezmo, pct_s1: tg.pct_s1, pct_s2: tg.pct_s2, moneda: 'COP', tasa: 1 });
     const t = paisCierre ? filasLP.find((r) => r.periodo === periodoSel && r.pais === paisCierre) || vacia(paisCierre) : tg;
     const fuente = paisCierre ? 'liquidacion_paises' : 'liquidacion';
     const enLocal = (v) => (paisCierre && t.moneda && t.moneda !== 'COP' && t.tasa ? ' · ' + fLocal(v / t.tasa, t.moneda) : '');
@@ -4282,7 +4286,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     $('liq-nota').textContent = 'Del ' + fLarga(tg.desde) + ' al ' + fLarga(tg.hasta) + (tg.completo ? '.' : ' — en curso, cifras parciales.') + (tg.parcial ? ' La pauta día a día solo está desde el ' + fLarga(tg.datos_desde) + '.' : '') + (paisCierre ? ' Incluye solo los gastos cargados a ' + paisCierre + '; los gastos «General» van al cierre global.' : '');
     document.querySelectorAll('[data-l]').forEach((el) => { el.dataset.source = fuente; el.dataset.where = 'clave=' + enc(t.clave); el.textContent = fmt(el.dataset.l, t[el.dataset.l]); if (el.dataset.l === 'utilidad_total') el.className = 'v ' + (t.utilidad_total >= 0 ? 'ag-pos' : 'ag-neg'); });
     $('liq-rent').textContent = 'Rentabilidad sobre pauta: ' + fmt('rentabilidad', t.rentabilidad) + ' · ROAS ' + fmt('roas', t.roas) + enLocal(t.utilidad_total);
-    $('rep-nota').textContent = (paisCierre ? 'Reparto de lo que deja ' + paisCierre + ': proveedor ' + t.pct_prov + '% de su utilidad · ' : 'Proveedores ' + t.pct_prov + '% de la utilidad de cada país · ') + 'trabajadores ' + num.format(t.pct_trab) + '% y empresa ' + t.pct_emp + '% de la utilidad · el resto, ' + t.pct_s1 + '/' + t.pct_s2 + ' entre los socios.';
+    $('rep-nota').textContent = (paisCierre ? 'Reparto de lo que deja ' + paisCierre + ': proveedor ' + t.pct_prov + '% de su utilidad · ' : 'Proveedores ' + t.pct_prov + '% de la utilidad de cada país · ') + 'trabajadores ' + num.format(t.pct_trab) + '%, empresa ' + t.pct_emp + '%' + ' de la utilidad' + (t.pct_diezmo ? ' · diezmo ' + num.format(t.pct_diezmo) + '% de lo que queda tras proveedores y trabajadoras' : '') + ' · el resto, ' + t.pct_s1 + '/' + t.pct_s2 + ' entre los socios.';
     const rep = $('reparto'); rep.replaceChildren(); rep.dataset.source = fuente;
     const base = Math.max(1, Math.abs(t.utilidad_total));
     const filaRep = (n, sub, valor, col, src, campo, claveR) => {
@@ -4298,6 +4302,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     if (pagos.length) pagos.forEach((w) => dp(filaRep(w.nombre, num.format(w.pct) + '% de la utilidad', w.pago, '#C084FC', 'liquidacion', 'pago', w.clave), w.nombre, 'trabajador', w.pago));
     else filaRep('Nómina trabajadores', num.format(t.pct_trab) + '% de la utilidad', t.nomina, '#C084FC', fuente, 'nomina', t.clave);
     filaRep('Empresa (ahorro e inversión)', t.pct_emp + '% utilidad', t.empresa, '#2DD4BF', fuente, 'empresa', t.clave);
+    if (t.pct_diezmo || t.diezmo) filaRep('Diezmo', num.format(t.pct_diezmo || 0) + '% después de proveedores y trabajadoras', t.diezmo || 0, '#F472B6', fuente, 'diezmo', t.clave);
     dp(filaRep('Anthony Guiñan', t.pct_s1 + '% del resto', t.socio1, '#F5B800', fuente, 'socio1', t.clave), 'Anthony Guiñan', 'socio', t.socio1);
     dp(filaRep('Alejandra Acosta', t.pct_s2 + '% del resto', t.socio2, '#F5B800', fuente, 'socio2', t.clave), 'Alejandra Acosta', 'socio', t.socio2);
 
@@ -4558,9 +4563,9 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     // Tabla de cierres guardados (solo quincenas; lo que realmente se pagó)
     $('cierres-vacio').hidden = ci.length > 0 || C.status !== 'ok';
     const nomQ = (id) => (id.endsWith('Q1') ? '1.ª' : '2.ª') + ' quincena de ' + MESES_L[Number(id.slice(5, 7)) - 1] + ' ' + id.slice(0, 4);
-    tabla($('t-cierres'), [['id', 'Cierre'], ['ventas', 'Ventas', 'num'], ['pauta_iva', 'Pauta IVA', 'num'], ['gastos', 'Gastos', 'num'], ['utilidad_total', 'Utilidad', 'num'], ['proveedores', 'Proveedores', 'num'], ['nomina', 'Nómina', 'num'], ['empresa', 'Empresa', 'num'], ['socio1', 'Anthony', 'num'], ['socio2', 'Alejandra', 'num'], ['pcts', '% usados']], [...ci].sort((a, b) => b.id.localeCompare(a.id)), {
+    tabla($('t-cierres'), [['id', 'Cierre'], ['ventas', 'Ventas', 'num'], ['pauta_iva', 'Pauta IVA', 'num'], ['gastos', 'Gastos', 'num'], ['utilidad_total', 'Utilidad', 'num'], ['proveedores', 'Proveedores', 'num'], ['nomina', 'Nómina', 'num'], ['empresa', 'Empresa', 'num'], ['diezmo', 'Diezmo', 'num'], ['socio1', 'Anthony', 'num'], ['socio2', 'Alejandra', 'num'], ['pcts', '% usados']], [...ci].sort((a, b) => b.id.localeCompare(a.id)), {
       key: 'id',
-      celda: (td, c, f) => { if (c === 'id') { td.textContent = nomQ(f.id); return true; } if (c === 'pcts') { td.textContent = 'Nómina ' + num.format(f.pct_trab || 0) + '% · Empresa ' + num.format(f.pct_emp || 0) + '%'; td.style.whiteSpace = 'nowrap'; return true; } return false; },
+      celda: (td, c, f) => { if (c === 'id') { td.textContent = nomQ(f.id); return true; } if (c === 'pcts') { td.textContent = 'Nómina ' + num.format(f.pct_trab || 0) + '% · Empresa ' + num.format(f.pct_emp || 0) + '%' + (f.pct_diezmo ? ' · Diezmo ' + num.format(f.pct_diezmo) + '%' : ''); td.style.whiteSpace = 'nowrap'; return true; } return false; },
     });
 
     // ---------- Avances de proveedores ----------
@@ -4631,7 +4636,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     });
     const pcts = C.data.filter((r) => r.tipo === 'porcentaje');
     const val = (re, i) => { const f = re ? pcts.find((r) => re.test(r.parametro)) : pcts.filter((r) => /^socio/i.test(r.parametro))[i]; return f ? f.valor : null; };
-    [['c-prov', val(/proveedor/i)], ['c-trab', trabs.length ? suma : val(/trabajador/i)], ['c-emp', val(/empresa/i)], ['c-s1', val(null, 0)], ['c-s2', val(null, 1)]].forEach(([id, v]) => { const el = $(id); if (el !== document.activeElement && !el.dataset.sucio) el.value = v ?? ''; });
+    [['c-prov', val(/proveedor/i)], ['c-trab', trabs.length ? suma : val(/trabajador/i)], ['c-emp', val(/empresa/i)], ['c-diez', pcts.find((r) => /diezmo/i.test(r.parametro)) ? val(/diezmo/i) : 10], ['c-s1', val(null, 0)], ['c-s2', val(null, 1)]].forEach(([id, v]) => { const el = $(id); if (el !== document.activeElement && !el.dataset.sucio) el.value = v ?? ''; });
     $('c-trab').readOnly = trabs.length > 0;
     $('c-trab-l').firstChild.textContent = trabs.length ? 'Trabajadores (suma de la lista de abajo)' : 'Trabajadoras (% utilidad total)';
   }
@@ -4755,16 +4760,22 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   $('g-tasa').addEventListener('input', () => { $('g-tasa').dataset.sucio = '1'; try { localStorage.setItem('idealab_tasa_usd', $('g-tasa').value); } catch (e) {} calcUsd(); });
 
   // Porcentajes
-  ['c-prov', 'c-trab', 'c-emp', 'c-s1', 'c-s2'].forEach((id) => $(id).addEventListener('input', () => { $(id).dataset.sucio = '1'; }));
+  ['c-prov', 'c-trab', 'c-emp', 'c-s1', 'c-s2', 'c-diez'].forEach((id) => $(id).addEventListener('input', () => { $(id).dataset.sucio = '1'; }));
   $('c-guardar').addEventListener('click', async (ev) => {
     const v = ['c-prov', 'c-trab', 'c-emp', 'c-s1', 'c-s2'].map((id) => Number($(id).value));
     if (v.some((x) => !Number.isFinite(x) || x < 0 || x > 100)) { avisar('c-msg', 'Cada porcentaje debe estar entre 0 y 100.', false); return; }
     if (Math.abs(v[3] + v[4] - 100) > 0.001) { avisar('c-msg', 'Los porcentajes de los dos socios deben sumar 100.', false); return; }
-    if (v[1] + v[2] >= 100) { avisar('c-msg', 'Trabajadores + empresa deben sumar menos de 100.', false); return; }
+    const diez = Number($('c-diez').value);
+    if (!Number.isFinite(diez) || diez < 0 || diez > 100) { avisar('c-msg', 'El diezmo debe estar entre 0 y 100.', false); return; }
+    if (v[1] + v[2] + diez >= 100) { avisar('c-msg', 'Trabajadores + empresa + diezmo deben sumar menos de 100.', false); return; }
     ocupado(ev.target, true); avisar('c-msg', 'Guardando…', true);
     try {
       await escribir('update_values', { range: 'Config!B2:B6', values: v.map((x) => [x]) });
-      ['c-prov', 'c-trab', 'c-emp', 'c-s1', 'c-s2'].forEach((id) => { delete $(id).dataset.sucio; });
+      // El diezmo vive en la fila 7 de Config (la fila libre antes de «Equipo con acceso»)
+      const Cf = dash.data('config'), fD = Cf.status === 'ok' ? Cf.data.find((r) => r.tipo === 'porcentaje' && /diezmo/i.test(r.parametro)) : null;
+      if (fD) await escribir('update_values', { range: 'Config!B' + fD.fila + ':B' + fD.fila, values: [[diez]] });
+      else await escribir('update_values', { range: 'Config!A7:C7', values: [['Diezmo', diez, '% de la utilidad después de pagar proveedores y trabajadoras (principio bíblico). Se descuenta antes de repartir entre los socios']] });
+      ['c-prov', 'c-trab', 'c-emp', 'c-s1', 'c-s2', 'c-diez'].forEach((id) => { delete $(id).dataset.sucio; });
       avisar('c-msg', 'Porcentajes guardados. El reparto ya los usa.', true);
       dash.refresh('config');
     } catch (e) { avisar('c-msg', textoError(e), false); }
@@ -4791,7 +4802,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const C = dash.data('config');
     const otros = C.status === 'ok' ? C.data.filter((r) => r.tipo === 'trabajador' && (!trabEdicion || r.fila !== trabEdicion.fila)) : [];
     const emp = C.status === 'ok' ? (C.data.find((r) => r.tipo === 'porcentaje' && /empresa/i.test(r.parametro)) || {}).valor || 0 : 0;
-    if (otros.reduce((x, r) => x + (r.valor || 0), 0) + pctW + emp >= 100) { avisar('w-msg', 'Con este % la nómina + empresa llegaría a 100% o más de la utilidad.', false); return; }
+    const fDz = C.status === 'ok' ? C.data.find((r) => r.tipo === 'porcentaje' && /diezmo/i.test(r.parametro)) : null, dz = fDz ? fDz.valor || 0 : 10;
+    if (otros.reduce((x, r) => x + (r.valor || 0), 0) + pctW + emp + dz >= 100) { avisar('w-msg', 'Con este % la nómina + empresa + diezmo llegaría a 100% o más de la utilidad.', false); return; }
     const usuario = $('w-usuario').value.trim().toLowerCase(), clave = $('w-clave').value;
     if (usuario && !/^[a-z0-9._-]{3,30}$/.test(usuario)) { avisar('w-msg', 'El usuario debe tener de 3 a 30 letras o números, sin espacios ni tildes.', false); return; }
     if (clave && clave.length < 6) { avisar('w-msg', 'La clave para Creativos debe tener al menos 6 caracteres.', false); return; }
