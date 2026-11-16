@@ -1048,6 +1048,21 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 .bd-mesas { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); }
 .bd-mesa { border: 1px solid var(--ag-line); border-radius: 18px; padding: 10px; background: var(--ag-panel2); min-height: 120px; cursor: pointer; transition: border-color .15s, box-shadow .15s; min-width: 0; }
 .bd-mesa.destino { border-color: var(--ag-gold); box-shadow: 0 0 0 2px rgba(245,184,0,.25); }
+.bd-mesa.moviendo { opacity: .45; }
+.bd-asa { cursor: grab; color: var(--ag-muted); font-size: 15px; padding: 0 2px; user-select: none; } .bd-asa:active { cursor: grabbing; }
+.bd-orden { margin-left: auto; display: inline-flex; gap: 3px; } .bd-orden .ag-btn { padding: 2px 8px; font-size: 13px; line-height: 1.2; } .bd-orden .ag-btn:disabled { opacity: .3; }
+.bd-vista { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+.bd-derecha { min-width: 0; }
+.bd-plano { position: relative; width: 100%; aspect-ratio: 16 / 10; min-height: 380px; border: 1px dashed var(--ag-line); border-radius: 18px; overflow: hidden; background: radial-gradient(rgba(var(--tinta),.08) 1px, transparent 1px) 0 0 / 22px 22px, var(--ag-panel2); }
+.bd-pm { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; border: 2px solid var(--ag-line); background: var(--ag-panel); display: grid; place-content: center; text-align: center; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; font-size: 11px; line-height: 1.2; transition: border-color .15s, box-shadow .15s; }
+.bd-pm b { display: block; font-size: 12px; font-weight: 600; max-width: 76px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bd-pm span { color: var(--ag-muted); font-variant-numeric: tabular-nums; }
+.bd-pm i { position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; border-radius: 50%; background: rgba(var(--tinta),.2); pointer-events: none; } .bd-pm i.on { background: var(--ag-gold); } .bd-pm i.extra { background: var(--ag-bad); }
+.bd-pm.llena { border-color: var(--ag-ok); } .bd-pm.pasada { border-color: var(--ag-bad); }
+.bd-pm.destino { border-color: var(--ag-gold); } .bd-pm.ver { box-shadow: 0 0 0 4px rgba(245,184,0,.35); }
+.bd-pm.arrastrando { cursor: grabbing; z-index: 5; box-shadow: 0 10px 26px rgba(0,0,0,.35); }
+.bd-plano-info { margin-top: 10px; display: grid; gap: 6px; }
+.bd-plano-info h4 { margin: 0; font-size: 13px; }
 .bd-mesa.llena h4 .cupo { color: var(--ag-ok); } .bd-mesa.pasada { border-color: var(--ag-bad); } .bd-mesa.pasada h4 .cupo { color: var(--ag-bad); }
 .bd-mesa h4 input { all: unset; font-weight: 600; min-width: 0; width: 100%; border-bottom: 1px dashed transparent; } .bd-mesa h4 input:focus { border-bottom-color: var(--ag-gold); }
 .bd-mesa .cupo { font-size: 12px; color: var(--ag-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -1577,7 +1592,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       </div>
 
       <div class="ag-card" style="margin-top:14px">
-        <div class="ag-top"><div><h2>Mesas · simulación</h2><p class="ag-note">Cada mesa tiene sus propios <b>puestos</b> (cámbialos con − y + en la mesa, o escribe una lista como «7, 10, 18» y pulsa Crear mesas). Toca una invitación (o una persona) de «Sin mesa» y luego toca la mesa donde la quieres; en computador también puedes arrastrar. Las familias de una misma invitación se mueven juntas. Nada se guarda hasta que pulses <b>Guardar acomodación</b>.</p></div></div>
+        <div class="ag-top"><div><h2>Mesas · simulación</h2><p class="ag-note">Cada mesa tiene sus propios <b>puestos</b> (cámbialos con − y + en la mesa, o escribe una lista como «7, 10, 18» y pulsa Crear mesas). Toca una invitación (o una persona) de «Sin mesa» y luego toca la mesa donde la quieres; en computador también puedes arrastrar. Las familias de una misma invitación se mueven juntas. Para <b>ordenar las mesas</b> usa ‹ › (o arrastra desde ⠿), y en <b>Plano del salón</b> arrastra cada mesa a donde irá. Nada se guarda hasta que pulses <b>Guardar acomodación</b>.</p></div></div>
         <div class="bd-mesa-ctrl">
           <label>Mesas<input class="ag-in" type="number" id="bd-n-mesas" min="1" max="60" value="8"></label>
           <label>Puestos (mesas nuevas)<input class="ag-in" type="text" inputmode="numeric" id="bd-cap" value="10" title="Un número para todas las mesas nuevas, o una lista para cada mesa: 7, 10, 18" style="width:130px"></label>
@@ -1589,9 +1604,16 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           <button type="button" class="ag-btn pri" id="bd-guardar">Guardar acomodación</button>
         </div>
         <p class="ag-note" id="bd-mesa-res"></p>
+        <div class="bd-vista">
+          <div class="ag-chips" id="bd-vista"><button type="button" class="ag-btn" data-v="lista" aria-pressed="true">Tarjetas</button><button type="button" class="ag-btn" data-v="plano" aria-pressed="false">Plano del salón</button></div>
+          <button type="button" class="ag-btn" id="bd-plano-reset" hidden>Reacomodar plano en cuadrícula</button>
+        </div>
         <div class="bd-sala">
           <div class="bd-pool" id="bd-pool" data-mesa=""></div>
-          <div class="bd-mesas" id="bd-mesas"></div>
+          <div class="bd-derecha">
+            <div class="bd-mesas" id="bd-mesas"></div>
+            <div id="bd-plano-wrap" hidden><div class="bd-plano" id="bd-plano" aria-label="Plano del salón"></div><div class="bd-plano-info" id="bd-plano-info"></div></div>
+          </div>
         </div>
         <div class="bd-excel"><button type="button" class="ag-btn" id="bd-excel">Pasar mesas al Excel (columna MESA)</button><small>Opcional: escribe el número de mesa guardado solo en la columna MESA de los invitados presenciales. No toca ninguna otra columna.</small></div>
         <p class="ag-msg" id="bd-mesa-msg"></p>
@@ -6258,6 +6280,8 @@ if ('serviceWorker' in navigator) {
 
   let D = { proveedores: [], abonos: [], sobrecostos: [], mesas: [], acomodacion: [], invitados: [] }, cargado = false;
   let mesas = [], asig = {}, sucio = false, sel = null, editProv = null, filtroInv = 'todos';
+  let arrMesa = null, verMesa = null, vista = 'lista';
+  try { if (localStorage.getItem('idealab_boda_vista') === 'plano') vista = 'plano'; } catch (e) {}
 
   const pedir = async (body) => {
     const r = await window.idealabEnviar({ accion: 'boda', quien: quien(), ...body });
@@ -6266,7 +6290,7 @@ if ('serviceWorker' in navigator) {
     cargado = true; pintar();
   };
   const cargarMesas = () => {
-    mesas = D.mesas.map((m) => ({ id: String(m.id), nombre: m.nombre || 'Mesa ' + m.id, capacidad: Number(m.capacidad) || 10 }));
+    mesas = D.mesas.map((m) => ({ id: String(m.id), nombre: m.nombre || 'Mesa ' + m.id, capacidad: Number(m.capacidad) || 10, x: m.x == null || m.x === '' ? null : Number(m.x), y: m.y == null || m.y === '' ? null : Number(m.y) }));
     asig = {}; const ids = new Set(mesas.map((m) => m.id));
     D.acomodacion.forEach((a) => { if (ids.has(String(a.mesa))) asig[a.clave] = String(a.mesa); });
     sucio = false;
@@ -6443,9 +6467,78 @@ if ('serviceWorker' in navigator) {
   const soltable = (box, mesaId) => {
     box.addEventListener('dragover', (e) => { e.preventDefault(); box.classList.add('destino'); });
     box.addEventListener('dragleave', () => box.classList.remove('destino'));
-    box.addEventListener('drop', (e) => { e.preventDefault(); box.classList.remove('destino'); const s = seleccion(); if (s.length) mover(s, mesaId); });
+    box.addEventListener('drop', (e) => { e.preventDefault(); box.classList.remove('destino'); if (arrMesa) { const de = arrMesa; arrMesa = null; if (mesaId) reordenar(de, mesaId); else pintarMesas(); return; } const s = seleccion(); if (s.length) mover(s, mesaId); });
     box.addEventListener('click', () => { const s = seleccion(); if (s.length && (sel.desde || '') !== mesaId) mover(s, mesaId); });
   };
+
+  // Orden de las mesas: la que se arrastra queda en el lugar de la mesa donde se suelta
+  const reordenar = (deId, aId) => {
+    const i = mesas.findIndex((m) => m.id === deId), j = mesas.findIndex((m) => m.id === aId);
+    if (i < 0 || j < 0 || i === j) { pintarMesas(); return; }
+    const [m] = mesas.splice(i, 1); mesas.splice(j, 0, m); ensuciar(); pintarMesas(); pintarInvitados();
+  };
+  const correr = (id, paso) => { const i = mesas.findIndex((m) => m.id === id), j = i + paso; if (i < 0 || j < 0 || j >= mesas.length) return; reordenar(id, mesas[j].id); };
+
+  // Plano del salón: posiciones en milésimas (0–1000) del ancho y alto del plano
+  const ubicarSinPos = () => {
+    const falta = mesas.filter((m) => m.x == null || m.y == null || !isFinite(m.x) || !isFinite(m.y));
+    if (!falta.length) return;
+    const cols = Math.max(1, Math.ceil(Math.sqrt(mesas.length * 1.6))), filas = Math.max(1, Math.ceil(mesas.length / cols));
+    const usadas = mesas.filter((m) => !falta.includes(m));
+    falta.forEach((m) => {
+      for (let k = 0; k < cols * filas + mesas.length; k++) {
+        const c = k % cols, r = Math.floor(k / cols) % filas;
+        const x = Math.round(1000 * (c + 0.5) / cols), y = Math.round(1000 * (r + 0.5) / filas);
+        if (k >= cols * filas || !usadas.some((u) => Math.abs(u.x - x) < 60 && Math.abs(u.y - y) < 60)) { m.x = x; m.y = y; usadas.push(m); break; }
+      }
+    });
+  };
+  const tam = (m) => Math.max(58, Math.min(112, 38 + m.capacidad * 4.5));
+  function pintarPlano(C) {
+    const pl = $('bd-plano'); pl.replaceChildren();
+    ubicarSinPos();
+    mesas.forEach((m) => {
+      const n = C.filter((g) => asig[clave(g)] === m.id).length, t = tam(m);
+      const d = el('div', 'bd-pm' + (n > m.capacidad ? ' pasada' : n === m.capacidad ? ' llena' : '') + (sel && (sel.desde || '') !== m.id ? ' destino' : '') + (verMesa === m.id ? ' ver' : ''));
+      d.style.width = d.style.height = t + 'px'; d.style.left = m.x / 10 + '%'; d.style.top = m.y / 10 + '%';
+      d.append(el('b', '', m.nombre), el('span', '', n + ' / ' + m.capacidad));
+      const tot = Math.max(m.capacidad, n), R = t / 2 + 7;
+      for (let i = 0; i < tot; i++) { const s = el('i', i < n ? (i >= m.capacidad ? 'extra' : 'on') : ''); s.style.transform = 'translate(-50%,-50%) rotate(' + (360 * i / tot) + 'deg) translateY(-' + R + 'px)'; d.appendChild(s); }
+      d.title = m.nombre + ': ' + n + ' de ' + m.capacidad + ' puestos. Arrastra para moverla; toca para ver quién está.';
+      let ini = null;
+      d.addEventListener('pointerdown', (e) => { if (e.button !== undefined && e.button !== 0) return; ini = { x: e.clientX, y: e.clientY, r: pl.getBoundingClientRect(), movio: false }; d.setPointerCapture(e.pointerId); });
+      d.addEventListener('pointermove', (e) => {
+        if (!ini) return;
+        if (!ini.movio && Math.hypot(e.clientX - ini.x, e.clientY - ini.y) < 6) return;
+        ini.movio = true; d.classList.add('arrastrando');
+        const r = ini.r, mx = (t / 2 + 10) / r.width * 1000, my = (t / 2 + 10) / r.height * 1000;
+        m.x = Math.round(Math.max(mx, Math.min(1000 - mx, (e.clientX - r.left) / r.width * 1000)));
+        m.y = Math.round(Math.max(my, Math.min(1000 - my, (e.clientY - r.top) / r.height * 1000)));
+        d.style.left = m.x / 10 + '%'; d.style.top = m.y / 10 + '%';
+      });
+      const fin = () => {
+        if (!ini) return; const movio = ini.movio; ini = null; d.classList.remove('arrastrando');
+        if (movio) { ensuciar(); pintarMesas(); return; }
+        const s = seleccion();
+        if (s.length && (sel.desde || '') !== m.id) { verMesa = m.id; mover(s, m.id); return; }
+        verMesa = verMesa === m.id ? null : m.id; pintarMesas();
+      };
+      d.addEventListener('pointerup', fin);
+      d.addEventListener('pointercancel', () => { if (ini && ini.movio) { ensuciar(); } ini = null; pintarMesas(); });
+      d.addEventListener('dragover', (e) => { e.preventDefault(); });
+      d.addEventListener('drop', (e) => { e.preventDefault(); const s = seleccion(); if (s.length) { verMesa = m.id; mover(s, m.id); } });
+      pl.appendChild(d);
+    });
+    if (!mesas.length) pl.appendChild(el('p', 'ag-empty', 'Crea las mesas con los controles de arriba.'));
+    // Detalle de la mesa tocada: sus invitados se pueden tocar para pasarlos a otra mesa
+    const info = $('bd-plano-info'); info.replaceChildren();
+    const mv = mesas.find((m) => m.id === verMesa);
+    if (!mv) { info.appendChild(el('small', 'cat', 'Arrastra las mesas para ubicarlas. Toca una mesa para ver quién está; toca una invitación de «Sin mesa» y luego la mesa para sentarla.')); return; }
+    const gente = C.filter((g) => asig[clave(g)] === mv.id);
+    info.appendChild(el('h4', '', mv.nombre + ' · ' + gente.length + ' / ' + mv.capacidad));
+    if (!gente.length) info.appendChild(el('small', 'cat', 'Mesa vacía.'));
+    gruposDe(gente).forEach((gr) => info.appendChild(tarjetaGrupo(gr, mv.id)));
+  }
 
   function pintarMesas() {
     const C = candidatos(), ids = new Set(mesas.map((m) => m.id));
@@ -6475,7 +6568,15 @@ if ('serviceWorker' in navigator) {
       const mas = el('button', 'ag-btn', '+'); mas.type = 'button'; mas.setAttribute('aria-label', 'Un puesto más en ' + m.nombre); mas.addEventListener('click', () => fijar(m.capacidad + 1));
       pu.append(el('span', '', 'Puestos'), menos, cap, mas);
       const del = el('button', 'bd-x', '×'); del.type = 'button'; del.title = 'Quitar mesa (sus invitados vuelven a «Sin mesa»)'; del.addEventListener('click', (e) => { e.stopPropagation(); mesas = mesas.filter((x) => x.id !== m.id); Object.keys(asig).forEach((k) => { if (asig[k] === m.id) delete asig[k]; }); ensuciar(); pintarMesas(); pintarInvitados(); });
-      h4.append(nm, cupo, del); b.append(h4, pu);
+      const asa = el('span', 'bd-asa', '⠿'); asa.title = 'Arrastra para cambiar el orden de la mesa'; asa.draggable = true;
+      asa.addEventListener('click', (e) => e.stopPropagation());
+      asa.addEventListener('dragstart', (e) => { e.stopPropagation(); arrMesa = m.id; sel = null; e.dataTransfer.setData('text/plain', 'mesa'); e.dataTransfer.effectAllowed = 'move'; setTimeout(() => b.classList.add('moviendo'), 0); });
+      asa.addEventListener('dragend', () => { arrMesa = null; b.classList.remove('moviendo'); box.querySelectorAll('.destino').forEach((x) => x.classList.remove('destino')); });
+      const ord = el('span', 'bd-orden');
+      const izq = el('button', 'ag-btn', '‹'); izq.type = 'button'; izq.title = 'Mover la mesa antes'; izq.setAttribute('aria-label', 'Mover ' + m.nombre + ' antes'); izq.disabled = idx === 0; izq.addEventListener('click', () => correr(m.id, -1));
+      const der = el('button', 'ag-btn', '›'); der.type = 'button'; der.title = 'Mover la mesa después'; der.setAttribute('aria-label', 'Mover ' + m.nombre + ' después'); der.disabled = idx === mesas.length - 1; der.addEventListener('click', () => correr(m.id, 1));
+      ord.append(izq, der); pu.appendChild(ord);
+      h4.append(asa, nm, cupo, del); b.append(h4, pu);
       const si = el('div', 'bd-sillas'); for (let i = 0; i < Math.max(m.capacidad, n); i++) si.appendChild(el('i', i < n ? (i >= m.capacidad ? 'extra' : 'on') : '')); b.appendChild(si);
       gruposDe(gente).forEach((gr) => b.appendChild(tarjetaGrupo(gr, m.id)));
       if (n > m.capacidad) b.appendChild(el('div', 'bd-aviso', 'Hay ' + (n - m.capacidad) + ' de más en esta mesa.'));
@@ -6483,6 +6584,10 @@ if ('serviceWorker' in navigator) {
       box.appendChild(b);
     });
     if (!mesas.length) box.appendChild(el('p', 'ag-empty', 'Crea las mesas con los controles de arriba.'));
+    const plano = vista === 'plano';
+    box.hidden = plano; $('bd-plano-wrap').hidden = !plano; $('bd-plano-reset').hidden = !plano;
+    $('bd-vista').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.v === vista)));
+    if (plano) pintarPlano(C);
     const sentados = C.length - sin.length, puestos = mesas.reduce((s, m) => s + m.capacidad, 0);
     $('bd-mesa-res').textContent = sentados + ' de ' + C.length + ' invitados con mesa' + ($('bd-solo-conf').checked ? ' (solo confirmados)' : ' (confirmados y pendientes; los que no asisten no cuentan)') + ' · ' + mesas.length + ' mesas, ' + puestos + ' puestos' + (puestos < C.length ? ' · faltan ' + (C.length - puestos) + ' puestos' : '') + (separados.length ? ' · ⚠ Invitación separada: ' + separados.join(', ') : '') + (sucio ? ' · cambios sin guardar' : '');
     $('bd-guardar').textContent = sucio ? 'Guardar acomodación •' : 'Guardar acomodación';
@@ -6500,6 +6605,8 @@ if ('serviceWorker' in navigator) {
   });
   $('bd-mas').addEventListener('click', () => { const c = String($('bd-cap').value).split(/[,;\s]+/).map(Number).filter((x) => x > 0); nuevaMesa(c[0] || 10); ensuciar(); pintarMesas(); });
   $('bd-solo-conf').addEventListener('change', () => { pintarMesas(); });
+  $('bd-vista').addEventListener('click', (e) => { const v = e.target.closest('button') && e.target.closest('button').dataset.v; if (!v) return; vista = v; try { localStorage.setItem('idealab_boda_vista', v); } catch (er) {} pintarMesas(); });
+  $('bd-plano-reset').addEventListener('click', () => { mesas.forEach((m) => { m.x = null; m.y = null; }); ensuciar(); pintarMesas(); });
   $('bd-vaciar').addEventListener('click', () => { asig = {}; ensuciar(); pintarMesas(); pintarInvitados(); });
   // Acomoda a los que no tienen mesa: invitaciones completas, de la más grande a la más pequeña, en la mesa donde mejor quepan
   $('bd-auto').addEventListener('click', () => {

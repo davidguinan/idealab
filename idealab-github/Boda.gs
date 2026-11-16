@@ -18,7 +18,7 @@ const BODA_TABS = {
   proveedores: ['APP PROVEEDORES', ['ID', 'Proveedor', 'Categoría', 'Costo total', 'Fecha límite', 'Contacto', 'Nota', 'Actualizado']],
   abonos: ['APP ABONOS', ['ID', 'Proveedor ID', 'Fecha', 'Valor', 'Nota', 'Registrado por', 'Registrado']],
   sobrecostos: ['APP SOBRECOSTOS', ['ID', 'Proveedor ID', 'Fecha', 'Valor', 'Descripción', 'Registrado por', 'Registrado']],
-  mesas: ['APP MESAS', ['Mesa', 'Nombre', 'Capacidad']],
+  mesas: ['APP MESAS', ['Mesa', 'Nombre', 'Capacidad', 'X plano', 'Y plano']],
   acomodacion: ['APP ACOMODACION', ['Clave', 'Invitado', 'Invitación', 'Mesa']],
 };
 
@@ -60,7 +60,8 @@ function boda_(body) {
     case 'sobrecosto_eliminar': bodaBorrar_(libro, 'sobrecostos', (r) => r[0] === String(body.id)); break;
     case 'abono_eliminar': bodaBorrar_(libro, 'abonos', (r) => r[0] === String(body.id)); break;
     case 'mesas_guardar': {
-      const mesas = (body.mesas || []).map((m) => [String(m.id), String(m.nombre || ''), Number(m.capacidad) || 0]);
+      const pos = (v) => (v === null || v === undefined || v === '' || !isFinite(Number(v)) ? '' : Math.max(0, Math.min(1000, Math.round(Number(v)))));
+      const mesas = (body.mesas || []).map((m) => [String(m.id), String(m.nombre || ''), Number(m.capacidad) || 0, pos(m.x), pos(m.y)]);
       const aco = (body.acomodacion || []).map((x) => [String(x.clave), String(x.nombre || ''), String(x.invitacion || ''), String(x.mesa || '')]);
       bodaReemplazar_(libro, 'mesas', mesas);
       bodaReemplazar_(libro, 'acomodacion', aco);
@@ -77,7 +78,7 @@ function bodaLeer_(libro) {
   const proveedores = tab('proveedores').map((r) => ({ id: r[0], proveedor: r[1], categoria: r[2], costo: bodaNum_(r[3]), fecha_limite: bodaFecha_(r[4]), contacto: r[5], nota: r[6], actualizado: r[7] }));
   const abonos = tab('abonos').map((r) => ({ id: r[0], proveedor_id: r[1], fecha: bodaFecha_(r[2]), valor: bodaNum_(r[3]), nota: r[4], quien: r[5], registrado: r[6] }));
   const sobrecostos = tab('sobrecostos').map((r) => ({ id: r[0], proveedor_id: r[1], fecha: bodaFecha_(r[2]), valor: bodaNum_(r[3]), descripcion: r[4], quien: r[5], registrado: r[6] }));
-  const mesas = tab('mesas').map((r) => ({ id: r[0], nombre: r[1], capacidad: bodaNum_(r[2]) }));
+  const mesas = tab('mesas').map((r) => ({ id: r[0], nombre: r[1], capacidad: bodaNum_(r[2]), x: String(r[3] || '').trim() === '' ? null : bodaNum_(r[3]), y: String(r[4] || '').trim() === '' ? null : bodaNum_(r[4]) }));
   const acomodacion = tab('acomodacion').map((r) => ({ clave: r[0], nombre: r[1], invitacion: r[2], mesa: r[3] }));
   return { proveedores, abonos, sobrecostos, mesas, acomodacion, invitados: bodaInvitados_(libro) };
 }
@@ -133,6 +134,7 @@ function bodaMesasAExcel_(libro) {
 function bodaHoja_(libro, k) {
   const [nombre, titulos] = BODA_TABS[k];
   let h = libro.getSheetByName(nombre);
+  if (h && h.getLastColumn() < titulos.length) h.getRange(1, 1, 1, titulos.length).setValues([titulos]).setFontWeight('bold');
   if (!h) {
     h = libro.insertSheet(nombre);
     h.getRange(1, 1, 1, titulos.length).setValues([titulos]).setFontWeight('bold');
