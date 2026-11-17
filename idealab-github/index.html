@@ -448,7 +448,17 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
     if (k === ultimoRango || !estado.meta_hoy) return;
     ultimoRango = k;
     ponerCargando(['meta_rango']);
-    try { const j = await pedir({ accion: 'rango', desde: p.desde, hasta: p.hasta }); fijar('meta_rango', { status: 'ok', data: filasMeta(j.filas).rows }); calcular(); }
+    try {
+      // Si el rango llega hasta hoy, el gasto de HOY se pide al mismo tiempo para Contabilidad: así el Resumen y el cierre
+      // usan la misma foto de Meta (el gasto de hoy sube cada rato y si se piden en momentos distintos no cuadran).
+      const hoyR = HOY_APP();
+      const conHoy = p.desde && p.hasta && p.desde <= hoyR && p.hasta >= hoyR;
+      const [j, jh] = await Promise.all([pedir({ accion: 'rango', desde: p.desde, hasta: p.hasta }), conHoy ? pedir({ accion: 'rango', desde: hoyR, hasta: hoyR }).catch(() => null) : null]);
+      try { renombrarCuentas(j.filas); if (jh) renombrarCuentas(jh.filas); } catch (e) {}
+      fijar('meta_rango', { status: 'ok', data: filasMeta(j.filas).rows });
+      if (jh && Array.isArray(jh.filas)) fijar('meta_hoy', { status: 'ok', data: filasMeta(jh.filas).rows });
+      calcular();
+    }
     catch (e) { fijar('meta_rango', { status: 'error', data: [], message: String(e.message || e) }); calcular(); }
   };
 
