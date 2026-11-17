@@ -3743,6 +3743,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   // jsPDF con letra estándar no trae el signo menos ni algunos espacios: se reemplazan
   const txtPDF = (t) => String(t ?? '').replace(/−/g, '-').replace(/[  ]/g, ' ').replace(/[–—]/g, '-');
   const comprobantePDF = async (r) => {
+    // Nunca con la copia guardada en el equipo: solo con los datos recién traídos del Excel y de Meta
+    if (document.body.dataset.copia || document.body.classList.contains('cargando')) throw new Error('Espera a que terminen de actualizarse los datos (o toca «Actualizar») y vuelve a generar el PDF.');
     const [{ jsPDF }, logo] = await Promise.all([cargarJsPDF(), cargarLogo()]);
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const W = 210, M = 18;
@@ -4578,7 +4580,14 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       celda: (td, c, f) => { if (/_local$/.test(c)) { td.textContent = fLocal(f[c], f.moneda); if (c === 'utilidad_local') td.className = 'num ' + (f[c] > 0 ? 'ag-pos' : f[c] < 0 ? 'ag-neg' : ''); return true; } return false; },
     });
     const rc = $('recibos'); rc.replaceChildren();
-    filasP.filter((r) => r.ventas_n || r.pauta_iva || r.gastos).forEach((r) => {
+    // Los comprobantes son del cierre oficial (Arte + Peque juntos): en las pestañas Arte o Peque no se generan,
+    // para que el PDF nunca salga con la utilidad de un solo producto
+    if (prodNom) {
+      const e = document.createElement('p'); e.className = 'ag-empty'; e.textContent = 'Los comprobantes se generan con el cierre completo del país (Arte + Peque). ';
+      const bj = document.createElement('button'); bj.type = 'button'; bj.className = 'ag-btn'; bj.textContent = 'Ir a «Juntos»'; bj.addEventListener('click', () => window.idealabProducto && window.idealabProducto.elegir('todos'));
+      e.appendChild(bj); rc.appendChild(e);
+    }
+    (prodNom ? [] : filasP).filter((r) => r.ventas_n || r.pauta_iva || r.gastos).forEach((r) => {
       const fl = banderaDe(r.pais);
       const d = document.createElement('div'); d.className = 'ag-recibo';
       d.style.setProperty('--fl1', fl.c[0]); d.style.setProperty('--fl2', fl.c[1]); d.style.setProperty('--fl3', fl.c[2]); d.style.setProperty('--fl-ac', fl.acento);
