@@ -2016,17 +2016,30 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       });
     },
   });
+  // Tasa única del cierre: la misma en toda la app (Resumen, Campañas, Gráficas y Contabilidad).
+  // Todas las ventas de una quincena se pasan a pesos con UNA tasa: la puesta a mano para ese país y quincena
+  // (pestaña Tasas_cierre) o, si no hay, la de la pestaña Tasas (con colchón) al último día de la quincena (o a hoy si sigue en curso).
+  const quincenaDe = (f) => { const m = f.slice(0, 7), d = Number(f.slice(8, 10)); const fin = new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0)).getUTCDate(); return d <= 15 ? { periodo: m + '-Q1', hasta: m + '-15' } : { periodo: m + '-Q2', hasta: m + '-' + String(fin).padStart(2, '0') }; };
+  const tasaCierreDe = (tasas, tasas_cierre, moneda, pais, fecha) => {
+    if (!moneda || moneda === 'COP') return 1;
+    const q = quincenaDe(fecha);
+    const manual = (tasas_cierre || []).find((t) => t.periodo === q.periodo && t.pais === pais && t.tasa);
+    if (manual) return manual.tasa;
+    const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+    const f = q.hasta < hoy ? q.hasta : hoy;
+    const t = tasas.filter((x) => x.fecha <= f && x[moneda]).sort((a, b) => (a.fecha < b.fecha ? 1 : -1))[0];
+    return t ? t[moneda] : null;
+  };
   dash.calc('ventas_cop', {
     title: 'Ventas en pesos colombianos',
-    description: 'Cada venta convertida a COP con la tasa (ya con colchón) de su día, o la del último día con tasa.',
-    inputs: ['ventas', 'tasas_aj'],
-    fn: (ventas, tasas) => {
+    description: 'Cada venta convertida a COP con la tasa única del cierre de su quincena y país (la puesta a mano en Tasas_cierre o la de Tasas con colchón al cierre), igual que en Contabilidad.',
+    inputs: ['ventas', 'tasas_aj', 'tasas_cierre'],
+    fn: (ventas, tasas, tasas_cierre) => {
       const fechas = tasas.map((t) => t.fecha).sort();
-      const porFecha = Object.fromEntries(tasas.map((t) => [t.fecha, t]));
       return ventas.filter((v) => v.fecha && v.valor_local > 0 && v.fecha >= fechas[0]).map((v) => {
-        const dia = fechas.filter((f) => f <= v.fecha).pop();
-        const tasa = v.moneda === 'COP' ? 1 : porFecha[dia] && porFecha[dia][v.moneda];
-        return { ...v, tasa, valor_cop: tasa ? Math.round(v.valor_local * tasa) : null };
+        const tasa = tasaCierreDe(tasas, tasas_cierre, v.moneda, v.pais, v.fecha);
+        // Sin redondear venta por venta, para que la suma dé exacta igual que en Contabilidad (se redondea al mostrar)
+        return { ...v, tasa, valor_cop: tasa ? Math.round(v.valor_local * tasa * 100) / 100 : null };
       });
     },
   });
@@ -2048,8 +2061,8 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   dash.calc('resumen', {
     title: 'Resultados del rango elegido',
     description: 'Gasto, pauta con IVA (19 %), ventas, utilidad, ROAS, conversaciones, % de conversión, costo por conversación y recomendación del rango (Escalar ROAS ≥ 2; Mantener 1,8–2; Bajar 1–1,8; Apagar < 1 con más de $20.000 de gasto): total, por país, por campaña y por anuncio. Utilidad = ventas − gasto × 1,19; ROAS = ventas ÷ (gasto × 1,19); % conversión = ventas ÷ conversaciones.',
-    inputs: ['meta_rango', 'ventas_cop', 'meta_campanas', 'meta_conjuntos', 'paises', 'tasas_aj'],
-    fn: (meta_rango, ventas_cop, meta_campanas, meta_conjuntos, paises, tasas) => {
+    inputs: ['meta_rango', 'ventas_cop', 'meta_campanas', 'meta_conjuntos', 'paises', 'tasas_aj', 'tasas_cierre'],
+    fn: (meta_rango, ventas_cop, meta_campanas, meta_conjuntos, paises, tasas, tasas_cierre) => {
       const IVA = 1.19;
       const monedaDe = {}; paises.forEach((x) => { if (!monedaDe[x.pais]) monedaDe[x.pais] = x.moneda; });
       const fechasT = tasas.map((t) => t.fecha).sort();
@@ -2088,11 +2101,14 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         else niveles(null, v.pais).forEach((x) => { x.sin_atrib_n += 1; x.sin_atrib_cop += v.valor_cop; sumarLocal(x, v); });
       });
       return Object.values(g).map((x) => {
-        const ventas = x.ventas_cop + x.sin_atrib_cop;
+        const ventas = Math.round(x.ventas_cop + x.sin_atrib_cop);
         // Moneda local: solo cuando el renglón es de un país (o de una campaña/anuncio de ese país)
         const moneda = x.nivel !== 'total' ? monedaDe[x.pais] || null : null;
-        const tasa = moneda ? tasaAl(moneda, hasta) : null;
-        const tasa_real = moneda ? tasaAl(moneda, hasta, moneda + '_real') : null;
+        // La misma tasa del cierre que usa Contabilidad (la de la quincena donde termina el rango)
+        const tasa = moneda ? tasaCierreDe(tasas, tasas_cierre, moneda, x.pais, hasta) : null;
+        const qC = quincenaDe(hasta), hoyC = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+        const manualC = moneda && moneda !== 'COP' && (tasas_cierre || []).some((t) => t.periodo === qC.periodo && t.pais === x.pais && t.tasa);
+        const tasa_real = moneda && !manualC ? tasaAl(moneda, qC.hasta < hoyC ? qC.hasta : hoyC, moneda + '_real') : null;
         const loc = {
           moneda, tasa, tasa_real: moneda === 'COP' ? 1 : tasa_real, colchon_tasa: colchonTasa(),
           ventas_local: moneda && tasa ? Math.round((x.v_loc + x.v_otra_cop / tasa) * 100) / 100 : null,
@@ -2844,7 +2860,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       },
     });
     const tr0 = pf.find((f) => f.moneda && f.moneda !== 'COP');
-    $('pais-nota').textContent = 'Del periodo elegido. La facturación en pesos usa la tasa de la pestaña Tasas rebajada ' + num.format(tr0 ? tr0.colchon_tasa : 3) + '% (colchón para no contar utilidad que no existe).';
+    $('pais-nota').textContent = 'Del periodo elegido. La facturación en pesos usa la misma tasa del cierre que Contabilidad: una sola tasa por país y quincena (la puesta a mano o la de la pestaña Tasas rebajada ' + num.format(tr0 ? tr0.colchon_tasa : 2) + '% al cierre). La utilidad aquí es ventas − pauta con IVA; los gastos se restan en Contabilidad.';
   }
 
   // ---------- Presupuesto diario editable ----------
