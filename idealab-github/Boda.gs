@@ -4,7 +4,8 @@
  * Lee la lista de invitados del Excel «INVITADOS BODA» SIN CAMBIAR NADA de la «Hoja 1»
  * (ni pases, ni invitaciones, ni confirmaciones): la invitación web sigue funcionando igual.
  * Lo de la app (proveedores, abonos, mesas y acomodación) se guarda en pestañas NUEVAS
- * de ese mismo Excel: «APP PROVEEDORES», «APP ABONOS», «APP MESAS» y «APP ACOMODACION».
+ * de ese mismo Excel: «APP PROVEEDORES», «APP ABONOS», «APP MESAS», «APP ACOMODACION» y «APP SALON»
+ * (entrada, mesa de los novios, pasabocas, torta, cofre… del plano del salón).
  *
  * Única excepción, y solo si la pides con el botón «Pasar mesas al Excel»: escribe el
  * número de mesa en la columna MESA de la Hoja 1 (ninguna otra columna).
@@ -18,7 +19,8 @@ const BODA_TABS = {
   proveedores: ['APP PROVEEDORES', ['ID', 'Proveedor', 'Categoría', 'Costo total', 'Fecha límite', 'Contacto', 'Nota', 'Actualizado']],
   abonos: ['APP ABONOS', ['ID', 'Proveedor ID', 'Fecha', 'Valor', 'Nota', 'Registrado por', 'Registrado']],
   sobrecostos: ['APP SOBRECOSTOS', ['ID', 'Proveedor ID', 'Fecha', 'Valor', 'Descripción', 'Registrado por', 'Registrado']],
-  mesas: ['APP MESAS', ['Mesa', 'Nombre', 'Capacidad', 'X plano', 'Y plano']],
+  mesas: ['APP MESAS', ['Mesa', 'Nombre', 'Capacidad', 'X plano', 'Y plano', 'Forma', 'Girada']],
+  salon: ['APP SALON', ['ID', 'Tipo', 'Nombre', 'X plano', 'Y plano', 'Girado']],
   acomodacion: ['APP ACOMODACION', ['Clave', 'Invitado', 'Invitación', 'Mesa']],
 };
 
@@ -61,10 +63,13 @@ function boda_(body) {
     case 'abono_eliminar': bodaBorrar_(libro, 'abonos', (r) => r[0] === String(body.id)); break;
     case 'mesas_guardar': {
       const pos = (v) => (v === null || v === undefined || v === '' || !isFinite(Number(v)) ? '' : Math.max(0, Math.min(1000, Math.round(Number(v)))));
-      const mesas = (body.mesas || []).map((m) => [String(m.id), String(m.nombre || ''), Number(m.capacidad) || 0, pos(m.x), pos(m.y)]);
+      const formas = ['redonda', 'cuadrada', 'rectangular'];
+      const mesas = (body.mesas || []).map((m) => [String(m.id), String(m.nombre || ''), Number(m.capacidad) || 0, pos(m.x), pos(m.y), formas.indexOf(m.forma) >= 0 ? m.forma : 'redonda', m.girada ? 'SI' : '']);
+      const salon = (body.salon || []).map((e) => [String(e.id), String(e.tipo || 'otro'), String(e.nombre || ''), pos(e.x), pos(e.y), e.girado ? 'SI' : '']);
       const aco = (body.acomodacion || []).map((x) => [String(x.clave), String(x.nombre || ''), String(x.invitacion || ''), String(x.mesa || '')]);
       bodaReemplazar_(libro, 'mesas', mesas);
       bodaReemplazar_(libro, 'acomodacion', aco);
+      if (Array.isArray(body.salon)) bodaReemplazar_(libro, 'salon', salon);
       break;
     }
     case 'mesas_a_excel': bodaMesasAExcel_(libro); break;
@@ -78,9 +83,11 @@ function bodaLeer_(libro) {
   const proveedores = tab('proveedores').map((r) => ({ id: r[0], proveedor: r[1], categoria: r[2], costo: bodaNum_(r[3]), fecha_limite: bodaFecha_(r[4]), contacto: r[5], nota: r[6], actualizado: r[7] }));
   const abonos = tab('abonos').map((r) => ({ id: r[0], proveedor_id: r[1], fecha: bodaFecha_(r[2]), valor: bodaNum_(r[3]), nota: r[4], quien: r[5], registrado: r[6] }));
   const sobrecostos = tab('sobrecostos').map((r) => ({ id: r[0], proveedor_id: r[1], fecha: bodaFecha_(r[2]), valor: bodaNum_(r[3]), descripcion: r[4], quien: r[5], registrado: r[6] }));
-  const mesas = tab('mesas').map((r) => ({ id: r[0], nombre: r[1], capacidad: bodaNum_(r[2]), x: String(r[3] || '').trim() === '' ? null : bodaNum_(r[3]), y: String(r[4] || '').trim() === '' ? null : bodaNum_(r[4]) }));
+  const xy = (v) => (String(v || '').trim() === '' ? null : bodaNum_(v));
+  const mesas = tab('mesas').map((r) => ({ id: r[0], nombre: r[1], capacidad: bodaNum_(r[2]), x: xy(r[3]), y: xy(r[4]), forma: r[5] || 'redonda', girada: r[6] === 'SI' }));
+  const salon = tab('salon').map((r) => ({ id: r[0], tipo: r[1], nombre: r[2], x: xy(r[3]), y: xy(r[4]), girado: r[5] === 'SI' }));
   const acomodacion = tab('acomodacion').map((r) => ({ clave: r[0], nombre: r[1], invitacion: r[2], mesa: r[3] }));
-  return { proveedores, abonos, sobrecostos, mesas, acomodacion, invitados: bodaInvitados_(libro) };
+  return { proveedores, abonos, sobrecostos, mesas, acomodacion, salon, invitados: bodaInvitados_(libro) };
 }
 
 /** Lee la Hoja 1 tal cual (solo lectura). Cada bloque empieza con una fila de títulos: N | INVITADOS… | GRUPO | INVITACIÓN | CONFIRMACIÓN… | MESA … */

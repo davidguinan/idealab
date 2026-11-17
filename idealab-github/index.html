@@ -1061,6 +1061,22 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 .bd-pm.llena { border-color: var(--ag-ok); } .bd-pm.pasada { border-color: var(--ag-bad); }
 .bd-pm.destino { border-color: var(--ag-gold); } .bd-pm.ver { box-shadow: 0 0 0 4px rgba(245,184,0,.35); }
 .bd-pm.arrastrando { cursor: grabbing; z-index: 5; box-shadow: 0 10px 26px rgba(0,0,0,.35); }
+.bd-pm.cuadrada, .bd-pm.rectangular { border-radius: 10px; }
+.bd-el { position: absolute; display: grid; place-content: center; text-align: center; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; font-size: 11px; line-height: 1.15; border: 2px dashed rgba(var(--tinta),.35); border-radius: 10px; background: rgba(var(--tinta),.06); color: var(--ag-fg); transition: border-color .15s, box-shadow .15s; padding: 2px 4px; overflow: hidden; }
+.bd-el b { font-weight: 600; font-size: 11px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.bd-el small { color: var(--ag-muted); font-size: 10px; }
+.bd-el.novios { border-style: solid; border-color: var(--ag-gold); background: rgba(245,184,0,.12); }
+.bd-el.torta { border-color: #b08a5a; background: rgba(176,138,90,.14); }
+.bd-el.pasabocas { border-color: #8a9a5b; background: rgba(138,154,91,.14); }
+.bd-el.cofre { border-style: solid; border-color: #9a6b43; background: rgba(154,107,67,.18); border-radius: 6px; }
+.bd-el.pista { border-color: rgba(var(--tinta),.3); background: repeating-linear-gradient(45deg, rgba(var(--tinta),.05) 0 10px, rgba(var(--tinta),.1) 10px 20px); }
+.bd-el.entrada { border: none; border-radius: 4px; background: var(--ag-ok); color: #fff; font-weight: 600; }
+.bd-el.entrada b { color: #fff; }
+.bd-el.ver { box-shadow: 0 0 0 4px rgba(245,184,0,.35); } .bd-el.arrastrando { cursor: grabbing; z-index: 5; box-shadow: 0 10px 26px rgba(0,0,0,.35); }
+.bd-formas { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--ag-muted); }
+.bd-formas .ag-btn { padding: 3px 10px; font-size: 12px; }
+.bd-formas input { width: 170px; }
+.bd-forma-sel { font-size: 12px; padding: 2px 4px; margin-top: 6px; }
 .bd-plano-info { margin-top: 10px; display: grid; gap: 6px; }
 .bd-plano-info h4 { margin: 0; font-size: 13px; }
 .bd-mesa.llena h4 .cupo { color: var(--ag-ok); } .bd-mesa.pasada { border-color: var(--ag-bad); } .bd-mesa.pasada h4 .cupo { color: var(--ag-bad); }
@@ -1592,10 +1608,11 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       </div>
 
       <div class="ag-card" style="margin-top:14px">
-        <div class="ag-top"><div><h2>Mesas · simulación</h2><p class="ag-note">Cada mesa tiene sus propios <b>puestos</b> (cámbialos con − y + en la mesa, o escribe una lista como «7, 10, 18» y pulsa Crear mesas). Toca una invitación (o una persona) de «Sin mesa» y luego toca la mesa donde la quieres; en computador también puedes arrastrar. Las familias de una misma invitación se mueven juntas. Para <b>ordenar las mesas</b> usa ‹ › (o arrastra desde ⠿), y en <b>Plano del salón</b> arrastra cada mesa a donde irá. Nada se guarda hasta que pulses <b>Guardar acomodación</b>.</p></div></div>
+        <div class="ag-top"><div><h2>Mesas · simulación</h2><p class="ag-note">Cada mesa tiene sus propios <b>puestos</b> (cámbialos con − y + en la mesa, o escribe una lista como «7, 10, 18» y pulsa Crear mesas). Toca una invitación (o una persona) de «Sin mesa» y luego toca la mesa donde la quieres; en computador también puedes arrastrar. Las familias de una misma invitación se mueven juntas. Para <b>ordenar las mesas</b> usa ‹ › (o arrastra desde ⠿), y en <b>Plano del salón</b> arrastra cada mesa a donde irá; ahí puedes cambiar la forma de cada mesa (redonda, cuadrada o rectangular) y agregar la entrada, la mesa de los novios, los pasabocas, la torta y el cofre de sobres. Nada se guarda hasta que pulses <b>Guardar acomodación</b>.</p></div></div>
         <div class="bd-mesa-ctrl">
           <label>Mesas<input class="ag-in" type="number" id="bd-n-mesas" min="1" max="60" value="8"></label>
           <label>Puestos (mesas nuevas)<input class="ag-in" type="text" inputmode="numeric" id="bd-cap" value="10" title="Un número para todas las mesas nuevas, o una lista para cada mesa: 7, 10, 18" style="width:130px"></label>
+          <label>Forma (mesas nuevas)<select class="ag-in" id="bd-forma" style="width:130px"><option value="redonda">Redonda</option><option value="cuadrada">Cuadrada</option><option value="rectangular">Rectangular</option></select></label>
           <button type="button" class="ag-btn" id="bd-crear">Crear mesas</button>
           <button type="button" class="ag-btn" id="bd-mas">+ Mesa</button>
           <label class="bd-chk"><input type="checkbox" id="bd-solo-conf"> Solo confirmados</label>
@@ -1606,6 +1623,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         <p class="ag-note" id="bd-mesa-res"></p>
         <div class="bd-vista">
           <div class="ag-chips" id="bd-vista"><button type="button" class="ag-btn" data-v="lista" aria-pressed="true">Tarjetas</button><button type="button" class="ag-btn" data-v="plano" aria-pressed="false">Plano del salón</button></div>
+          <select class="ag-in" id="bd-el-add" hidden aria-label="Agregar al plano" style="width:auto"><option value="">+ Agregar al plano…</option><option value="entrada">Entrada</option><option value="novios">Mesa de los novios</option><option value="pasabocas">Mesa de pasabocas</option><option value="torta">Torta y decoración</option><option value="cofre">Cofre de sobres</option><option value="pista">Pista de baile</option><option value="otro">Otro…</option></select>
           <button type="button" class="ag-btn" id="bd-plano-reset" hidden>Reacomodar plano en cuadrícula</button>
         </div>
         <div class="bd-sala">
@@ -6276,16 +6294,27 @@ if ('serviceWorker' in navigator) {
   const leerNum = (t) => { let s = String(t ?? '').replace(/[^\d.,-]/g, ''); if (!s) return 0; if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.'); else if (/\.\d{3}$/.test(s) || (s.match(/\./g) || []).length > 1) s = s.replace(/\./g, ''); const n = Number(s); return isFinite(n) ? n : 0; };
   const avisar = (id, t, ok) => { const el = $(id); el.textContent = t; el.className = 'ag-msg ' + (ok ? 'ok' : 'err'); };
   const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
+  // Formas de mesa y elementos fijos del plano (entrada, novios, pasabocas, torta, cofre…); tamaños en px, posición en milésimas del plano
+  const FORMAS = { redonda: 'Redonda', cuadrada: 'Cuadrada', rectangular: 'Rectangular' };
+  const ELEM = {
+    entrada: { nombre: 'Entrada', w: 110, h: 24, x: 500, y: 980 },
+    novios: { nombre: 'Mesa de los novios', w: 150, h: 46, x: 500, y: 80 },
+    pasabocas: { nombre: 'Pasabocas', w: 120, h: 40, x: 900, y: 500 },
+    torta: { nombre: 'Torta y decoración', w: 110, h: 60, x: 130, y: 90 },
+    cofre: { nombre: 'Cofre de sobres', w: 76, h: 44, x: 700, y: 900 },
+    pista: { nombre: 'Pista de baile', w: 170, h: 120, x: 500, y: 500 },
+    otro: { nombre: 'Otro', w: 100, h: 40, x: 500, y: 300 },
+  };
   const CATS = ['Wedding planner', 'Finca / lugar', 'Ceremonia', 'Comida / catering', 'Fotografía y video', 'Música', 'Decoración', 'Vestido / traje', 'Pastel', 'Otro'];
 
-  let D = { proveedores: [], abonos: [], sobrecostos: [], mesas: [], acomodacion: [], invitados: [] }, cargado = false;
+  let D = { proveedores: [], abonos: [], sobrecostos: [], mesas: [], acomodacion: [], invitados: [], salon: [] }, cargado = false;
   let mesas = [], asig = {}, sucio = false, sel = null, editProv = null, filtroInv = 'todos';
-  let arrMesa = null, verMesa = null, vista = 'lista';
+  let arrMesa = null, verMesa = null, vista = 'lista', salon = [], verEl = null;
   try { if (localStorage.getItem('idealab_boda_vista') === 'plano') vista = 'plano'; } catch (e) {}
 
   const pedir = async (body) => {
     const r = await window.idealabEnviar({ accion: 'boda', quien: quien(), ...body });
-    D = { proveedores: r.proveedores || [], abonos: r.abonos || [], sobrecostos: r.sobrecostos || [], mesas: r.mesas || [], acomodacion: r.acomodacion || [], invitados: r.invitados || [] };
+    D = { proveedores: r.proveedores || [], abonos: r.abonos || [], sobrecostos: r.sobrecostos || [], mesas: r.mesas || [], acomodacion: r.acomodacion || [], invitados: r.invitados || [], salon: r.salon || [], salonOk: Array.isArray(r.salon) };
     if (!cargado || body.op === 'mesas_guardar' || !sucio) cargarMesas();
     cargado = true; guardarCache(); pintar();
   };
@@ -6294,7 +6323,9 @@ if ('serviceWorker' in navigator) {
   let cacheT = 0;
   const guardarCache = () => { cacheT = Date.now(); try { localStorage.setItem(CACHE_BODA, JSON.stringify({ t: cacheT, D })); } catch (e) {} };
   const cargarMesas = () => {
-    mesas = D.mesas.map((m) => ({ id: String(m.id), nombre: m.nombre || 'Mesa ' + m.id, capacidad: Number(m.capacidad) || 10, x: m.x == null || m.x === '' ? null : Number(m.x), y: m.y == null || m.y === '' ? null : Number(m.y) }));
+    const xy = (v) => (v == null || v === '' ? null : Number(v));
+    mesas = D.mesas.map((m) => ({ id: String(m.id), nombre: m.nombre || 'Mesa ' + m.id, capacidad: Number(m.capacidad) || 10, x: xy(m.x), y: xy(m.y), forma: FORMAS[m.forma] ? m.forma : 'redonda', girada: !!m.girada }));
+    salon = (D.salon || []).filter((e) => ELEM[e.tipo]).map((e) => ({ id: String(e.id), tipo: e.tipo, nombre: e.nombre || ELEM[e.tipo].nombre, x: xy(e.x) ?? ELEM[e.tipo].x, y: xy(e.y) ?? ELEM[e.tipo].y, girado: !!e.girado }));
     asig = {}; const ids = new Set(mesas.map((m) => m.id));
     D.acomodacion.forEach((a) => { if (ids.has(String(a.mesa))) asig[a.clave] = String(a.mesa); });
     sucio = false;
@@ -6445,7 +6476,7 @@ if ('serviceWorker' in navigator) {
   const gruposDe = (lista) => { const G = {}; lista.forEach((g) => { const k = norm(g.invitacion || g.nombre); (G[k] = G[k] || { k, titulo: g.invitacion || lindo(g.nombre), gente: [] }).gente.push(g); }); return Object.values(G); };
   const ocupados = (id) => candidatos().filter((g) => asig[clave(g)] === id).length;
   const ensuciar = () => { sucio = true; $('bd-guardar').textContent = 'Guardar acomodación •'; };
-  const nuevaMesa = (cap) => { let n = mesas.length + 1; const usados = new Set(mesas.map((m) => m.id)); while (usados.has('m' + n)) n++; const m = { id: 'm' + n, nombre: 'Mesa ' + (mesas.length + 1), capacidad: cap || 10 }; mesas.push(m); return m; };
+  const nuevaMesa = (cap) => { let n = mesas.length + 1; const usados = new Set(mesas.map((m) => m.id)); while (usados.has('m' + n)) n++; const m = { id: 'm' + n, nombre: 'Mesa ' + (mesas.length + 1), capacidad: cap || 10, forma: $('bd-forma').value || 'redonda', girada: false }; mesas.push(m); return m; };
   const mover = (personas, mesaId) => { personas.forEach((g) => { if (mesaId) asig[clave(g)] = mesaId; else delete asig[clave(g)]; }); sel = null; ensuciar(); pintarMesas(); pintarInvitados(); };
   const seleccion = () => { if (!sel) return []; const C = candidatos(); return sel.tipo === 'grupo' ? C.filter((g) => norm(g.invitacion || g.nombre) === sel.k && (asig[clave(g)] || '') === sel.desde) : C.filter((g) => clave(g) === sel.k); };
 
@@ -6488,7 +6519,7 @@ if ('serviceWorker' in navigator) {
     const falta = mesas.filter((m) => m.x == null || m.y == null || !isFinite(m.x) || !isFinite(m.y));
     if (!falta.length) return;
     const cols = Math.max(1, Math.ceil(Math.sqrt(mesas.length * 1.6))), filas = Math.max(1, Math.ceil(mesas.length / cols));
-    const usadas = mesas.filter((m) => !falta.includes(m));
+    const usadas = mesas.filter((m) => !falta.includes(m)).concat(salon);
     falta.forEach((m) => {
       for (let k = 0; k < cols * filas + mesas.length; k++) {
         const c = k % cols, r = Math.floor(k / cols) % filas;
@@ -6498,48 +6529,105 @@ if ('serviceWorker' in navigator) {
     });
   };
   const tam = (m) => Math.max(58, Math.min(112, 38 + m.capacidad * 4.5));
+  // Medidas en px de cada mesa según su forma (la rectangular puede ir acostada o parada)
+  const medida = (m) => {
+    const tot = m.capacidad;
+    if (m.forma === 'cuadrada') { const s = Math.max(58, Math.min(118, 30 + Math.ceil(tot / 4) * 20)); return { w: s, h: s }; }
+    if (m.forma === 'rectangular') { const lado = Math.max(80, Math.min(240, Math.ceil(tot / 2) * 19 + 16)); return m.girada ? { w: 56, h: lado } : { w: lado, h: 56 }; }
+    const t = tam(m); return { w: t, h: t };
+  };
+  // Dónde va cada silla, en px desde el centro de la mesa
+  const sillas = (m, tot, w, h) => {
+    const out = [];
+    if (m.forma === 'cuadrada') {
+      const k = [0, 0, 0, 0]; for (let i = 0; i < tot; i++) k[[0, 2, 1, 3][i % 4]]++;
+      [[0, -1], [1, 0], [0, 1], [-1, 0]].forEach(([sx, sy], lado) => {
+        for (let j = 0; j < k[lado]; j++) { const f = (j + 0.5) / k[lado] - 0.5; out.push(sx ? [sx * (w / 2 + 7), f * h] : [f * w, sy * (h / 2 + 7)]); }
+      });
+      return out;
+    }
+    if (m.forma === 'rectangular') {
+      const a = Math.ceil(tot / 2), b = tot - a, largo = m.girada ? h : w, ancho = m.girada ? w : h;
+      [[a, -1], [b, 1]].forEach(([n, lado]) => { for (let j = 0; j < n; j++) { const f = ((j + 0.5) / a - 0.5) * largo, d = lado * (ancho / 2 + 7); out.push(m.girada ? [d, f] : [f, d]); } });
+      return out;
+    }
+    const R = w / 2 + 7;
+    for (let i = 0; i < tot; i++) { const ang = (2 * Math.PI * i) / tot; out.push([Math.sin(ang) * R, -Math.cos(ang) * R]); }
+    return out;
+  };
+  const medEl = (e) => { const b = ELEM[e.tipo]; return e.girado ? { w: b.h, h: b.w } : { w: b.w, h: b.h }; };
+  // Arrastre común para mesas y elementos del salón; tocar sin mover llama a alTocar
+  const arrastrable = (d, obj, med, pl, alTocar) => {
+    let ini = null;
+    d.addEventListener('pointerdown', (e) => { if (e.button !== undefined && e.button !== 0) return; ini = { x: e.clientX, y: e.clientY, r: pl.getBoundingClientRect(), movio: false }; d.setPointerCapture(e.pointerId); });
+    d.addEventListener('pointermove', (e) => {
+      if (!ini) return;
+      if (!ini.movio && Math.hypot(e.clientX - ini.x, e.clientY - ini.y) < 6) return;
+      ini.movio = true; d.classList.add('arrastrando');
+      const r = ini.r, { w, h } = med(), mx = Math.min(500, (w / 2 + 4) / r.width * 1000), my = Math.min(500, (h / 2 + 4) / r.height * 1000);
+      obj.x = Math.round(Math.max(mx, Math.min(1000 - mx, (e.clientX - r.left) / r.width * 1000)));
+      obj.y = Math.round(Math.max(my, Math.min(1000 - my, (e.clientY - r.top) / r.height * 1000)));
+      d.style.left = obj.x / 10 + '%'; d.style.top = obj.y / 10 + '%';
+    });
+    d.addEventListener('pointerup', () => { if (!ini) return; const movio = ini.movio; ini = null; d.classList.remove('arrastrando'); if (movio) { ensuciar(); pintarMesas(); return; } alTocar(); });
+    d.addEventListener('pointercancel', () => { if (ini && ini.movio) { ensuciar(); } ini = null; pintarMesas(); });
+  };
+  const chipsForma = (m) => {
+    const f = el('div', 'bd-formas'); f.appendChild(el('span', '', 'Forma:'));
+    Object.entries(FORMAS).forEach(([k, t]) => { const b = el('button', 'ag-btn', t); b.type = 'button'; b.setAttribute('aria-pressed', String(m.forma === k)); b.addEventListener('click', () => { m.forma = k; ensuciar(); pintarMesas(); }); f.appendChild(b); });
+    if (m.forma === 'rectangular') { const g = el('button', 'ag-btn', m.girada ? '↔ Acostarla' : '↕ Pararla'); g.type = 'button'; g.addEventListener('click', () => { m.girada = !m.girada; ensuciar(); pintarMesas(); }); f.appendChild(g); }
+    return f;
+  };
   function pintarPlano(C) {
     const pl = $('bd-plano'); pl.replaceChildren();
     ubicarSinPos();
+    // Elementos fijos (van debajo de las mesas)
+    salon.forEach((e) => {
+      const { w, h } = medEl(e);
+      const d = el('div', 'bd-el ' + e.tipo + (verEl === e.id ? ' ver' : ''));
+      d.style.width = w + 'px'; d.style.height = h + 'px'; d.style.left = e.x / 10 + '%'; d.style.top = e.y / 10 + '%'; d.style.transform = 'translate(-50%,-50%)';
+      const t = el('b', '', e.nombre);
+      if (e.girado && e.tipo !== 'pista') { t.style.writingMode = 'vertical-rl'; t.style.maxHeight = h - 6 + 'px'; }
+      d.appendChild(t);
+      d.title = e.nombre + ' · arrastra para ubicarlo; toca para girarlo, renombrarlo o quitarlo.';
+      arrastrable(d, e, () => medEl(e), pl, () => { verEl = verEl === e.id ? null : e.id; verMesa = null; pintarMesas(); });
+      pl.appendChild(d);
+    });
     mesas.forEach((m) => {
-      const n = C.filter((g) => asig[clave(g)] === m.id).length, t = tam(m);
-      const d = el('div', 'bd-pm' + (n > m.capacidad ? ' pasada' : n === m.capacidad ? ' llena' : '') + (sel && (sel.desde || '') !== m.id ? ' destino' : '') + (verMesa === m.id ? ' ver' : ''));
-      d.style.width = d.style.height = t + 'px'; d.style.left = m.x / 10 + '%'; d.style.top = m.y / 10 + '%';
+      const n = C.filter((g) => asig[clave(g)] === m.id).length, { w, h } = medida(m);
+      const d = el('div', 'bd-pm ' + (m.forma || 'redonda') + (n > m.capacidad ? ' pasada' : n === m.capacidad ? ' llena' : '') + (sel && (sel.desde || '') !== m.id ? ' destino' : '') + (verMesa === m.id ? ' ver' : ''));
+      d.style.width = w + 'px'; d.style.height = h + 'px'; d.style.left = m.x / 10 + '%'; d.style.top = m.y / 10 + '%';
       d.append(el('b', '', m.nombre), el('span', '', n + ' / ' + m.capacidad));
-      const tot = Math.max(m.capacidad, n), R = t / 2 + 7;
-      for (let i = 0; i < tot; i++) { const s = el('i', i < n ? (i >= m.capacidad ? 'extra' : 'on') : ''); s.style.transform = 'translate(-50%,-50%) rotate(' + (360 * i / tot) + 'deg) translateY(-' + R + 'px)'; d.appendChild(s); }
-      d.title = m.nombre + ': ' + n + ' de ' + m.capacidad + ' puestos. Arrastra para moverla; toca para ver quién está.';
-      let ini = null;
-      d.addEventListener('pointerdown', (e) => { if (e.button !== undefined && e.button !== 0) return; ini = { x: e.clientX, y: e.clientY, r: pl.getBoundingClientRect(), movio: false }; d.setPointerCapture(e.pointerId); });
-      d.addEventListener('pointermove', (e) => {
-        if (!ini) return;
-        if (!ini.movio && Math.hypot(e.clientX - ini.x, e.clientY - ini.y) < 6) return;
-        ini.movio = true; d.classList.add('arrastrando');
-        const r = ini.r, mx = (t / 2 + 10) / r.width * 1000, my = (t / 2 + 10) / r.height * 1000;
-        m.x = Math.round(Math.max(mx, Math.min(1000 - mx, (e.clientX - r.left) / r.width * 1000)));
-        m.y = Math.round(Math.max(my, Math.min(1000 - my, (e.clientY - r.top) / r.height * 1000)));
-        d.style.left = m.x / 10 + '%'; d.style.top = m.y / 10 + '%';
-      });
-      const fin = () => {
-        if (!ini) return; const movio = ini.movio; ini = null; d.classList.remove('arrastrando');
-        if (movio) { ensuciar(); pintarMesas(); return; }
+      const tot = Math.max(m.capacidad, n);
+      sillas(m, tot, w, h).forEach(([dx, dy], i) => { const s = el('i', i < n ? (i >= m.capacidad ? 'extra' : 'on') : ''); s.style.transform = 'translate(' + (dx - 4) + 'px,' + (dy - 4) + 'px)'; d.appendChild(s); });
+      d.title = m.nombre + ': ' + n + ' de ' + m.capacidad + ' puestos. Arrastra para moverla; toca para ver quién está y cambiar su forma.';
+      arrastrable(d, m, () => medida(m), pl, () => {
         const s = seleccion();
-        if (s.length && (sel.desde || '') !== m.id) { verMesa = m.id; mover(s, m.id); return; }
-        verMesa = verMesa === m.id ? null : m.id; pintarMesas();
-      };
-      d.addEventListener('pointerup', fin);
-      d.addEventListener('pointercancel', () => { if (ini && ini.movio) { ensuciar(); } ini = null; pintarMesas(); });
+        if (s.length && (sel.desde || '') !== m.id) { verMesa = m.id; verEl = null; mover(s, m.id); return; }
+        verMesa = verMesa === m.id ? null : m.id; verEl = null; pintarMesas();
+      });
       d.addEventListener('dragover', (e) => { e.preventDefault(); });
       d.addEventListener('drop', (e) => { e.preventDefault(); const s = seleccion(); if (s.length) { verMesa = m.id; mover(s, m.id); } });
       pl.appendChild(d);
     });
-    if (!mesas.length) pl.appendChild(el('p', 'ag-empty', 'Crea las mesas con los controles de arriba.'));
-    // Detalle de la mesa tocada: sus invitados se pueden tocar para pasarlos a otra mesa
+    if (!mesas.length && !salon.length) pl.appendChild(el('p', 'ag-empty', 'Crea las mesas con los controles de arriba.'));
+    // Detalle de lo tocado: mesa (forma e invitados) o elemento del salón (nombre, girar, quitar)
     const info = $('bd-plano-info'); info.replaceChildren();
+    const ev = salon.find((e) => e.id === verEl);
+    if (ev) {
+      info.appendChild(el('h4', '', ev.nombre));
+      const f = el('div', 'bd-formas');
+      const nm = el('input', 'ag-in'); nm.value = ev.nombre; nm.setAttribute('aria-label', 'Nombre'); nm.addEventListener('change', () => { ev.nombre = nm.value.trim() || ELEM[ev.tipo].nombre; ensuciar(); pintarMesas(); });
+      const g = el('button', 'ag-btn', '⟳ Girar'); g.type = 'button'; g.addEventListener('click', () => { ev.girado = !ev.girado; ensuciar(); pintarMesas(); });
+      const q = el('button', 'ag-btn', 'Quitar del plano'); q.type = 'button'; q.addEventListener('click', () => { salon = salon.filter((x) => x.id !== ev.id); verEl = null; ensuciar(); pintarMesas(); });
+      f.append(nm, g, q); info.appendChild(f);
+      return;
+    }
     const mv = mesas.find((m) => m.id === verMesa);
-    if (!mv) { info.appendChild(el('small', 'cat', 'Arrastra las mesas para ubicarlas. Toca una mesa para ver quién está; toca una invitación de «Sin mesa» y luego la mesa para sentarla.')); return; }
+    if (!mv) { info.appendChild(el('small', 'cat', 'Arrastra las mesas y los elementos para ubicarlos. Toca una mesa para ver quién está y cambiar su forma; toca una invitación de «Sin mesa» y luego la mesa para sentarla. Con «+ Agregar al plano» pones la entrada, la mesa de los novios, los pasabocas, la torta y el cofre.')); return; }
     const gente = C.filter((g) => asig[clave(g)] === mv.id);
     info.appendChild(el('h4', '', mv.nombre + ' · ' + gente.length + ' / ' + mv.capacidad));
+    info.appendChild(chipsForma(mv));
     if (!gente.length) info.appendChild(el('small', 'cat', 'Mesa vacía.'));
     gruposDe(gente).forEach((gr) => info.appendChild(tarjetaGrupo(gr, mv.id)));
   }
@@ -6580,7 +6668,10 @@ if ('serviceWorker' in navigator) {
       const izq = el('button', 'ag-btn', '‹'); izq.type = 'button'; izq.title = 'Mover la mesa antes'; izq.setAttribute('aria-label', 'Mover ' + m.nombre + ' antes'); izq.disabled = idx === 0; izq.addEventListener('click', () => correr(m.id, -1));
       const der = el('button', 'ag-btn', '›'); der.type = 'button'; der.title = 'Mover la mesa después'; der.setAttribute('aria-label', 'Mover ' + m.nombre + ' después'); der.disabled = idx === mesas.length - 1; der.addEventListener('click', () => correr(m.id, 1));
       ord.append(izq, der); pu.appendChild(ord);
-      h4.append(asa, nm, cupo, del); b.append(h4, pu);
+      const fs = el('select', 'ag-in bd-forma-sel'); fs.setAttribute('aria-label', 'Forma de ' + m.nombre);
+      Object.entries(FORMAS).forEach(([k, t]) => { const o = el('option', '', 'Mesa ' + t.toLowerCase()); o.value = k; o.selected = (m.forma || 'redonda') === k; fs.appendChild(o); });
+      fs.addEventListener('click', (e) => e.stopPropagation()); fs.addEventListener('change', () => { m.forma = fs.value; ensuciar(); pintarMesas(); });
+      h4.append(asa, nm, cupo, del); b.append(h4, pu, fs);
       const si = el('div', 'bd-sillas'); for (let i = 0; i < Math.max(m.capacidad, n); i++) si.appendChild(el('i', i < n ? (i >= m.capacidad ? 'extra' : 'on') : '')); b.appendChild(si);
       gruposDe(gente).forEach((gr) => b.appendChild(tarjetaGrupo(gr, m.id)));
       if (n > m.capacidad) b.appendChild(el('div', 'bd-aviso', 'Hay ' + (n - m.capacidad) + ' de más en esta mesa.'));
@@ -6589,7 +6680,7 @@ if ('serviceWorker' in navigator) {
     });
     if (!mesas.length) box.appendChild(el('p', 'ag-empty', 'Crea las mesas con los controles de arriba.'));
     const plano = vista === 'plano';
-    box.hidden = plano; $('bd-plano-wrap').hidden = !plano; $('bd-plano-reset').hidden = !plano;
+    box.hidden = plano; $('bd-plano-wrap').hidden = !plano; $('bd-plano-reset').hidden = !plano; $('bd-el-add').hidden = !plano;
     $('bd-vista').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.v === vista)));
     if (plano) pintarPlano(C);
     const sentados = C.length - sin.length, puestos = mesas.reduce((s, m) => s + m.capacidad, 0);
@@ -6610,6 +6701,15 @@ if ('serviceWorker' in navigator) {
   $('bd-mas').addEventListener('click', () => { const c = String($('bd-cap').value).split(/[,;\s]+/).map(Number).filter((x) => x > 0); nuevaMesa(c[0] || 10); ensuciar(); pintarMesas(); });
   $('bd-solo-conf').addEventListener('change', () => { pintarMesas(); });
   $('bd-vista').addEventListener('click', (e) => { const v = e.target.closest('button') && e.target.closest('button').dataset.v; if (!v) return; vista = v; try { localStorage.setItem('idealab_boda_vista', v); } catch (er) {} pintarMesas(); });
+  $('bd-el-add').addEventListener('change', () => {
+    const t = $('bd-el-add').value; $('bd-el-add').value = ''; if (!ELEM[t]) return;
+    let nombre = ELEM[t].nombre;
+    if (t === 'otro') { nombre = (prompt('¿Qué quieres ubicar? (ej.: DJ, baños, fotomatón)') || '').trim(); if (!nombre) return; }
+    const usados = new Set(salon.map((e) => e.id)); let n = 1; while (usados.has('e' + n)) n++;
+    const ya = salon.filter((e) => e.tipo === t).length;
+    const e = { id: 'e' + n, tipo: t, nombre, x: Math.min(950, ELEM[t].x + ya * 40), y: Math.min(950, ELEM[t].y + ya * 40), girado: false };
+    salon.push(e); verEl = e.id; verMesa = null; ensuciar(); pintarMesas();
+  });
   $('bd-plano-reset').addEventListener('click', () => { mesas.forEach((m) => { m.x = null; m.y = null; }); ensuciar(); pintarMesas(); });
   $('bd-vaciar').addEventListener('click', () => { asig = {}; ensuciar(); pintarMesas(); pintarInvitados(); });
   // Acomoda a los que no tienen mesa: invitaciones completas, de la más grande a la más pequeña, en la mesa donde mejor quepan
@@ -6636,7 +6736,7 @@ if ('serviceWorker' in navigator) {
     const b = ev.target; b.disabled = true; avisar('bd-mesa-msg', 'Guardando…', true);
     const C = D.invitados.filter((g) => !g.virtual), ids = new Set(mesas.map((m) => m.id));
     const acomodacion = C.filter((g) => ids.has(asig[clave(g)] || '')).map((g) => ({ clave: clave(g), nombre: g.nombre, invitacion: g.invitacion, mesa: asig[clave(g)] }));
-    try { await pedir({ op: 'mesas_guardar', mesas, acomodacion }); avisar('bd-mesa-msg', 'Acomodación guardada (' + acomodacion.length + ' personas en ' + mesas.length + ' mesas).', true); }
+    try { await pedir({ op: 'mesas_guardar', mesas, acomodacion, salon }); if (!D.salonOk) avisar('bd-mesa-msg', 'Se guardaron las mesas y la acomodación, pero el servidor todavía no guarda las formas ni la entrada/novios/pasabocas/torta/cofre: falta subir el Boda.gs nuevo a Apps Script.', false); else avisar('bd-mesa-msg', 'Acomodación guardada (' + acomodacion.length + ' personas en ' + mesas.length + ' mesas' + (salon.length ? ' y ' + salon.length + ' elementos del salón' : '') + ').', true); }
     catch (e) { error(e, 'bd-mesa-msg'); }
     b.disabled = false;
   });
@@ -6662,7 +6762,7 @@ if ('serviceWorker' in navigator) {
   // Al abrir la app: pinta con la copia guardada y, si es vieja o no hay, la trae del Excel en segundo plano
   try {
     const c = JSON.parse(localStorage.getItem(CACHE_BODA) || 'null');
-    if (c && c.D && Array.isArray(c.D.invitados)) { D = { proveedores: [], abonos: [], sobrecostos: [], mesas: [], acomodacion: [], invitados: [], ...c.D }; cacheT = c.t || 0; cargarMesas(); cargado = true; pintar(); }
+    if (c && c.D && Array.isArray(c.D.invitados)) { D = { proveedores: [], abonos: [], sobrecostos: [], mesas: [], acomodacion: [], invitados: [], salon: [], ...c.D }; cacheT = c.t || 0; cargarMesas(); cargado = true; pintar(); }
   } catch (e) {}
   setTimeout(() => { if (window.idealabEnviar && Date.now() - cacheT > 30 * 60 * 1000) leer().catch(() => {}); }, 4000);
   $('bd-recargar').addEventListener('click', () => { if (sucio && $('bd-recargar').dataset.seguro !== '1') { $('bd-recargar').dataset.seguro = '1'; avisar('bd-msg', 'Tienes mesas sin guardar; toca Recargar otra vez para descartarlas.', false); setTimeout(() => { $('bd-recargar').dataset.seguro = ''; }, 5000); return; } sucio = false; abrir(); });
