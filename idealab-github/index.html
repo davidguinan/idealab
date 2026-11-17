@@ -125,7 +125,9 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
       case 'meta_conjuntos': return data.filter((r) => quiere(esCtaPeq(r) || esPeqTxt(camp[r.campana_id] || r.conjunto)));
       case 'meta_wa': return data.filter((r) => quiere(esCtaPeq(r) || (camp[r.campana_id] ? esPeqTxt(camp[r.campana_id]) : esPeqNum(r.whatsapp))));
       case 'ventas': return data.filter((v) => quiere(esPeqProd(v.producto) || esPeqProd(v.hoja)));
-      case 'paises': { const f = data.filter((x) => quiere(esPeqProd(x.producto))); return f.length ? f : data; }
+      // Todos los países siempre (la moneda y el prefijo de un país son los mismos en cada producto); primero las filas del producto.
+      // Si se quitaran, las campañas ARG_/MEX_ de Peque caían en «Otro» y sus ventas en ARS/VES se contaban como pesos.
+      case 'paises': return [...data.filter((x) => quiere(esPeqProd(x.producto))), ...data.filter((x) => !quiere(esPeqProd(x.producto)))];
       case 'numeros': return data.filter((n) => vaEn(prodNum(n), p));
       case 'meta_paginas': case 'fan_pages': {
         const { peq, art } = paginasDe();
@@ -2130,7 +2132,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         if (a) niveles(v.ad_id, v.pais).forEach((x) => { x.ventas_n += 1; x.ventas_cop += v.valor_cop; sumarLocal(x, v); });
         else niveles(null, v.pais).forEach((x) => { x.sin_atrib_n += 1; x.sin_atrib_cop += v.valor_cop; sumarLocal(x, v); });
       });
-      return Object.values(g).map((x) => {
+      const filasR = Object.values(g).map((x) => {
         const ventas = Math.round(x.ventas_cop + x.sin_atrib_cop);
         // Moneda local: solo cuando el renglón es de un país (o de una campaña/anuncio de ese país)
         const moneda = x.nivel !== 'total' ? monedaDe[x.pais] || null : null;
@@ -2163,6 +2165,13 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           recomendacion: x.nivel === 'campana' || x.nivel === 'anuncio' ? REGLA(roas, x.gasto) : null,
         };
       });
+      // El total es la suma exacta de los países (igual que el cierre global de Contabilidad), sin diferencias de redondeo
+      const tot = filasR.find((x) => x.nivel === 'total'), ps = filasR.filter((x) => x.nivel === 'pais');
+      if (tot && ps.length) {
+        const v = ps.reduce((a, x) => a + x.ventas_total_cop, 0), gi = ps.reduce((a, x) => a + x.gasto_iva, 0);
+        Object.assign(tot, { ventas_total_cop: v, gasto_iva: gi, ganancia: v - gi, roas: gi > 0 ? Math.round((v / gi) * 100) / 100 : null, margen: v > 0 ? Math.round(((v - gi) / v) * 1000) / 10 : null });
+      }
+      return filasR;
     },
   });
 
@@ -2458,7 +2467,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
           paises.forEach((x) => { porPais[x.pais] = { pais: x.pais, gasto: 0, ventas_local: 0, ventas_n: 0, conversaciones: 0 }; });
           const pp = (k) => (porPais[k] = porPais[k] || { pais: k, gasto: 0, ventas_local: 0, ventas_n: 0, conversaciones: 0 });
           meta_dias.filter((r) => enP(r.fecha)).forEach((r) => { const x = pp(paisDe(r.campana)); x.gasto += r.gasto; x.conversaciones += r.conversaciones; });
-          ventas_raw.filter((v) => v.fecha && v.valor_local > 0 && enP(v.fecha)).forEach((v) => { const x = pp(v.pais); x.ventas_local += v.valor_local; x.ventas_n += 1; });
+          ventas_raw.filter((v) => v.fecha && v.valor_local > 0 && enP(v.fecha)).forEach((v) => { const x = pp(v.pais); x.ventas_local += v.valor_local; x.ventas_n += 1; const q = quincenaDe(v.fecha).periodo; x.porQ = x.porQ || {}; x.porQ[q] = (x.porQ[q] || 0) + v.valor_local; });
           const gs = gastos.filter((g) => enP(g.fecha));
           const gastoPais = {};
           gs.forEach((g) => { gastoPais[g.pais] = (gastoPais[g.pais] || 0) + g.valor; if (g.pais !== 'General') pp(g.pais); });
@@ -2468,9 +2477,16 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
             const fCierre = p.hasta < hoy ? p.hasta : hoy;
             const manual = moneda !== 'COP' ? (tasas_cierre || []).find((t) => t.periodo === p.periodo && t.pais === x.pais) : null;
             const tasa_auto = tasaAl(moneda, fCierre), tasa_real = tasaAl(moneda, fCierre, true);
-            const tasa = manual ? manual.tasa : tasa_auto;
             const ventas_local = r2(x.ventas_local);
-            const ventasCop = tasa ? Math.round(ventas_local * tasa) : 0;
+            // Quincena: UNA tasa (la puesta a mano o la de Tasas al cierre). Mes: la suma de sus dos quincenas, cada una con su tasa,
+            // para que el mes dé exactamente lo mismo que sus quincenas y que el Resumen.
+            let tasa = manual ? manual.tasa : tasa_auto, ventasCop;
+            if (p.tipo === 'Mes' && moneda !== 'COP') {
+              let s_ = 0, falta = false;
+              Object.entries(x.porQ || {}).forEach(([q, loc]) => { const t = tasaCierreDe(tasas, tasas_cierre, moneda, x.pais, q.slice(0, 7) + (q.endsWith('Q1') ? '-01' : '-16')); if (t) s_ += loc * t; else falta = true; });
+              ventasCop = falta ? 0 : Math.round(s_);
+              if (ventas_local > 0 && !falta) tasa = Math.round((s_ / ventas_local) * 10000) / 10000;
+            } else ventasCop = tasa ? Math.round(ventas_local * tasa) : 0;
             const pauta_iva = Math.round(x.gasto * IVA);
             const g_p = Math.round(gastoPais[x.pais] || 0);
             const util_antes = ventasCop - pauta_iva;            // ventas − pauta (para los totales)
