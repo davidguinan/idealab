@@ -119,7 +119,7 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
     const quiere = (esPeq) => (p === 'peque' ? esPeq : !esPeq);
     const camp = {}; ((crudo.meta_campanas && crudo.meta_campanas.data) || []).forEach((c) => { camp[c.campana_id] = c.campana; });
     switch (id) {
-      case 'meta_rango': case 'meta_hoy': case 'meta_diario': case 'meta_creativos':
+      case 'meta_rango': case 'meta_hoy': case 'meta_diario': case 'meta_vivo': case 'meta_creativos':
         return data.filter((r) => quiere(esCtaPeq(r) || esPeqTxt(r.campana || camp[r.campana_id])));
       case 'meta_campanas': return data.filter((r) => quiere(esCtaPeq(r) || esPeqTxt(r.campana)));
       case 'meta_conjuntos': return data.filter((r) => quiere(esCtaPeq(r) || esPeqTxt(camp[r.campana_id] || r.conjunto)));
@@ -151,7 +151,7 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
       default: return data;
     }
   };
-  const FILTRABLES = ['meta_rango', 'meta_hoy', 'meta_diario', 'meta_creativos', 'meta_campanas', 'meta_conjuntos', 'meta_wa', 'ventas', 'paises', 'numeros', 'meta_paginas', 'fan_pages', 'gastos', 'facturas', 'facturas_cont', 'cierres', 'cierres_paises', 'config'];
+  const FILTRABLES = ['meta_rango', 'meta_hoy', 'meta_diario', 'meta_vivo', 'meta_creativos', 'meta_campanas', 'meta_conjuntos', 'meta_wa', 'ventas', 'paises', 'numeros', 'meta_paginas', 'fan_pages', 'gastos', 'facturas', 'facturas_cont', 'cierres', 'cierres_paises', 'config'];
   const fijar = (id, st) => {
     if (!FILTRABLES.includes(id)) { estado[id] = st; return; }
     if (!st || st.status !== 'ok') { delete crudo[id]; estado[id] = st; return; }
@@ -229,6 +229,7 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
     fijar('ventas', { status: 'ok', data: (j.ventas || []).map((v, i) => ({ hoja: v.hoja, fila: i + 2, producto: v.producto, pais: v.pais, moneda: v.moneda, fecha: leerFecha(v.fecha), hora: leerHora(v.fecha), valor_local: leerValor(v.valor), ad_id: String(v.ad_id || '').length >= 10 ? String(v.ad_id) : '' })) });
     fijar('meta_rango', { status: 'ok', data: filasMeta(j.meta.rango).rows });
     fijar('meta_hoy', { status: 'ok', data: filasMeta(j.meta.hoy).rows });
+    if (!crudo.meta_vivo) fijar('meta_vivo', { status: 'ok', data: [] });
     fijar('meta_campanas', { status: 'ok', data: j.meta.campanas.map((c) => ({ campana_id: c.id, campana: c.name, cuenta: c.cuenta, cuenta_id: c.cuenta_id, estado: c.effective_status, presupuesto: c.daily_budget ? Number(c.daily_budget) : null })) });
     fijar('meta_conjuntos', { status: 'ok', data: j.meta.conjuntos.map((c) => ({ conjunto_id: c.id, conjunto: c.name, campana_id: c.campaign_id, cuenta: c.cuenta, estado: c.effective_status, presupuesto: c.daily_budget ? Number(c.daily_budget) : null, whatsapp: String(c.whatsapp || '') })) });
     fijar('meta_wa', { status: 'ok', data: (j.meta.anuncios_wa || []).map((a) => ({ ad_id: String(a.id), conjunto_id: String(a.conjunto_id || ''), campana_id: String(a.campana_id || ''), page_id: String(a.page_id || ''), whatsapp: String(a.whatsapp || ''), fuente: String(a.fuente || '') })) });
@@ -392,6 +393,30 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
   };
   const HOY_APP = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
 
+  // ---- Pauta en vivo de las dos últimas quincenas (día por día, directo de Meta)
+  // Meta ajusta el gasto de cada día después de que termina (unos pesos más por anuncio). Meta_diario guarda el número
+  // del momento en que se copió, así que se queda un poco corto. Para que Contabilidad dé lo mismo que el Resumen y que
+  // la factura de Meta, los días de la quincena anterior y de la actual se piden otra vez a Meta y reemplazan a Meta_diario.
+  let vivoPidiendo = false;
+  const cargarVivo = async () => {
+    if (vivoPidiendo) return;
+    const hoy = HOY_APP();
+    const ayer = new Date(Date.parse(hoy + 'T12:00:00Z') - 864e5).toISOString().slice(0, 10);
+    const [y, m, d] = hoy.split('-').map(Number);
+    const desde = d >= 16 ? hoy.slice(0, 8) + '01' : new Date(Date.UTC(y, m - 2, 16)).toISOString().slice(0, 10);
+    if (desde > ayer) return;
+    vivoPidiendo = true;
+    try {
+      const j = await pedir({ accion: 'meta_dia', desde, hasta: ayer });
+      const filas = (j.filas || []).map((r) => ({ ...r }));
+      try { renombrarCuentas(filas); } catch (e) {}
+      window.idealabVivoRango = { desde, hasta: ayer };
+      fijar('meta_vivo', { status: 'ok', data: filasMeta(filas).rows.filter((r) => r.moneda === 'COP' && r.fecha) });
+      calcular();
+    } catch (e) { console.warn('pauta en vivo', e); }
+    vivoPidiendo = false;
+  };
+
   let ultimoRango = null;
   const cargar = async () => {
     const p = params;
@@ -401,6 +426,7 @@ body.cargando[data-copia] .ag-kpi .v, body.cargando[data-copia] .ag-take b { opa
       const j = await pedir({ accion: 'datos', desde: p.desde || '', hasta: p.hasta || '' });
       ultimoRango = (p.desde || '') + '|' + (p.hasta || '');
       cargarTodo(j);
+      cargarVivo();
       mostrarAvisosDatos(j);
       // Si Meta no respondió completo, no se guarda como copia buena (para no volver a abrir con datos a medias)
       if (!(j.incompleto && j.incompleto.length)) cacheGuardar('datos', { j, rango: ultimoRango }); marcarFresco();
@@ -2047,11 +2073,15 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   dash.calc('meta_dias', {
     title: 'Pauta por anuncio y día',
     description: 'Días cerrados de la pestaña Meta_diario más el día de hoy en vivo desde Meta: gasto y conversaciones por anuncio y día (solo cuentas en COP; una cuenta en otra moneda necesita su tasa en la pestaña Tasas).',
-    inputs: ['meta_diario', 'meta_hoy'],
-    fn: (meta_diario, meta_hoy) => {
+    inputs: ['meta_diario', 'meta_hoy', 'meta_vivo'],
+    fn: (meta_diario, meta_hoy, meta_vivo) => {
       const hoy = meta_hoy.length ? meta_hoy[0].rango_desde : null;
       const m = {};
-      meta_diario.filter((r) => r.fecha && (!hoy || r.fecha < hoy)).forEach((r) => { m[r.fecha + '|' + r.ad_id] = { fecha: r.fecha, ad_id: r.ad_id, anuncio: r.anuncio, campana_id: r.campana_id, campana: r.campana, conjunto_id: r.conjunto_id, conjunto: r.conjunto, gasto: r.gasto, conversaciones: r.conversaciones }; });
+      // Días que ya llegaron en vivo de Meta: esos mandan sobre Meta_diario (Meta ajusta el gasto después de cada día)
+      const VR = window.idealabVivoRango;
+      const enVivo = (f) => !!(VR && f >= VR.desde && f <= VR.hasta);
+      meta_diario.filter((r) => r.fecha && (!hoy || r.fecha < hoy) && !enVivo(r.fecha)).forEach((r) => { m[r.fecha + '|' + r.ad_id] = { fecha: r.fecha, ad_id: r.ad_id, anuncio: r.anuncio, campana_id: r.campana_id, campana: r.campana, conjunto_id: r.conjunto_id, conjunto: r.conjunto, gasto: r.gasto, conversaciones: r.conversaciones }; });
+      meta_vivo.filter((r) => r.fecha && (!hoy || r.fecha < hoy) && enVivo(r.fecha) && (r.gasto > 0 || r.conversaciones > 0)).forEach((r) => { m[r.fecha + '|' + r.ad_id] = { fecha: r.fecha, ad_id: r.ad_id, anuncio: r.anuncio, campana_id: r.campana_id, campana: r.campana, conjunto_id: r.conjunto_id, conjunto: r.conjunto, gasto: r.gasto, conversaciones: r.conversaciones }; });
       meta_hoy.filter((r) => r.moneda === 'COP' && (r.gasto > 0 || r.conversaciones > 0)).forEach((r) => { m[r.rango_desde + '|' + r.ad_id] = { fecha: r.rango_desde, ad_id: r.ad_id, anuncio: r.anuncio, campana_id: r.campana_id, campana: r.campana, conjunto_id: r.conjunto_id, conjunto: r.conjunto, gasto: r.gasto, conversaciones: r.conversaciones }; });
       return Object.values(m).map((r) => ({ clave: r.fecha + '|' + r.ad_id, ...r }));
     },
