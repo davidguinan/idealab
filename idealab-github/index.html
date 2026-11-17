@@ -1072,7 +1072,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
 .bd-el.pista { border-color: rgba(var(--tinta),.3); background: repeating-linear-gradient(45deg, rgba(var(--tinta),.05) 0 10px, rgba(var(--tinta),.1) 10px 20px); }
 .bd-el.entrada { border: none; border-radius: 4px; background: var(--ag-ok); color: #fff; font-weight: 600; }
 .bd-el.entrada b { color: #fff; }
-.bd-el.ver { box-shadow: 0 0 0 4px rgba(245,184,0,.35); } .bd-el.arrastrando { cursor: grabbing; z-index: 5; box-shadow: 0 10px 26px rgba(0,0,0,.35); }
+.bd-el.ver { box-shadow: 0 0 0 4px rgba(245,184,0,.35); z-index: 4; } .bd-el.arrastrando { cursor: grabbing; z-index: 5; box-shadow: 0 10px 26px rgba(0,0,0,.35); }
 .bd-formas { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--ag-muted); }
 .bd-formas .ag-btn { padding: 3px 10px; font-size: 12px; }
 .bd-formas input { width: 170px; }
@@ -6572,6 +6572,18 @@ if ('serviceWorker' in navigator) {
     d.addEventListener('pointerup', () => { if (!ini) return; const movio = ini.movio; ini = null; d.classList.remove('arrastrando'); if (movio) { ensuciar(); pintarMesas(); return; } alTocar(); });
     d.addEventListener('pointercancel', () => { if (ini && ini.movio) { ensuciar(); } ini = null; pintarMesas(); });
   };
+  // Busca un hueco libre en el plano (cerca de la posición sugerida) para que lo nuevo no quede tapado por una mesa
+  const lugarLibre = (e) => {
+    const r = $('bd-plano').getBoundingClientRect(), W = r.width || 540, H = r.height || 380, me = medEl(e);
+    const cajas = mesas.filter((m) => m.x != null && m.y != null).map((m) => ({ x: m.x, y: m.y, ...medida(m), extra: 16 })).concat(salon.map((o) => ({ x: o.x, y: o.y, ...medEl(o), extra: 4 })));
+    const choca = (x, y) => cajas.some((c) => Math.abs((x - c.x) / 1000 * W) < (me.w + c.w) / 2 + c.extra + 6 && Math.abs((y - c.y) / 1000 * H) < (me.h + c.h) / 2 + c.extra + 6);
+    const mx = Math.min(500, (me.w / 2 + 6) / W * 1000), my = Math.min(500, (me.h / 2 + 6) / H * 1000), cand = [];
+    for (let x = mx; x <= 1000 - mx; x += 25) for (let y = my; y <= 1000 - my; y += 25) cand.push([x, y, Math.hypot(x - e.x, (y - e.y) * H / W)]);
+    cand.sort((a, b) => a[2] - b[2]);
+    const ok = cand.find(([x, y]) => !choca(x, y));
+    const [x, y] = ok || [Math.max(mx, Math.min(1000 - mx, e.x)), Math.max(my, Math.min(1000 - my, e.y))];
+    e.x = Math.round(x); e.y = Math.round(y);
+  };
   const chipsForma = (m) => {
     const f = el('div', 'bd-formas'); f.appendChild(el('span', '', 'Forma:'));
     Object.entries(FORMAS).forEach(([k, t]) => { const b = el('button', 'ag-btn', t); b.type = 'button'; b.setAttribute('aria-pressed', String(m.forma === k)); b.addEventListener('click', () => { m.forma = k; ensuciar(); pintarMesas(); }); f.appendChild(b); });
@@ -6624,10 +6636,16 @@ if ('serviceWorker' in navigator) {
       return;
     }
     const mv = mesas.find((m) => m.id === verMesa);
-    if (!mv) { info.appendChild(el('small', 'cat', 'Arrastra las mesas y los elementos para ubicarlos. Toca una mesa para ver quién está y cambiar su forma; toca una invitación de «Sin mesa» y luego la mesa para sentarla. Con «+ Agregar al plano» pones la entrada, la mesa de los novios, los pasabocas, la torta y el cofre.')); return; }
+    if (!mv) { info.appendChild(el('small', 'cat', 'Arrastra las mesas y los elementos para ubicarlos. Toca una mesa para ver quién está, cambiar su forma o quitarla; toca una invitación de «Sin mesa» y luego la mesa para sentarla. Con «+ Agregar al plano» pones la entrada, la mesa de los novios, los pasabocas, la torta y el cofre.')); return; }
     const gente = C.filter((g) => asig[clave(g)] === mv.id);
     info.appendChild(el('h4', '', mv.nombre + ' · ' + gente.length + ' / ' + mv.capacidad));
-    info.appendChild(chipsForma(mv));
+    const fm = chipsForma(mv);
+    const qm = el('button', 'ag-btn', 'Quitar esta mesa'); qm.type = 'button'; qm.title = 'Sus invitados vuelven a «Sin mesa»';
+    qm.addEventListener('click', () => {
+      if (qm.dataset.seguro !== '1') { qm.dataset.seguro = '1'; qm.textContent = '¿Quitar ' + mv.nombre + '? Toca otra vez'; setTimeout(() => { qm.dataset.seguro = ''; qm.textContent = 'Quitar esta mesa'; }, 4000); return; }
+      mesas = mesas.filter((x) => x.id !== mv.id); Object.keys(asig).forEach((k) => { if (asig[k] === mv.id) delete asig[k]; }); verMesa = null; ensuciar(); pintarMesas(); pintarInvitados();
+    });
+    fm.appendChild(qm); info.appendChild(fm);
     if (!gente.length) info.appendChild(el('small', 'cat', 'Mesa vacía.'));
     gruposDe(gente).forEach((gr) => info.appendChild(tarjetaGrupo(gr, mv.id)));
   }
@@ -6706,9 +6724,10 @@ if ('serviceWorker' in navigator) {
     let nombre = ELEM[t].nombre;
     if (t === 'otro') { nombre = (prompt('¿Qué quieres ubicar? (ej.: DJ, baños, fotomatón)') || '').trim(); if (!nombre) return; }
     const usados = new Set(salon.map((e) => e.id)); let n = 1; while (usados.has('e' + n)) n++;
-    const ya = salon.filter((e) => e.tipo === t).length;
-    const e = { id: 'e' + n, tipo: t, nombre, x: Math.min(950, ELEM[t].x + ya * 40), y: Math.min(950, ELEM[t].y + ya * 40), girado: false };
+    const e = { id: 'e' + n, tipo: t, nombre, x: ELEM[t].x, y: ELEM[t].y, girado: false };
+    lugarLibre(e);
     salon.push(e); verEl = e.id; verMesa = null; ensuciar(); pintarMesas();
+    avisar('bd-mesa-msg', 'Agregué «' + nombre + '» al plano (resaltado en amarillo). Arrástralo a su lugar y pulsa Guardar acomodación.', true);
   });
   $('bd-plano-reset').addEventListener('click', () => { mesas.forEach((m) => { m.x = null; m.y = null; }); ensuciar(); pintarMesas(); });
   $('bd-vaciar').addEventListener('click', () => { asig = {}; ensuciar(); pintarMesas(); pintarInvitados(); });
