@@ -4725,15 +4725,21 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
     const lg = $('liq-guardar'); lg.replaceChildren();
     const txtG = document.createElement('span');
     if (tg.tipo === 'Mes') txtG.textContent = 'El mes se calcula con los datos de hoy; lo que se guarda y se paga son las quincenas.';
-    else if (tg.guardado) { txtG.innerHTML = ''; const okS = document.createElement('span'); okS.className = 'ok'; okS.textContent = '✓ Cierre guardado'; txtG.append(okS, document.createTextNode(' · ' + (tg.registrado || '') + '. Así quedó y ya no cambia aunque cambien los porcentajes, las tasas o los datos.')); }
+    else if (tg.guardado) { txtG.innerHTML = ''; const okS = document.createElement('span'); okS.className = 'ok'; okS.textContent = '🔒 Cierre guardado y bloqueado'; txtG.append(okS, document.createTextNode(' · ' + (tg.registrado || '') + '. Así quedó y ya no cambia aunque cambien los porcentajes, las tasas o los datos.')); }
     else if (tg.completo) txtG.textContent = 'Esta quincena ya terminó. Revísala (tasas, gastos, porcentajes) y guárdala para dejarla fija.';
     else txtG.textContent = 'Quincena en curso: usa los porcentajes actuales de Configuración. Cuando termine, revísala y guárdala.';
     lg.appendChild(txtG);
-    if (tg.tipo === 'Quincena' && tg.completo) {
-      const bG = document.createElement('button'); bG.type = 'button'; bG.className = 'ag-btn' + (tg.guardado ? '' : ' pri'); bG.textContent = tg.guardado ? 'Volver a guardar con los datos de hoy' : 'Guardar este cierre';
+    // Un cierre guardado queda bloqueado (consultar quincenas pasadas nunca cambia sus montos) y solo se guarda desde «Juntos» → Global.
+    const esJuntosGlobal = prodEf === 'todos' && !paisCierre;
+    if (tg.tipo === 'Quincena' && tg.completo && !tg.guardado && !esJuntosGlobal) {
+      const avG = document.createElement('small'); avG.textContent = ' Para guardar el cierre ve a «Juntos» y «Global (todos los países)».'; lg.appendChild(avG);
+    }
+    if (tg.tipo === 'Quincena' && tg.completo && !tg.guardado && esJuntosGlobal) {
+      const bG = document.createElement('button'); bG.type = 'button'; bG.className = 'ag-btn pri'; bG.textContent = 'Guardar este cierre';
       const msgG = document.createElement('small');
       bG.addEventListener('click', async () => {
-        if (tg.guardado && bG.dataset.seguro !== '1') { bG.dataset.seguro = '1'; bG.textContent = '¿Reemplazar el cierre guardado? Toca otra vez'; setTimeout(() => { bG.dataset.seguro = ''; bG.textContent = 'Volver a guardar con los datos de hoy'; }, 5000); return; }
+        if ((window.idealabProducto ? window.idealabProducto.efectivo() : 'todos') !== 'todos' || paisCierre) { msgG.textContent = 'El cierre solo se guarda desde «Juntos» → Global.'; return; }
+        if (bG.dataset.seguro !== '1') { bG.dataset.seguro = '1'; bG.textContent = '¿Guardar y bloquear este cierre? Toca otra vez'; setTimeout(() => { bG.dataset.seguro = ''; bG.textContent = 'Guardar este cierre'; }, 5000); return; }
         bG.disabled = true; msgG.textContent = 'Guardando…';
         const base = tg.calculado || tg;
         const paisesG = filasLP.filter((r) => r.periodo === tg.periodo).map((r) => { const c = r.calculado || r; return { pais: c.pais, moneda: c.moneda, tasa: c.tasa, ventas_n: c.ventas_n, ventas_local: c.ventas_local, ventas: c.ventas, gastos: c.gastos, pauta_iva: c.pauta_iva, utilidad: c.utilidad, pct_prov: c.pct_prov, comision: c.comision, comision_local: c.comision_local, utilidad_final: c.utilidad_final, gastos_local: c.gastos_local, pauta_local: c.pauta_local, utilidad_local: c.utilidad_local, utilidad_final_local: c.utilidad_final_local }; });
