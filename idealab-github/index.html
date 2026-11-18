@@ -1513,7 +1513,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
         </div>
         <div class="ag-card" style="margin-top:14px">
           <h2>Por país</h2>
-          <p class="ag-note">Ventas = las de la pestaña del país en el Excel. Utilidad del país = ventas − gastos del país − pauta con IVA. Comisión del proveedor = su % de esa utilidad (si es positiva). En pesos y en la moneda del país, con la tasa del cierre (2 % de colchón o la que pongas a mano).</p>
+          <p class="ag-note">Ventas = las de la pestaña del país en el Excel. Utilidad del país = ventas − gastos del país − pauta con IVA. Comisión del proveedor = su % de esa utilidad (si es positiva). En pesos y en la moneda del país, con la tasa del cierre (la real del último día de la quincena, o la que pongas a mano con «Cambiar tasa» antes de guardar).</p>
           <div class="ag-scroll"><table class="ag-table" id="t-liq-paises" data-source="liquidacion_paises" data-row-key="clave"></table></div>
         </div>
       </div>
@@ -2000,6 +2000,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       rows: valores(answer).slice(1).filter((r) => r[0]).map((r) => {
         const o = {};
         COLS_CIERRE.forEach((c, i) => { o[c] = ['id', 'tipo', 'detalle_gastos', 'registrado', 'estado'].includes(c) ? String(r[i] || '') : ['desde', 'hasta'].includes(c) ? leerFecha(r[i]) : leerValor(r[i]); });
+        { const dz = o.detalle_gastos.split('Nómina:')[0].match(/Diezmo \(([\d.,]+)%\):\s*\$\s*([\d.,]+)/); o.pct_diezmo = dz ? leerValor(dz[1]) : null; o.diezmo = dz ? leerValor(dz[2]) : null; }
         return o;
       }),
     }),
@@ -2034,7 +2035,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
   // --- Cálculos ---
   // Colchón de la tasa: cada tasa de la pestaña Tasas se usa un X % más baja, para no mostrar utilidad que no existe
   // cuando el dinero se cambie a pesos. Por defecto 3 %; se cambia con una fila «Colchón tasa» en la pestaña Config.
-  const COLCHON_TASA_DEF = 2;
+  const COLCHON_TASA_DEF = 0; // tasa real por defecto; la de cada país se puede poner a mano antes de guardar el cierre
   const colchonTasa = () => {
     const C = window.dash.data('config');
     const f = C.status === 'ok' ? C.data.find((c) => c.tipo === 'porcentaje' && /tasa|colch/i.test(c.parametro)) : null;
@@ -2916,7 +2917,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       },
     });
     const tr0 = pf.find((f) => f.moneda && f.moneda !== 'COP');
-    $('pais-nota').textContent = 'Del periodo elegido. La facturación en pesos usa la misma tasa del cierre que Contabilidad: una sola tasa por país y quincena (la puesta a mano o la de la pestaña Tasas rebajada ' + num.format(tr0 ? tr0.colchon_tasa : 2) + '% al cierre). La utilidad aquí es ventas − pauta con IVA; los gastos se restan en Contabilidad.';
+    $('pais-nota').textContent = 'Del periodo elegido. La facturación en pesos usa la misma tasa del cierre que Contabilidad: una sola tasa por país y quincena (la puesta a mano o la de la pestaña Tasas rebajada ' + num.format(tr0 ? tr0.colchon_tasa : 0) + '% al cierre). La utilidad aquí es ventas − pauta con IVA; los gastos se restan en Contabilidad.';
   }
 
   // ---------- Presupuesto diario editable ----------
@@ -4612,7 +4613,7 @@ tr.g-sub td { font-size: 12.5px; color: var(--ag-muted); }
       const lineaTxt = (lb, v1, v2) => { const l = document.createElement('div'); l.className = 'rc-ln'; const a = document.createElement('span'); a.className = 'rc-lb'; a.textContent = lb; const b = document.createElement('span'); b.className = 'rc-v'; const x1 = document.createElement('b'); x1.textContent = v1; b.appendChild(x1); if (v2) { const x2 = document.createElement('em'); x2.textContent = v2; b.appendChild(x2); } l.append(a, b); d.appendChild(l); return l; };
       lineaDoble('Ventas del periodo · ' + num.format(r.ventas_n || 0) + (r.ventas_n === 1 ? ' venta' : ' ventas'), cop.format(r.ventas), fLocal(r.ventas_local, r.moneda), 'ventas');
       if (local) {
-        const lt = lineaTxt('Tasa de cambio', r.tasa ? '1 ' + r.moneda + ' = ' + fTasa(r.tasa) + ' COP' : '—', r.tasa_manual ? 'puesta a mano' + (r.tasa_quien ? ' por ' + r.tasa_quien : '') + ' · automática ' + fTasa(r.tasa_auto) : r.tasa_real ? 'tasa real ' + fTasa(r.tasa_real) + ' − colchón ' + num.format(r.colchon_tasa) + '%' : '');
+        const lt = lineaTxt('Tasa de cambio', r.tasa ? '1 ' + r.moneda + ' = ' + fTasa(r.tasa) + ' COP' : '—', r.tasa_manual ? 'puesta a mano' + (r.tasa_quien ? ' por ' + r.tasa_quien : '') + ' · automática ' + fTasa(r.tasa_auto) : r.tasa_real ? (r.colchon_tasa ? 'tasa real ' + fTasa(r.tasa_real) + ' − colchón ' + num.format(r.colchon_tasa) + '%' : 'tasa real del ' + fLarga(r.fecha_tasa || '')) : '');
         // Cambiar la tasa de este cierre (queda guardada en la pestaña Tasas_cierre)
         const ed = document.createElement('div'); ed.className = 'rc-tasa-ed';
         const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'ag-btn'; btn.textContent = '✏️ Cambiar tasa';
